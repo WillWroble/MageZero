@@ -48,7 +48,6 @@ class LabeledStateDataset(Dataset):
 
 
 if __name__ == "__main__":
-    # Simple sanity check: print first 10 samples in XMage style (raw bits)
     from torch.utils.data import DataLoader
     ds = LabeledStateDataset("data/training.bin")
     dl = DataLoader(ds, batch_size=1, shuffle=False)
@@ -64,24 +63,4 @@ if __name__ == "__main__":
             break
 
 
-if __name__ == "__main__":
-    from torch.utils.data import DataLoader
 
-    ds = LabeledStateDataset("data/training.bin")
-    # batch_size=1 so each `state` comes in as shape (1, D)
-    dl = DataLoader(ds, batch_size=1, shuffle=False)
-
-    for idx, (state, action, label) in enumerate(dl):
-        # remove the leading batch dim → shape (D,)
-        s = state.squeeze(0)
-        a = action.squeeze(0)
-
-        # now s[:100] and a[:100] are 1-D lists of numbers
-        sb = "".join(str(int(b)) for b in s[:100].tolist())
-        ab = "".join(str(int(b)) for b in a[:100].tolist())
-        res = "true" if int(label.item()) == 1 else "false"
-
-        print(f"State: {sb}, Action: {ab}, Result: {res}")
-
-        if idx >= 9:  # just show first 10 samples
-            break

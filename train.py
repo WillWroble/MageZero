@@ -19,9 +19,8 @@ class Net(nn.Module):
 
 def train():
     ds = LabeledStateDataset("data/training.bin")
-    ds.labels = ds.labels.mul(2.0).sub(1.0) #fix activations
+    ds.states = ds.states.mul(2.0).sub(1.0) #fix activations
     dl = DataLoader(ds, batch_size=128, shuffle=True, num_workers=4)
-    #model = Net(ds.states.shape[1], ds.actions.max().item() + 1).cuda()
     model = Net(ds.states.shape[1], ds.actions.shape[1]).cuda()
     opt   = optim.Adam(model.parameters(), lr=1e-3)
     ce    = nn.CrossEntropyLoss()
@@ -31,6 +30,9 @@ def train():
         total_p, total_v, loss_p, loss_v = 0,0,0,0
         model.train()
         for s, a, z in dl:
+            # v:(256,)
+            # p:(256.1000)
+            # s:(256,4000)
             s, a, z = s.cuda(), a.cuda(), z.cuda()
             p, v = model(s)
             lp = ce(p, a)
