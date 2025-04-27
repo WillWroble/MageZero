@@ -11,7 +11,12 @@ class Net(nn.Module):
             nn.Linear(512, 256), nn.ReLU(),
         )
         self.policy_head = nn.Linear(256, A)
-        self.value_head  = nn.Linear(256, 1)
+        #self.value_head  = nn.Linear(256, 1)
+        # wrap the linear + tanh in one module
+        self.value_head = nn.Sequential(
+            nn.Linear(256, 1),
+            nn.Tanh()
+        )
 
     def forward(self, x):
         h = self.fc(x)
