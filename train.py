@@ -23,7 +23,7 @@ class Net(nn.Module):
         return self.policy_head(h), self.value_head(h).squeeze(-1)
 
 def train():
-    ds = LabeledStateDataset("data/training.bin")
+    ds = LabeledStateDataset("data/UWTempo/ver2/training.bin")
     ds.states = ds.states.mul(2.0).sub(1.0) #fix activations
     dl = DataLoader(ds, batch_size=128, shuffle=True, num_workers=4)
     model = Net(ds.states.shape[1], ds.actions.shape[1]).cuda()
@@ -31,7 +31,7 @@ def train():
     ce    = nn.CrossEntropyLoss()
     mse   = nn.MSELoss()
 
-    for epoch in range(1, 21):
+    for epoch in range(1, 41):
         total_p, total_v, loss_p, loss_v = 0,0,0,0
         model.train()
         for s, a, z in dl:

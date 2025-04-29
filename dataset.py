@@ -57,12 +57,17 @@ class LabeledStateDataset(Dataset):
         return self.states[idx], self.actions[idx], self.labels[idx]
 
 if __name__ == "__main__":
-    ds = LabeledStateDataset("data/training.bin")
+    ds = LabeledStateDataset("data/UWTempo/ver2/training.bin")
     print(f"Dataset size: {len(ds)}")
+    wins = 0
+    total = len(ds)
     dl = DataLoader(ds, batch_size=1, shuffle=False)
     for i, (state, action, label) in enumerate(dl):
         sb = "".join(str(int(x.item())) for x in state[0, :100])
         ab = "".join(str(int(x.item())) for x in action[0, :100])
         print(f"State: {sb}, Action: {ab}, Result: {label.item()}")
+        if label.item() > 0:
+            wins += 1
         if i >= 999:
             break
+    print(f"Winrate: {wins/total}")
