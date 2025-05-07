@@ -8,7 +8,7 @@ from train import Net
 
 
 def test():
-    ds = LabeledStateDataset("data/UWTempo/ver3/testing.bin")
+    ds = LabeledStateDataset("data/UWTempo/ver4/training.bin")
     ds.states = ds.states.mul(2.0).sub(1.0) #fix activations
     dl = DataLoader(ds, batch_size=128, shuffle=True, num_workers=4)
     model = Net(ds.states.shape[1], train.ACTIONS_MAX).cuda()
@@ -36,7 +36,8 @@ def test():
             total_v += lv.item()
 
             preds = p.argmax(dim=1)
-            correct += (preds == a).sum().item()
+            a_max = a.argmax(dim=1)
+            correct += (preds == a_max).sum().item()
             total += a.size(0)
         print(f"test policy_loss={total_p/len(dl):.3f}  value_loss={total_v/len(dl):.3f}")
         print(f"test policy_accuracy={correct / total:.3f}")
