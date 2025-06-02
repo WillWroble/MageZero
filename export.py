@@ -20,7 +20,7 @@ dummy_input = torch.randn(1, STATE_DIM, dtype=torch.float32)
 torch.onnx.export(
     model,
     dummy_input,
-    "exports/UWTempo/UWTempo2.onnx",
+    "exports/UWTempo/ver2/Model.onnx",
     input_names=["state_input"],
     output_names=["policy", "value"],
     dynamic_axes={

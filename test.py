@@ -1,46 +1,74 @@
 import torch
-from torch import nn, optim
+from torch import nn  # optim is not strictly needed for testing if not optimizing
 from torch.utils.data import DataLoader
 
-import train
-from dataset import LabeledStateDataset
-from train import Net
+# If Net is also in dataset.py or a separate model.py, adjust import accordingly.
+import train  # Or from train import Net, ACTIONS_MAX (if ACTIONS_MAX is defined there)
+from dataset import LabeledStateDataset, collate_batch  # CRITICAL: Import collate_batch
 
 
 def test():
-    ds = LabeledStateDataset("data/UWTempo/ver4/training.bin")
-    ds.states = ds.states.mul(2.0).sub(1.0) #fix activations
-    dl = DataLoader(ds, batch_size=128, shuffle=True, num_workers=4)
-    model = Net(ds.states.shape[1], train.ACTIONS_MAX).cuda()
-    checkpoint = "models/ckpt_40.pt"
-    model.load_state_dict(torch.load(checkpoint, map_location="cuda"))
-    model.eval()
 
+    ds = LabeledStateDataset("data/UWTempo2/ver1/training.bin")
 
-    ce    = nn.CrossEntropyLoss()
-    mse   = nn.MSELoss()
+    dl = DataLoader(ds, batch_size=128, shuffle=False, num_workers=4, collate_fn=collate_batch)
+
+    # 3. Model instantiation uses global vocab size (ds.S) and action size
+    model = train.Net(train.GLOBAL_MAX, train.ACTIONS_MAX).cuda()  # should be GLOBAL_VOCAB_SIZE
+
+    checkpoint_path = "models/ckpt_20.pt"  # Make sure this is the correct checkpoint
+    try:
+        model.load_state_dict(torch.load(checkpoint_path, map_location="cuda"))
+        print(f"Loaded checkpoint from {checkpoint_path}")
+    except FileNotFoundError:
+        print(f"ERROR: Checkpoint file not found at {checkpoint_path}. Testing with an uninitialized model.")
+    except Exception as e:
+        print(f"ERROR: Could not load checkpoint. {e}. Testing with an uninitialized model.")
+
+    model.eval()  # Set model to evaluation mode
+
+    ce = nn.CrossEntropyLoss()
+    mse = nn.MSELoss()
 
     # Metrics accumulators
-    correct, total = 0, 0
-    total_p, total_v, loss_p, loss_v = 0,0,0,0
-    with torch.no_grad():
-        for s, a, z in dl:
-            #v:(256,)
-            #p:(256.1000)
-            #s:(256,4000)
-            s, a, z = s.cuda(), a.cuda(), z.cuda()
-            p, v = model(s)
-            lp = ce(p, a)  # a is already a (batch,) of class indices
-            lv = mse(v, z)
-            total_p += lp.item()
-            total_v += lv.item()
+    correct_policy_preds, total_policy_samples = 0, 0
+    total_policy_loss, total_value_loss = 0.0, 0.0
 
-            preds = p.argmax(dim=1)
-            a_max = a.argmax(dim=1)
-            correct += (preds == a_max).sum().item()
-            total += a.size(0)
-        print(f"test policy_loss={total_p/len(dl):.3f}  value_loss={total_v/len(dl):.3f}")
-        print(f"test policy_accuracy={correct / total:.3f}")
+    with torch.no_grad():  # Essential for testing to disable gradient calculations
+        # 4. Update the loop to unpack all parts returned by collate_batch
+        for batch_indices, batch_offsets, batch_policy_labels, batch_value_labels in dl:
+            # 5. Move new input tensors to CUDA
+            batch_indices = batch_indices.cuda()
+            batch_offsets = batch_offsets.cuda()
+            batch_policy_labels = batch_policy_labels.cuda()
+            batch_value_labels = batch_value_labels.cuda()
 
-if __name__=="__main__":
+            # 6. Model call uses indices and offsets
+            policy_logits, value_pred = model(batch_indices, batch_offsets)
+
+            # Assuming batch_policy_labels are MCTS visit counts/probabilities (distributions).
+            policy_target_indices = torch.argmax(batch_policy_labels, dim=1)
+            lp = ce(policy_logits, policy_target_indices)
+
+            # Ensure batch_value_labels has the same shape as value_pred ([batch_size])
+            lv = mse(value_pred, batch_value_labels.squeeze(-1))
+            total_policy_loss += lp.item() * batch_policy_labels.size(0)  # Weighted by actual batch size if last batch is smaller
+            total_value_loss += lv.item() * batch_policy_labels.size(0)  # Weighted by actual batch size
+
+            # Accuracy calculation
+            predicted_actions = torch.argmax(policy_logits, dim=1)
+            # policy_target_indices are already the true action indices
+            correct_policy_preds += (predicted_actions == policy_target_indices).sum().item()
+            total_policy_samples += batch_policy_labels.size(0)  # Count actual samples in the batch
+    avg_policy_loss = total_policy_loss / total_policy_samples
+    avg_value_loss = total_value_loss / total_policy_samples  # Denominator should be total_policy_samples or len(ds)
+
+    print(f"Test policy_loss={avg_policy_loss:.3f}  value_loss={avg_value_loss:.3f}")
+    if total_policy_samples > 0:
+        print(f"Test policy_accuracy={correct_policy_preds / total_policy_samples:.3f}")
+    else:
+        print("No samples in test set to calculate accuracy.")
+
+
+if __name__ == "__main__":
     test()
