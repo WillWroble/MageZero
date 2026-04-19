@@ -14,7 +14,7 @@ MageZero v0.1.0-alpha is available on the [releases page](https://github.com/Wil
 
 The project uses [XMage](https://github.com/magefree/mage), an Open Source complete MTG rules engine, as a gym environment. See this project's [XMage fork](https://github.com/WillWroble/mage) for the state vectorization and MCTS logic (relevant modules: `Player.AI.RL`, `Player.AI.MCTS`, `Mage.MageZero`).
 
-See the [setup guide](https://github.com/WillWroble/MageZero/blob/main/setup_guide.md) for full installation and training instructions. For questions, join the Discord at [discord.gg/envZ7DYA](https://discord.gg/envZ7DYA) or reach me at <willwroble@gmail.com>.
+See the [setup guide](https://github.com/WillWroble/MageZero/blob/main/setup_guide.md) for full installation and training instructions. For questions, join the Discord at [discord.gg/R6pB6xuEy9](discord.gg/R6pB6xuEy9) or reach me at <willwroble@gmail.com>.
 
 Also see [FAQ and future goals](https://github.com/WillWroble/MageZero/blob/main/faq_goals.md).
 
