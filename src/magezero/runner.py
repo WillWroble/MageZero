@@ -155,7 +155,9 @@ def latest_version(deck: str) -> Optional[int]:
     for sub in d.iterdir():
         if sub.is_dir() and sub.name.startswith("ver"):
             try:
-                versions.append(int(sub.name[3:]))
+                v = int(sub.name[3:])
+                if (sub / "model.pt.gz").exists():
+                    versions.append(v)
             except ValueError:
                 pass
     return max(versions) if versions else None

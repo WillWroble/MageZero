@@ -35,10 +35,34 @@ def cmd_batch(args: argparse.Namespace) -> None:
 # ─── play ────────────────────────────────────────────────────
 
 def cmd_play(args: argparse.Namespace) -> None:
-    raise NotImplementedError(
-        "`mz play` not yet implemented. Will host a local AI player "
-        "on the XMage server once that code path is wired up."
-    )
+    import subprocess
+    from pathlib import Path
+
+    config = Path(args.config).resolve()
+    if not config.exists():
+        sys.exit(f"config not found: {config}")
+
+    deck = args.deck
+    version = args.version
+    if version is None:
+        version = runner.latest_version(deck)
+        if version is None:
+            sys.exit(f"no trained model found for {deck}")
+
+    if not runner.has_checkpoint(deck, version):
+        sys.exit(f"no checkpoint at models/{deck}/ver{version}/model.pt.gz")
+
+    # start inference server
+    print(f"[play] starting inference server for {deck} v{version}")
+    server = runner.start_server(deck, version, runner.PRIMARY_PORT, Path("."))
+
+    try:
+        # launch XMage server
+        script = "xmage\\mz-xmage-play.bat" if sys.platform == "win32" else "xmage/mz-xmage-play.sh"
+        cmd = ["cmd", "/c", script, str(config)] if sys.platform == "win32" else [script, str(config)]
+        subprocess.run(cmd, check=True)
+    finally:
+        runner.stop_server(server)
 
 
 # ─── import ──────────────────────────────────────────────────
@@ -117,6 +141,7 @@ def main() -> None:
     p_play = sub.add_parser("play", help="host a local AI player")
     p_play.add_argument("--deck", required=True)
     p_play.add_argument("--version", type=int, default=None)
+    p_play.add_argument("--config", default="configs/game.yml")
     p_play.set_defaults(func=cmd_play)
 
     p_import = sub.add_parser("import", help="import .dck or .mz file")

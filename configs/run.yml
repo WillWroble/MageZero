@@ -1,8 +1,8 @@
 # run.yml — defines a single deck training run
 
-deck: Standard-MonoB
-version: 1
-start_from_version: 1     # null = offline bootstrap, set to resume from checkpoint
+deck: UWTempo
+version: 19
+start_from_version: 19     # null = offline bootstrap, set to resume from checkpoint
 
 generations: 2
 games_per_gen: 100
@@ -10,10 +10,15 @@ replay_buffer_gens: 10
 
 opponents:
   - deck: Standard-MonoR
-    mode: minimax
+    mode: mcts
   - deck: Standard-MonoG
-    mode: minimax
-
+    mode: mcts
+  - deck: Standard-MonoB
+    mode: mcts
+  - deck: Standard-MonoW
+    mode: mcts
+  - deck: Standard-MonoU
+    mode: mcts
 training:
   analyze_dataset: true
   generate_plots: true
