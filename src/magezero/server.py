@@ -8,7 +8,7 @@ import waitress
 from pyroaring import BitMap
 from flask import Flask, request, Response
 import msgpack
-from model import Net, load_model, GLOBAL_MAX, ACTIONS_MAX
+from model import NetTransformer, Net, load_model, GLOBAL_MAX, ACTIONS_MAX
 
 # Device setup
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,14 +36,14 @@ def init(deck: str, version: int, port: int):
 
     model_dir = f"models/{deck}/ver{version}"
     ignore_path = f"{model_dir}/ignore.roar"
-    model_path = f"{model_dir}/model.pt.gz"
+    model_path = f"{model_dir}/best.pt.gz"
 
     with open(ignore_path, "rb") as f:
         IGNORE_BM = BitMap.deserialize(f.read())
 
     VALID_RANGE = BitMap(range(GLOBAL_MAX))
 
-    server_model = Net(GLOBAL_MAX, ACTIONS_MAX).to(DEVICE).eval()
+    server_model = NetTransformer(GLOBAL_MAX, ACTIONS_MAX).to(DEVICE).eval()
     ckpt = load_model(model_path)
     server_model.load_state_dict(ckpt["model_state_dict"])
 
@@ -178,7 +178,7 @@ def worker_loop():
         print(f"[BATCH] size={len(batch)}, total_bag_size={row}")
 
 
-threading.Thread(target=worker_loop, daemon=True).start()
+#threading.Thread(target=worker_loop, daemon=True).start()
 
 
 @app.post("/evaluate")

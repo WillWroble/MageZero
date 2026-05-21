@@ -9,7 +9,7 @@ import gzip
 import shutil
 
 import test
-from model import Net, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
+from model import NetTransformer, Net, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
 from dataset import H5Indexed, collate_batch,  create_redundancy_ignore_list, filter_opponent_states
 from pyroaring import BitMap
 
@@ -34,7 +34,7 @@ def train(
     ignore_list = create_redundancy_ignore_list(ds_raw)
 
     # model and data loaders
-    model = Net(GLOBAL_MAX, ACTIONS_MAX).cuda()
+    model = NetTransformer(GLOBAL_MAX, ACTIONS_MAX).cuda()
 
     # optional start point
     if use_checkpoint:
@@ -81,25 +81,17 @@ def train(
     test.SHOW_CONFUSION_MATRIX = False
 
     #optimizers
-    opt_sparse = optim.SparseAdam(model.embedding_bag.parameters(), lr=1e-4)
-    #opt_sparse = torch.optim.Adagrad(model.embedding_bag.parameters(), lr=0.1,initial_accumulator_value=0.1)
-    dense_params = []
-    dense_weight_params, dense_bias_params = [], []
-    for name, p in model.named_parameters():
-        if "embedding_bag" in name:
-            continue
-        dense_params.append(p)
-        if p.ndim > 1:
-            dense_weight_params.append(p)
-        else:
-            dense_bias_params.append(p)
-
+    #opt_sparse = optim.SparseAdam(model.embedding_bag.parameters(), lr=1e-4)
+    opt_sparse = optim.SparseAdam(model.embedding.parameters(), lr=1e-4)
+    dense_params = [p for n, p in model.named_parameters()
+                    if "embedding" not in n or "transformer" in n]
     opt_dense = optim.Adam(dense_params, lr=5e-4)
-
-
 
     mse = nn.MSELoss()
     kld = nn.KLDivLoss(reduction='batchmean')
+
+    #stats
+    best_val_loss = float('inf')
 
     #main training loop
     for epoch in range(1, epochs+1):
@@ -177,12 +169,12 @@ def train(
 
             lv = mse(value_pred, batch_value_labels.squeeze(-1))
             l1_dense = 0
-            for param in dense_weight_params:
+            for param in dense_params:
                 l1_dense += torch.sum(torch.abs(param))
             l1_dense *= 1e-5
 
             total_l1_dense_loss += l1_dense.item()
-            total_l1_sparse_loss += model.l1_penalty.item()
+            #total_l1_sparse_loss += model.l1_penalty.item()
             loss = lpA + lpB + lt + lb + lv #+ model.l1_penalty #+ l1_dense
             opt_sparse.zero_grad()
             opt_dense.zero_grad()
@@ -204,28 +196,49 @@ def train(
               f"l1_dense={avg_l1_dense_loss} l1_sparse={avg_l1_sparse_loss} decision_states={total_decision_examples}")
         #run current model on testing set (if there is one)
         if len(test_ds)>0:
-            test.validate(model, dl_test)
+            val_loss = test.validate(model, dl_test)
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                checkpoint_save_path = f"models/{deck}/ver{version}/best.pt.gz"
+                temp_path = checkpoint_save_path.replace('.gz', '.tmp')
+
+                # Save uncompressed
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_sparse_state_dict': opt_sparse.state_dict(),
+                    'optimizer_dense_state_dict': opt_dense.state_dict(),
+                    'avg_p_loss': avg_pA_loss,
+                    'avg_v_loss': avg_v_loss,
+                }, temp_path)
+
+                # Stream-compress in chunks (constant memory)
+                with open(temp_path, 'rb') as f_in:
+                    with gzip.open(checkpoint_save_path, 'wb', compresslevel=1) as f_out:
+                        shutil.copyfileobj(f_in, f_out, length=16 * 1024 * 1024)  # 16MB chunks
+
+                os.remove(temp_path)
+
         #TODO: make validation based checkpoint schedule
-        if epoch == epochs:
-            checkpoint_save_path = f"models/{deck}/ver{version}/model.pt.gz"
-            temp_path = checkpoint_save_path.replace('.gz', '.tmp')
+        checkpoint_save_path = f"models/{deck}/ver{version}/latest.pt.gz"
+        temp_path = checkpoint_save_path.replace('.gz', '.tmp')
 
-            # Save uncompressed
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_sparse_state_dict': opt_sparse.state_dict(),
-                'optimizer_dense_state_dict': opt_dense.state_dict(),
-                'avg_p_loss': avg_pA_loss,
-                'avg_v_loss': avg_v_loss,
-            }, temp_path)
+        # Save uncompressed
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_sparse_state_dict': opt_sparse.state_dict(),
+            'optimizer_dense_state_dict': opt_dense.state_dict(),
+            'avg_p_loss': avg_pA_loss,
+            'avg_v_loss': avg_v_loss,
+        }, temp_path)
 
-            # Stream-compress in chunks (constant memory)
-            with open(temp_path, 'rb') as f_in:
-                with gzip.open(checkpoint_save_path, 'wb', compresslevel=1) as f_out:
-                    shutil.copyfileobj(f_in, f_out, length=16 * 1024 * 1024)  # 16MB chunks
+        # Stream-compress in chunks (constant memory)
+        with open(temp_path, 'rb') as f_in:
+            with gzip.open(checkpoint_save_path, 'wb', compresslevel=1) as f_out:
+                shutil.copyfileobj(f_in, f_out, length=16 * 1024 * 1024)  # 16MB chunks
 
-            os.remove(temp_path)
+        os.remove(temp_path)
 
 if __name__ == "__main__":
     import argparse

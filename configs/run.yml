@@ -1,24 +1,24 @@
 # run.yml — defines a single deck training run
 
 deck: UWTempo
-version: 19
-start_from_version: 19     # null = offline bootstrap, set to resume from checkpoint
+version: 20
+start_from_version: 20     # null = offline bootstrap, set to resume from checkpoint
 
-generations: 2
+generations: 5
 games_per_gen: 100
 replay_buffer_gens: 10
 
 opponents:
   - deck: Standard-MonoR
-    mode: mcts
+    mode: minimax
   - deck: Standard-MonoG
-    mode: mcts
+    mode: minimax
   - deck: Standard-MonoB
-    mode: mcts
+    mode: minimax
   - deck: Standard-MonoW
-    mode: mcts
+    mode: minimax
   - deck: Standard-MonoU
-    mode: mcts
+    mode: minimax
 training:
   analyze_dataset: true
   generate_plots: true

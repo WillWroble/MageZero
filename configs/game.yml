@@ -10,9 +10,9 @@ player_a:
   # output_file: set by runner
 
   priors:
-    priority: false
+    priority: true
     target: false
-    binary: false
+    binary: true
     opponent: false
     prior_temperature: 1.5
 

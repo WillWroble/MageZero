@@ -5,7 +5,7 @@ from torch import nn  # optim is not strictly needed for testing if not optimizi
 from torch.utils.data import DataLoader
 
 from dataset import H5Indexed, collate_batch, filter_opponent_states
-from model import Net, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
+from model import NetTransformer, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
 
 SHOW_CONFUSION_MATRIX = True
 
@@ -151,6 +151,7 @@ def validate(model, dl):
 
         print(f"Validation loss:  priority_A_loss={avg_pA_loss:.3f}  priority_B_loss={avg_pB_loss:.3f} choose_target_loss={avg_t_loss:.3f} choose_use_loss={avg_b_loss:.3f} value_loss={avg_v_loss:.3f} avg_total_loss={avg_combined_loss:.3f} decision_states={total_decision_examples}")
 
+
         if total_pA_examples > 0:
             print(f"Test priority_A_accuracy={correct_pA / total_pA_examples:.3f}")
             if SHOW_CONFUSION_MATRIX:
@@ -176,6 +177,8 @@ def validate(model, dl):
         else:
             print("No choose_use samples in test set to calculate accuracy.")
 
+        return avg_combined_loss
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -196,7 +199,7 @@ if __name__ == "__main__":
     dl = DataLoader(ds, batch_size=128, shuffle=False, num_workers=0,
                     collate_fn=collate_batch, pin_memory=True, persistent_workers=False)
 
-    model = Net(GLOBAL_MAX, ACTIONS_MAX).cuda()
+    model = NetTransformer(GLOBAL_MAX, ACTIONS_MAX).cuda()
     model.eval()
 
     checkpoint_path = f"models/{args.deck}/ver{args.version}/model.pt.gz"
