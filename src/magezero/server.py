@@ -36,7 +36,7 @@ def init(deck: str, version: int, port: int):
 
     model_dir = f"models/{deck}/ver{version}"
     ignore_path = f"{model_dir}/ignore.roar"
-    model_path = f"{model_dir}/latest.pt.gz"
+    model_path = f"{model_dir}/model.pt.gz"
 
     with open(ignore_path, "rb") as f:
         IGNORE_BM = BitMap.deserialize(f.read())

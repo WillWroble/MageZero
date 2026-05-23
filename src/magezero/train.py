@@ -220,7 +220,7 @@ def train(
                 os.remove(temp_path)
 
         #TODO: make validation based checkpoint schedule
-        checkpoint_save_path = f"models/{deck}/ver{version}/latest.pt.gz"
+        checkpoint_save_path = f"models/{deck}/ver{version}/model.pt.gz"
         temp_path = checkpoint_save_path.replace('.gz', '.tmp')
 
         # Save uncompressed

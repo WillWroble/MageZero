@@ -272,12 +272,36 @@ mz export --deck MyDeck --version 3
 
 Produces `exports/MyDeck_v3.mz` containing the model, ignore list, and metadata.
 
-### `mz play` (stub)
-Host a local AI player for the XMage client to connect to. Not yet implemented.
+### `mz play`
+Host a local game server with a trained AI player. Starts the inference server for the chosen opponent deck, launches XMage, and waits for you to connect with the XMage client. See the Play section below for full instructions.
+
+```
+mz play --deck UWTempo
+mz play --deck UWTempo --version 3
+mz play --deck UWTempo --config configs/game.yml
+
+```
 
 ---
+## 8. Play Against a Trained Model
 
-## 8. Troubleshooting
+If you don't want to train — just play — you still need the base install (steps 2.1–2.4). You also need a trained model: either train one yourself or import a `.mz` bundle someone shared with you via `mz import model.mz`.
+
+### Start the server
+
+`mz play --deck UWTempo`
+
+This starts the Python inference server and launches an XMage game server. `--version` is optional; it defaults to the latest trained version for that deck. `--config` points to a `game.yml` file (defaults to `configs/game.yml`) which controls MCTS parameters like search budget, timeout, and prior temperature during play.
+
+### Connect with the XMage client
+
+1. Open the vanilla [XMage client](https://xmage.today/)
+2. Connect to `localhost` (default port)
+3. Create a new match and select the **MCTS** bot type as your opponent
+4. Choose any deck you want to play but make sure to give the opponent the same deck you provided in the `play` command
+5. Start the game
+
+## 9. Troubleshooting
 
 **`mz train` hangs at "Loading database..."** — First launch builds the H2 card database from scratch. Takes ~1 minute. Subsequent runs skip this.
 
@@ -293,7 +317,7 @@ Host a local AI player for the XMage client to connect to. Not yet implemented.
 
 ---
 
-## 9. Contact
+## 10. Contact
 
 - Discord: `inkling_6`
 - Discord server: [https://discord.gg/R6pB6xuEy9](https://discord.gg/R6pB6xuEy9)

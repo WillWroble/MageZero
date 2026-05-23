@@ -46,15 +46,15 @@ def cmd_play(args: argparse.Namespace) -> None:
     version = args.version
     if version is None:
         version = runner.latest_version(deck)
-        if version is None:
-            sys.exit(f"no trained model found for {deck}")
-
-    if not runner.has_checkpoint(deck, version):
-        sys.exit(f"no checkpoint at models/{deck}/ver{version}/model.pt.gz")
-
-    # start inference server
-    print(f"[play] starting inference server for {deck} v{version}")
-    server = runner.start_server(deck, version, runner.PRIMARY_PORT, Path("."))
+    server = None
+    if version is None or not runner.has_checkpoint(deck, version):
+    #if not runner.has_checkpoint(deck, version):
+        print(f"model for {deck} is not found, falling back to offline MCTS")
+        #sys.exit(f"no checkpoint at models/{deck}/ver{version}/model.pt.gz")
+    else:
+        # start inference server
+        print(f"[play] starting inference server for {deck} v{version}")
+        server = runner.start_server(deck, version, runner.PRIMARY_PORT, Path("."))
 
     try:
         # launch XMage server
@@ -62,7 +62,8 @@ def cmd_play(args: argparse.Namespace) -> None:
         cmd = ["cmd", "/c", script, str(config)] if sys.platform == "win32" else [script, str(config)]
         subprocess.run(cmd, check=True)
     finally:
-        runner.stop_server(server)
+        if server is not None:
+            runner.stop_server(server)
 
 
 # ─── import ──────────────────────────────────────────────────

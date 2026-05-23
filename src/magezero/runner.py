@@ -156,7 +156,7 @@ def latest_version(deck: str) -> Optional[int]:
         if sub.is_dir() and sub.name.startswith("ver"):
             try:
                 v = int(sub.name[3:])
-                if (sub / "latest.pt.gz").exists():
+                if (sub / "model.pt.gz").exists():
                     versions.append(v)
             except ValueError:
                 pass
@@ -164,7 +164,7 @@ def latest_version(deck: str) -> Optional[int]:
 
 
 def has_checkpoint(deck: str, version: int) -> bool:
-    return (Path("models") / deck / f"ver{version}" / "latest.pt.gz").exists()
+    return (Path("models") / deck / f"ver{version}" / "model.pt.gz").exists()
 
 
 def copy_starting_checkpoint(run: RunConfig) -> None:
@@ -173,10 +173,10 @@ def copy_starting_checkpoint(run: RunConfig) -> None:
         return
     src = Path("models") / run.deck / f"ver{run.start_from_version}"
     dst = Path("models") / run.deck / f"ver{run.version}"
-    if dst.exists() and (dst / "latest.pt.gz").exists():
+    if dst.exists() and (dst / "model.pt.gz").exists():
         return  # already seeded (resume case)
     dst.mkdir(parents=True, exist_ok=True)
-    for name in ("latest.pt.gz", "ignore.roar"):
+    for name in ("model.pt.gz", "ignore.roar"):
         f = src / name
         if f.exists():
             shutil.copy(f, dst / name)
