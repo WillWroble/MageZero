@@ -136,7 +136,7 @@ def collate_batch(batch):
         p += L
 
     # single conversion for EmbeddingBag
-    idxs = idxs.to(torch.long)
+    idxs = idxs.to(torch.long) % 2000000
 
     policies     = torch.stack([b[1] for b in batch], 0)
     values       = torch.stack([b[2] for b in batch], 0)

@@ -73,68 +73,61 @@ def validate(model, dl):
             action_types = action_types.cuda().squeeze(-1).to(torch.long)
 
             # Model call uses indices and offsets
-            priority_logits, opponent_priority_logits, target_logits, binary_logits, value_pred = model(batch_indices,
-                                                                                                        batch_offsets)
+            with torch.amp.autocast('cuda'):
+                priority_logits, opponent_priority_logits, target_logits, binary_logits, value_pred = model(batch_indices,
+                                                                                                            batch_offsets)
 
-            nonzero = (batch_policy_labels > 0).sum(dim=1)  # [B]
-            decision_mask = nonzero > 0  # [B] states where more than one action is available
-            priority_mask = (action_types == ActionType.PRIORITY.value) & is_players & decision_mask
-            opponent_priority_mask = (action_types == ActionType.PRIORITY.value) & (~is_players) & decision_mask
-            target_mask = (action_types == ActionType.CHOOSE_TARGET.value) & decision_mask
-            binary_mask = (action_types == ActionType.CHOOSE_USE.value) & decision_mask
+                nonzero = (batch_policy_labels > 0).sum(dim=1)  # [B]
+                decision_mask = nonzero > 0  # [B] states where more than one action is available
+                priority_mask = (action_types == ActionType.PRIORITY.value) & is_players & decision_mask
+                opponent_priority_mask = (action_types == ActionType.PRIORITY.value) & (~is_players) & decision_mask
+                target_mask = (action_types == ActionType.CHOOSE_TARGET.value) & decision_mask
+                binary_mask = (action_types == ActionType.CHOOSE_USE.value) & decision_mask
 
 
-            total_decision_examples += decision_mask.sum().item()
+                total_decision_examples += decision_mask.sum().item()
 
-            # priority A
-            if priority_mask.any():
+                # priority A
                 log_probs_d = F.log_softmax(priority_logits[priority_mask][:, :PRIORITY_A_MAX], dim=1)
                 tgt = normalize_policy_labels(batch_policy_labels[priority_mask][:, :PRIORITY_A_MAX])
-                lpA = kld(log_probs_d, tgt)*lambda_pA
+                lpA = torch.nan_to_num(kld(log_probs_d, tgt)*lambda_pA)
                 s = log_probs_d.size(0)
                 total_pA_loss += lpA.item() * s
                 populate_matrix(pA_matrix, torch.argmax(tgt, dim=1), torch.argmax(log_probs_d, dim=1))
-            else:
-                lpA = torch.zeros((), device=value_pred.device)
 
-            # priority B (this uses virtual visits)
-            if opponent_priority_mask.any():
+
+                # priority B (this uses virtual visits)
                 log_probs_d = F.log_softmax(opponent_priority_logits[opponent_priority_mask][:, :PRIORITY_B_MAX], dim=1)
                 tgt = normalize_policy_labels(batch_policy_labels[opponent_priority_mask][:, :PRIORITY_B_MAX])
-                lpB = kld(log_probs_d, tgt)*lambda_pB
+                lpB = torch.nan_to_num(kld(log_probs_d, tgt)*lambda_pB)
                 s = log_probs_d.size(0)
                 total_pB_loss += lpB.item() * s
                 populate_matrix(pB_matrix, torch.argmax(tgt, dim=1), torch.argmax(log_probs_d, dim=1))
-            else:
-                lpB = torch.zeros((), device=value_pred.device)
 
-            # targets (shared between both players)
-            if target_mask.any():
+
+                # targets (shared between both players)
                 log_probs_d = F.log_softmax(target_logits[target_mask][:, :TARGETS_MAX], dim=1)
                 tgt = normalize_policy_labels(batch_policy_labels[target_mask][:, :TARGETS_MAX])
-                lt = kld(log_probs_d, tgt)*lambda_t
+                lt = torch.nan_to_num(kld(log_probs_d, tgt)*lambda_t)
                 s = log_probs_d.size(0)
                 total_t_loss += lt.item() * s
                 populate_matrix(t_matrix, torch.argmax(tgt, dim=1), torch.argmax(log_probs_d, dim=1))
-            else:
-                lt = torch.zeros((), device=value_pred.device)
 
-            # binary (choose to use) decisions
-            if binary_mask.any():
+
+                # binary (choose to use) decisions
                 log_probs_d = F.log_softmax(binary_logits[binary_mask][:, :BINARY_MAX], dim=1)
                 tgt = normalize_policy_labels(batch_policy_labels[binary_mask][:, :BINARY_MAX])
-                lb = kld(log_probs_d, tgt)*lambda_b
+                lb = torch.nan_to_num(kld(log_probs_d, tgt)*lambda_b)
                 s = log_probs_d.size(0)
                 total_b_loss += lb.item() * s
                 populate_matrix(b_matrix, torch.argmax(tgt, dim=1), torch.argmax(log_probs_d, dim=1))
-            else:
-                lb = torch.zeros((), device=value_pred.device)
 
-            lv = mse(value_pred, batch_value_labels.squeeze(-1))
 
-            total_combined_loss += (lpA + lpB + lt + lb + lv).item()
+                lv = mse(value_pred, batch_value_labels.squeeze(-1))
 
-            total_v_loss += lv.item()
+                total_combined_loss += (lpA + lpB + lt + lb + lv).item()
+
+                total_v_loss += lv.item()
 
 
         total_pA_examples, total_pB_examples, total_t_examples, total_b_examples = total_from_matrix(pA_matrix), total_from_matrix(pB_matrix), total_from_matrix(t_matrix), total_from_matrix(b_matrix)
@@ -196,7 +189,7 @@ if __name__ == "__main__":
     if not args.opponent_head:
         ds = filter_opponent_states(ds, TARGETS_MAX)
 
-    dl = DataLoader(ds, batch_size=128, shuffle=False, num_workers=0,
+    dl = DataLoader(ds, batch_size=512, shuffle=False, num_workers=0,
                     collate_fn=collate_batch, pin_memory=True, persistent_workers=False)
 
     model = NetTransformer(GLOBAL_MAX, ACTIONS_MAX).cuda()

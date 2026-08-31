@@ -10,9 +10,9 @@ player_a:
   # output_file: set by runner
 
   priors:
-    priority: true
+    priority: false
     target: false
-    binary: true
+    binary: false
     opponent: false
     prior_temperature: 1.5
 
@@ -22,7 +22,7 @@ player_a:
     selection_temperature: 2
 
   mcts:
-    search_budget: 1000
+    search_budget: 4000
     timeout_ms: 4000
     td_discount: 0.85
     offline_mode: false
@@ -52,7 +52,7 @@ player_b:
     selection_temperature: 2
 
   mcts:
-    search_budget: 1000
+    search_budget: 4000
     timeout_ms: 4000
     td_discount: 0.85
     offline_mode: false

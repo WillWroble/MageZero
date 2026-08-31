@@ -138,8 +138,9 @@ def worker_loop():
             )
             off = (all_off + adjustments).to(DEVICE, non_blocking=True)
 
+        idx =  idx % 2000000
         # Single forward pass
-        with torch.no_grad():
+        with torch.no_grad(), torch.amp.autocast('cuda'):
             pA, pB, tgt, bin2, val = server_model(idx, off)
 
         # Move to CPU once

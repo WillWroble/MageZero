@@ -46,7 +46,7 @@ TMP_GAME_YML = ".mz_tmp/game.yml"
 RUNS_DIR = Path("runs")
 SRC = "src/magezero"
 PYTHON = sys.executable
-EPOCHS_BOOTSTRAP = 10
+EPOCHS_BOOTSTRAP = 2
 EPOCHS_ONLINE = 1
 
 

@@ -13,7 +13,7 @@ defaults:
 prior_schedule:
   binary: 2
   priority: 3
-  target: 4
+  target: 10 #4
   opponent: null
 
 # sparse per-gen overrides — unset fields inherit the previous gen's value

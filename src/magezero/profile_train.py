@@ -5,28 +5,29 @@ import torch.nn.functional as F
 from torch import nn, optim
 from torch.utils.data import DataLoader
 import os
-import gzip
-import shutil
 
 import test
 from model import NetTransformer, Net, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
 from dataset import H5Indexed, collate_batch,  create_redundancy_ignore_list, filter_opponent_states
 from pyroaring import BitMap
+from torch.profiler import profile, ProfilerActivity, schedule
+from datetime import datetime
+
+
 
 #add training data under: data/{deck name}/ver{your version num}/training/{your data}.hdf5
 
 
 
-def train(
+def profile_train(
         deck: str,
         version: int,
-        epochs: int,
-        steps: int = 15000,
+        steps: int,
         use_checkpoint: bool = False,
-        make_ignore_list: bool = True,
         train_opponent_head: bool = False,
 ):
     os.makedirs(f"models/{deck}/ver{version}", exist_ok=True)
+    os.makedirs("./traces", exist_ok=True)
     ds_raw = H5Indexed(f"data/{deck}/ver{version}/training")
 
 
@@ -55,55 +56,43 @@ def train(
         except Exception as e:
             print(f"ERROR: Could not load checkpoint. {e}. Starting from scratch.")
 
-    if not make_ignore_list: ignore_list = []
-    print("Saving ignore list to ignore.roar")
-
-    ignore = BitMap(ignore_list)  # iterable of ints
-    with open(f"models/{deck}/ver{version}/ignore.roar", "wb") as f:
-        f.write(ignore.serialize())
 
     #data sets with redundant filter
     ds = H5Indexed(f"data/{deck}/ver{version}/training", ignore_list)
-    test_ds = H5Indexed(f"data/{deck}/ver{version}/testing", ignore_list)
 
     #if round-robin filter out opponent states AFTER making the ignore list
     if not train_opponent_head:
         ds = filter_opponent_states(ds,TARGETS_MAX)
-        test_ds = filter_opponent_states(test_ds,TARGETS_MAX)
 
 
 
     dl = DataLoader(ds, batch_size=512, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=True, persistent_workers=False)
 
-    dl_test = DataLoader(test_ds, batch_size=512, shuffle=False, num_workers=0, collate_fn=collate_batch,
-                    pin_memory=True, persistent_workers=False)
 
     test.SHOW_CONFUSION_MATRIX = False
 
     #optimizers
-    #opt_sparse = optim.SparseAdam(model.embedding_bag.parameters(), lr=1e-4)
     #opt_sparse = optim.SparseAdam(model.embedding.parameters(), lr=1e-4)
-    dense_params = [p for n, p in model.named_parameters()
-                    if "embedding" not in n or "transformer" in n]
+    #dense_params = [p for n, p in model.named_parameters()
+    #                if "embedding" not in n or "transformer" in n]
     #opt_dense = optim.Adam(dense_params, lr=5e-4)
     opt_dense = optim.Adam(model.parameters(), lr=1e-4)
+
 
     mse = nn.MSELoss()
     kld = nn.KLDivLoss(reduction='batchmean')
     scaler = torch.amp.GradScaler()
 
-
-    #stats
-    best_val_loss = float('inf')
-
-    #main training loop
-    for epoch in range(1, epochs+1):
-        total_pA_loss, total_pB_loss, total_t_loss, total_b_loss, total_v_loss, total_l1_sparse_loss, total_l1_dense_loss = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-        total_decision_examples, total_pA_examples, total_pB_examples, total_t_examples, total_b_examples = 0,0,0,0,0
-        model.train()
-        step = 0
-
+    #single epoch loop
+    i = 0
+    with profile(
+            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+            schedule=schedule(wait=2, warmup=2, active=6, repeat=1),
+            on_trace_ready=lambda p: p.export_chrome_trace(f"./traces/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"),
+            record_shapes=True,
+            with_stack=True
+    ) as prof:
         for batch_indices, batch_offsets, batch_policy_labels, batch_value_labels, is_players, action_types in dl:
             # Move new input tensors to CUDA
             batch_indices = batch_indices.cuda()
@@ -117,8 +106,6 @@ def train(
             with torch.amp.autocast('cuda'):
                 priority_logits, opponent_priority_logits, target_logits, binary_logits ,value_pred = model(batch_indices, batch_offsets)
 
-
-
                 nonzero = (batch_policy_labels > 0).sum(dim=1)  # [B]
                 decision_mask = nonzero > 0  # [B] states where at least one action is available
                 priority_mask = (action_types==ActionType.PRIORITY.value) & is_players & decision_mask
@@ -127,41 +114,27 @@ def train(
                 binary_mask = (action_types==ActionType.CHOOSE_USE.value) & decision_mask
 
 
-                total_decision_examples += decision_mask.sum().item()
-
                 #priority A
                 log_probs_d = F.log_softmax(priority_logits[priority_mask][:,:PRIORITY_A_MAX], dim=1)
                 tgt = normalize_policy_labels(batch_policy_labels[priority_mask][:,:PRIORITY_A_MAX])
                 lpA = torch.nan_to_num(kld(log_probs_d, tgt)*lambda_pA)
-                s = log_probs_d.size(0)
-                total_pA_loss += lpA.item() * s
-                total_pA_examples += s
 
 
                 #priority B
                 log_probs_d = F.log_softmax(opponent_priority_logits[opponent_priority_mask][:,:PRIORITY_B_MAX], dim=1)
                 tgt = normalize_policy_labels(batch_policy_labels[opponent_priority_mask][:,:PRIORITY_B_MAX])
                 lpB = torch.nan_to_num(kld(log_probs_d, tgt)*lambda_pB)
-                s = log_probs_d.size(0)
-                total_pB_loss += lpB.item() * s
-                total_pB_examples += s
+
 
                 #targets (shared between both players)
                 log_probs_d = F.log_softmax(target_logits[target_mask][:,:TARGETS_MAX], dim=1)
                 tgt = normalize_policy_labels(batch_policy_labels[target_mask][:,:TARGETS_MAX])
                 lt = torch.nan_to_num(kld(log_probs_d, tgt)*lambda_t)
-                s = log_probs_d.size(0)
-                total_t_loss += lt.item() * s
-                total_t_examples += s
-
 
                 # binary (choose to use) decisions
                 log_probs_d = F.log_softmax(binary_logits[binary_mask][:,:BINARY_MAX], dim=1)
                 tgt = normalize_policy_labels(batch_policy_labels[binary_mask][:,:BINARY_MAX])
                 lb = torch.nan_to_num(kld(log_probs_d, tgt)*lambda_b)
-                s = log_probs_d.size(0)
-                total_b_loss += lb.item() * s
-                total_b_examples += s
 
 
                 lv = mse(value_pred, batch_value_labels.squeeze(-1))
@@ -175,74 +148,18 @@ def train(
             scaler.scale(loss).backward()
             scaler.step(opt_dense)
             scaler.update()
-
-
-            total_v_loss += lv.item()
-            step += 1
-            if step > steps:
+            prof.step()
+            i+=1
+            if i > steps:
                 break
 
-
-        avg_pA_loss = (total_pA_loss / max(total_pA_examples, 1))
-        avg_pB_loss = (total_pB_loss / max(total_pB_examples, 1))
-        avg_t_loss = (total_t_loss / max(total_t_examples, 1))
-        avg_b_loss = (total_b_loss / max(total_b_examples, 1))
-        avg_v_loss = total_v_loss / min(len(dl),steps)
-        avg_l1_dense_loss = total_l1_dense_loss / min(len(dl), steps)
-        avg_l1_sparse_loss = total_l1_sparse_loss / min(len(dl), steps)
-        print(f"Epoch {epoch}  priority_A_loss={avg_pA_loss:.3f}  priority_B_loss={avg_pB_loss:.3f} choose_target_loss={avg_t_loss:.3f} choose_use_loss={avg_b_loss:.3f} value_loss={avg_v_loss:.3f} "
-              f"l1_dense={avg_l1_dense_loss} l1_sparse={avg_l1_sparse_loss} decision_states={total_decision_examples}")
-        #run current model on testing set (if there is one)
-        if len(test_ds)>0:
-            val_loss = test.validate(model, dl_test)
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                checkpoint_save_path = f"models/{deck}/ver{version}/best.pt.gz"
-                temp_path = checkpoint_save_path.replace('.gz', '.tmp')
-
-                # Save uncompressed
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_dense_state_dict': opt_dense.state_dict(),
-                    'avg_p_loss': avg_pA_loss,
-                    'avg_v_loss': avg_v_loss,
-                }, temp_path)
-
-                # Stream-compress in chunks (constant memory)
-                with open(temp_path, 'rb') as f_in:
-                    with gzip.open(checkpoint_save_path, 'wb', compresslevel=1) as f_out:
-                        shutil.copyfileobj(f_in, f_out, length=16 * 1024 * 1024)  # 16MB chunks
-
-                os.remove(temp_path)
-
-        #TODO: make validation based checkpoint schedule
-        checkpoint_save_path = f"models/{deck}/ver{version}/model.pt.gz"
-        temp_path = checkpoint_save_path.replace('.gz', '.tmp')
-
-        # Save uncompressed
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_dense_state_dict': opt_dense.state_dict(),
-            'avg_p_loss': avg_pA_loss,
-            'avg_v_loss': avg_v_loss,
-        }, temp_path)
-
-        # Stream-compress in chunks (constant memory)
-        with open(temp_path, 'rb') as f_in:
-            with gzip.open(checkpoint_save_path, 'wb', compresslevel=1) as f_out:
-                shutil.copyfileobj(f_in, f_out, length=16 * 1024 * 1024)  # 16MB chunks
-
-        os.remove(temp_path)
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--deck", required=True)
     parser.add_argument("--version", type=int, default=1)
-    parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--steps", type=int, default=15000)
+    parser.add_argument("--steps", type=int, default=12)
     parser.add_argument("--checkpoint", action="store_true")
     args = parser.parse_args()
-    train(args.deck, args.version, args.epochs, args.steps, args.checkpoint)
+    profile_train(args.deck, args.version, args.steps, args.checkpoint)

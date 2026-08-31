@@ -65,7 +65,7 @@ class Net(nn.Module):
         #self.embedding_norm = nn.LayerNorm(embedding_dim)
         self.embedding_dropout = nn.Dropout(p=0.5)
         self.l1_penalty = None
-
+        """
         self.fc_after_embedding = nn.Sequential(
             nn.Linear(embedding_dim, hidden_dim_mlp),  # From 512 to 256
             nn.ReLU(),
@@ -75,11 +75,33 @@ class Net(nn.Module):
         self.opponent_priority_head = nn.Linear(hidden_dim_mlp, policy_size_A)
         self.target_head = nn.Linear(hidden_dim_mlp, policy_size_A)
         self.binary_head = nn.Linear(hidden_dim_mlp, 2)
-
         self.value_head = nn.Sequential(
             nn.Linear(hidden_dim_mlp, 1),  # From 256 to 1
             nn.Tanh()
         )
+        """
+
+        self.player_priority_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, policy_size_A),
+        )
+        self.opponent_priority_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, policy_size_A),
+        )
+        self.target_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, policy_size_A),
+        )
+        self.binary_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, 2),
+        )
+        self.value_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, 1), nn.Tanh(),
+        )
+
 
     def forward(self, indices, offsets):
         input_weights = None
@@ -99,11 +121,18 @@ class Net(nn.Module):
 
 
         emb = self.embedding_dropout(emb)
-        h = self.fc_after_embedding(emb)
-        return self.player_priority_head(h), self.opponent_priority_head(h), self.target_head(h), self.binary_head(h), self.value_head(h).squeeze(-1)
+        return (
+            self.player_priority_head(emb),
+            self.opponent_priority_head(emb),
+            self.target_head(emb),
+            self.binary_head(emb),
+            self.value_head(emb).squeeze(-1),
+        )
+        #h = self.fc_after_embedding(emb)
+        #return self.player_priority_head(h), self.opponent_priority_head(h), self.target_head(h), self.binary_head(h), self.value_head(h).squeeze(-1)
 
 class NetTransformer(nn.Module):
-    def __init__(self, num_embeddings, policy_size_A):
+    def __init__(self, num_embeddings=GLOBAL_MAX, policy_size_A=ACTIONS_MAX):
         super().__init__()
 
         embedding_dim = 512
@@ -114,21 +143,22 @@ class NetTransformer(nn.Module):
         self.embedding = nn.Embedding(
             num_embeddings=num_embeddings,
             embedding_dim=embedding_dim,
-            sparse=True,
+            sparse=False,
         )
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embedding_dim, nhead=4,
             dim_feedforward=512, batch_first=True,
         )
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=1)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2)
 
         self.embedding_dropout = nn.Dropout(p=0.2)
-
+        """
         self.fc_after_embedding = nn.Sequential(
             nn.Linear(embedding_dim, hidden_dim_mlp),  # From 512 to 256
             nn.ReLU(),
         )
+        
         #policy heads (4 x 256->128 + 1 x 256->2)
         self.player_priority_head = nn.Linear(hidden_dim_mlp, policy_size_A)
         self.opponent_priority_head = nn.Linear(hidden_dim_mlp, policy_size_A)
@@ -138,6 +168,27 @@ class NetTransformer(nn.Module):
         self.value_head = nn.Sequential(
             nn.Linear(hidden_dim_mlp, 1),  # From 256 to 1
             nn.Tanh()
+        )
+        """
+        self.player_priority_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, policy_size_A),
+        )
+        self.opponent_priority_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, policy_size_A),
+        )
+        self.target_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, policy_size_A),
+        )
+        self.binary_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, 2),
+        )
+        self.value_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim_mlp), nn.ReLU(),
+            nn.Linear(hidden_dim_mlp, 1), nn.Tanh(),
         )
 
     def forward(self, indices, offsets):
@@ -170,8 +221,17 @@ class NetTransformer(nn.Module):
         emb = (emb * mask.unsqueeze(-1)).sum(1) / pool_count
 
         emb = self.embedding_dropout(emb)
-        h = self.fc_after_embedding(emb)
-        return self.player_priority_head(h), self.opponent_priority_head(h), self.target_head(h), self.binary_head(h), self.value_head(h).squeeze(-1)
+
+        return (
+            self.player_priority_head(emb),
+            self.opponent_priority_head(emb),
+            self.target_head(emb),
+            self.binary_head(emb),
+            self.value_head(emb).squeeze(-1),
+        )
+
+        #h = self.fc_after_embedding(emb)
+        #return self.player_priority_head(h), self.opponent_priority_head(h), self.target_head(h), self.binary_head(h), self.value_head(h).squeeze(-1)
 
 
 
