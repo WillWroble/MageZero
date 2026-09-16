@@ -148,7 +148,7 @@ class NetTransformer(nn.Module):
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embedding_dim, nhead=4,
-            dim_feedforward=512, batch_first=True,
+            dim_feedforward=1024, batch_first=True,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2)
 
@@ -208,7 +208,6 @@ class NetTransformer(nn.Module):
 
         if self.training and self.input_dropout > 0:
             drop = torch.rand(B, max_len, device=indices.device) < self.input_dropout
-            drop = drop & mask  # only drop real tokens
             mask = mask & ~drop  # removed from attention
 
 

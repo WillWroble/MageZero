@@ -18,6 +18,7 @@ class Opponent:
     deck: str
     mode: str
     version: Optional[int] = None
+    offline : bool = True
 
 
 @dataclass
@@ -39,6 +40,7 @@ class RunConfig:
     training: TrainingFlags
     log_level: str
     curriculum_path: str
+    max_jvms: int = 1
 
 
 @dataclass
@@ -94,6 +96,7 @@ def load_run(path: str = "configs/run.yml") -> RunConfig:
             deck=o["deck"],
             mode=mode,
             version=o.get("version"),
+            offline=o.get("offline", True)
         ))
 
     log_level = raw.get("log_level", "ACTIONS")
@@ -113,6 +116,7 @@ def load_run(path: str = "configs/run.yml") -> RunConfig:
         training=TrainingFlags(**training_raw),
         log_level=log_level,
         curriculum_path=raw.get("curriculum", "configs/curriculum.yml"),
+        max_jvms=raw.get("max_jvms", 1),
     )
 
 

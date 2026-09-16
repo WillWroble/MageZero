@@ -25,6 +25,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import yaml
 
@@ -38,11 +39,11 @@ from magezero.util.config import (
 )
 
 
-# ─── constants ───────────────────────────────────────────────
+# constants
 
 PRIMARY_PORT = 50052
 OPPONENT_PORT = 50053
-TMP_GAME_YML = ".mz_tmp/game.yml"
+TMP_DIR = Path(".mz_tmp")
 RUNS_DIR = Path("runs")
 SRC = "src/magezero"
 PYTHON = sys.executable
@@ -50,7 +51,7 @@ EPOCHS_BOOTSTRAP = 2
 EPOCHS_ONLINE = 1
 
 
-# ─── deck-level state (session counter) ──────────────────────
+# deck-level state (session counter)
 
 def deck_state_path(deck: str) -> Path:
     return Path("models") / deck / "state.json"
@@ -67,7 +68,7 @@ def next_session_id(deck: str) -> int:
     return sid
 
 
-# ─── run folders (history + active state) ───────────────────
+# run folders (history + active state)
 
 def find_active_run(deck: str, version: int) -> Optional[Path]:
     if not RUNS_DIR.exists():
@@ -145,7 +146,7 @@ def record_gen(run_dir: Path, gen: int, settings: GenSettings,
     json_file.write_text(json.dumps(data, indent=2))
 
 
-# ─── version helpers ─────────────────────────────────────────
+# version helpers
 
 def latest_version(deck: str) -> Optional[int]:
     d = Path("models") / deck
@@ -182,7 +183,7 @@ def copy_starting_checkpoint(run: RunConfig) -> None:
             shutil.copy(f, dst / name)
 
 
-# ─── data file path helpers ──────────────────────────────────
+# data file path helpers
 
 def primary_file(deck: str, version: int, sid: int, opponent: str) -> Path:
     name = f"session{sid}_{deck}_vs_{opponent}.hdf5"
@@ -202,7 +203,7 @@ def parse_session_id(filename: str) -> Optional[int]:
         return None
 
 
-# ─── game.yml mutation ───────────────────────────────────────
+# game.yml mutation
 
 def build_game_yml(base_path: str, settings: GenSettings, run: RunConfig,
                    opp: Opponent, primary_out: Path, opponent_out: Path,
@@ -233,14 +234,15 @@ def build_game_yml(base_path: str, settings: GenSettings, run: RunConfig,
     cfg["server"]["port"] = PRIMARY_PORT
     cfg["server"]["opponent_port"] = OPPONENT_PORT
 
-    out = Path(TMP_GAME_YML)
+
+    out = TMP_DIR / f"game_{opp.deck}.yml"
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:
         yaml.safe_dump(cfg, f, sort_keys=False)
     return str(out)
 
 
-# ─── subprocess wrappers ─────────────────────────────────────
+# subprocess wrappers
 
 def start_server(deck: str, version: int, port: int, run_dir: Path) -> subprocess.Popen:
     print(f"[server] start {deck} v{version} on :{port}")
@@ -283,12 +285,14 @@ def stop_server(proc: subprocess.Popen) -> None:
         proc._mz_log_file.close()
 
 
-def launch_jvm(game_yml_path: str) -> None:
+def launch_jvm(game_yml_path: str, log_path: Optional[Path] = None) -> None:
     print(f"[jvm] launching with {game_yml_path}")
-    subprocess.run(
-        ["cmd", "/c", "xmage\\mz-xmage.bat", str(Path(game_yml_path).resolve())],
-        check=True,
-    )
+    cmd = ["cmd", "/c", "xmage\\mz-xmage.bat", str(Path(game_yml_path).resolve())]
+    if log_path is None:
+        subprocess.run(cmd, check=True)
+        return
+    with open(log_path, "a") as f:
+        subprocess.run(cmd, check=True, stdout=f, stderr=subprocess.STDOUT)
 
 
 def run_train(deck: str, version: int, epochs: int, use_checkpoint: bool,
@@ -329,7 +333,7 @@ def run_dataset_stats(deck: str, version: int, split: str,
         )
 
 
-# ─── data movement ───────────────────────────────────────────
+# data movement
 
 def move_testing_to_training(deck: str, version: int) -> None:
     src = Path("data") / deck / f"ver{version}" / "testing"
@@ -377,11 +381,11 @@ def restore_from_archive(deck: str, version: int, files: list[Path]) -> None:
         shutil.move(str(f), str(training / f.name))
 
 
-# ─── main pipeline ───────────────────────────────────────────
+# main pipeline
 
 def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
                  base_game_yml: str = "configs/game.yml") -> None:
-    # ── resume detection ──
+    # resume detection
     active = find_active_run(run.deck, run.version)
     if active:
         ans = input(f"Active run found: {active.name}. Resume? [Y/n] ").strip().lower()
@@ -399,24 +403,27 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
         run_dir = create_run_dir(run)
         start_gen = 0
 
-    # ── gen loop ──
+    # gen loop
     for gen in range(start_gen, run.generations):
         print(f"\n========== GEN {gen} ==========")
         update_run(run_dir, current_gen=gen, stage="generate")
         settings = resolve_gen(curriculum, gen)
-        bootstrap = not has_checkpoint(run.deck, run.version)
+        bootstrap = run.start_from_version is None and gen == 0
 
         primary_sessions: dict[str, list[int]] = {}
         opponent_sessions: dict[str, list[int]] = {}
 
-        for opp in run.opponents:
-            print(f"\n[gen {gen}] vs {opp.deck} ({opp.mode})")
+        primary_offline = bootstrap
 
-            opp_ver = opp.version if opp.version is not None else latest_version(opp.deck)
+
+        jobs = []
+        for opp in run.opponents:
+            opp_ver = opp.version #if opp.version is not None else latest_version(opp.deck)
             if opp_ver is None:
                 opp_ver = 1
-            opp_offline = (opp.mode == "mcts") and not has_checkpoint(opp.deck, opp_ver)
-            primary_offline = bootstrap
+            opp_offline = opp.offline
+            if opp.mode == "mcts" and not opp_offline:
+                raise NotImplementedError("online mcts opponents need a server port each; not supported")
 
             primary_sid = next_session_id(run.deck)
             opponent_sid = next_session_id(opp.deck)
@@ -429,37 +436,51 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
                 base_game_yml, settings, run, opp,
                 primary_path, opponent_path, primary_offline, opp_offline,
             )
-
-            servers = []
-            if not primary_offline:
-                servers.append(start_server(run.deck, run.version, PRIMARY_PORT, run_dir))
-            if opp.mode == "mcts" and not opp_offline:
-                servers.append(start_server(opp.deck, opp_ver, OPPONENT_PORT, run_dir))
-
-            try:
-                launch_jvm(game_yml)
-            finally:
-                for s in servers:
-                    stop_server(s)
-
+            jobs.append((opp.deck, game_yml))
             primary_sessions.setdefault(opp.deck, []).append(primary_sid)
             opponent_sessions.setdefault(opp.deck, []).append(opponent_sid)
 
-        # ── analyze new data ──
+        failed = []
+        servers = []
+        if not primary_offline:
+            servers.append(start_server(run.deck, run.version, PRIMARY_PORT, run_dir))
+
+        try:
+            with ThreadPoolExecutor(max_workers=run.max_jvms) as pool:
+                futures = {}
+                for deck, game_yml in jobs:
+                    log_path = run_dir / f"jvm_{deck}.log"
+                    futures[pool.submit(launch_jvm, game_yml, log_path)] = deck
+                for future in as_completed(futures):
+                    deck = futures[future]
+                    if future.exception() is None:
+                        print(f"[gen {gen}] vs {deck} done")
+                    else:
+                        print(f"[gen {gen}] vs {deck} FAILED: {future.exception()}")
+                        failed.append(deck)
+        finally:
+            for s in servers:
+                stop_server(s)
+
+        if failed:
+            raise RuntimeError(f"{len(failed)} matchups failed this gen: {failed}")
+
+
+        # analyze new data
         if run.training.analyze_dataset:
             update_run(run_dir, stage="analyze")
             run_dataset_stats(run.deck, run.version, "testing", run_dir, gen)
 
-        # ── eval previous model on new data ──
+        # eval previous model on new data
         if run.training.eval_previous_model and gen > 0:
             update_run(run_dir, stage="eval")
             run_test(run.deck, run.version, run_dir, gen)
 
-        # ── move testing → training ──
+        # move testing to training
         update_run(run_dir, stage="move")
         move_testing_to_training(run.deck, run.version)
 
-        # ── archive out-of-window data ──
+        # archive out-of-window data
         update_run(run_dir, stage="train")
         data = json.loads((run_dir / "run.json").read_text())
         provisional = dict(data["gens"])
@@ -468,7 +489,7 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
             run.deck, run.version, provisional, gen, run.replay_buffer_gens,
         )
 
-        # ── train ──
+        # train
         try:
             epochs = EPOCHS_BOOTSTRAP if bootstrap else EPOCHS_ONLINE
             run_train(run.deck, run.version, epochs, use_checkpoint=not bootstrap,
