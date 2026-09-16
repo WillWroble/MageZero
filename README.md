@@ -105,21 +105,22 @@ Within the XMage fork, Game state is captured via a custom `StateEncoder.java`, 
 
 #### **Neural Network Architecture**
 
-The model is a specialized Multi-Layer Perceptron (MLP) with a 2M dimension Embedding Bag input layer and outputs to 4 policy heads, and 1 value head.  
+The model uses a single-layer Transformer encoder over sparse token embeddings, with 4 policy heads and 1 value head.
 
 * **Structure**: 
-  * **Embedding Bag**: 2M dimensions; uses 'SUM' (so gradients scale with active feature count) with sparseAdam, and usually has ~200 active binary feature indices.
-  * **Embedding Layer** 512 dimensions; uses layer norm with dropout layer (could theoretically be a shared embedding space for all states across all decks in MTG since input space is global)
-  * **Hidden Layer** 256 dimensions; relu activation. (deck local embedding for policy + value)
+  * **Sparse Embedding**: 2M × 512D; `nn.Embedding(sparse=True)` with SparseAdam. Each active feature index maps to a 512D learned embedding. A typical state has ~200 active tokens.
+  * **Input Token Dropout**: 30% of tokens are randomly dropped before attention during training, acting as a regularizer on the feature set.
+  * **Transformer Encoder**: Single `TransformerEncoderLayer` (d_model=512, nhead=4, dim_feedforward=512). Self-attention computes pairwise interactions between all active tokens, allowing each feature's representation to be context-dependent. This replaced an earlier EmbeddingBag(sum) architecture which destroyed co-occurrence information and caused systematic misattribution (see Skrelv problem below).
+  * **Mean Pooling**: Context-aware token embeddings are mean-pooled over real (non-padded, non-dropped) tokens to produce a single 512D state representation.
+  * **Hidden Layer**: 256D; ReLU activation. Shared pathway before policy/value branching.
   * **Policy Heads**: all deck local or matchup local
     * **Player Priority**: 128D; deck local; each logit corresponds to a priority action the Agent (PlayerA) can take (eg. activated abilities, casting spells). usually around ~20 logits are used per deck
     * **Opponent Priority**: 128D; opponent deck local; each logit corresponds to a priority action the opponent (PlayerB could take). when running MCTS vs MCTS games. both Agents share one network. and use each head.
     * **Targets**: 128D; matchup local; shared target space across both decks for all micro decisions involving targets. (this is used for selecting which attacking creature to use a blocker on). usually ~60 logits used per matchup
     * **Binary decisions** 2D: matchup local; shared binary space for all binary decisions made by either player. (this is used to select attackers sequentially)
   * **Value Head**: Estimates the probability of winning (trained with Mean Squared Error). The value target uses a MuZero style TD-blend over MCTS roots scores for richer, more stable value predictions.
-* **Optimization**: The network uses a combination of Adam and SparseAdam optimizers. Training incorporates dropout layers (p=0.5) for regularization.
-* **Training**: all training samples are flagged with their decision type (player priority, opponent priority, target decision, binary decision). all sample types are trained together in mixed batches but policy gradients are gated to each sample's corresponding policy head. 
-
+* **Optimization**: The network uses a combination of Adam and SparseAdam optimizers. Training incorporates dropout layers for regularization.
+* **Training**: all training samples are flagged with their decision type (player priority, opponent priority, target decision, binary decision). all sample types are trained together in mixed batches but policy gradients are gated to each sample's corresponding policy head.
 
 ### 5. MCTS
 
