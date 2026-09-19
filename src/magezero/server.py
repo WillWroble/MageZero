@@ -9,6 +9,7 @@ from pyroaring import BitMap
 from flask import Flask, request, Response
 import msgpack
 from model import NetTransformer, Net, load_model, GLOBAL_MAX, ACTIONS_MAX
+from vocab import FeatureVocab
 
 # Device setup
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -25,6 +26,7 @@ MAX_WAIT_MS = 0
 server_model = None
 IGNORE_BM = None
 VALID_RANGE = None
+VOCAB = None  # FeatureVocab for dense-vocab checkpoints; None for full-table ones
 
 app = Flask(__name__)
 
@@ -32,19 +34,22 @@ req_counter = 0
 req_counter_lock = threading.Lock()
 
 def init(deck: str, version: int, port: int):
-    global server_model, IGNORE_BM, VALID_RANGE
+    global server_model, IGNORE_BM, VALID_RANGE, VOCAB
 
     model_dir = f"models/{deck}/ver{version}"
     ignore_path = f"{model_dir}/ignore.roar"
     model_path = f"{model_dir}/model.pt.gz"
 
-    with open(ignore_path, "rb") as f:
-        IGNORE_BM = BitMap.deserialize(f.read())
-
-    VALID_RANGE = BitMap(range(GLOBAL_MAX))
-
-    server_model = NetTransformer(GLOBAL_MAX, ACTIONS_MAX).to(DEVICE).eval()
     ckpt = load_model(model_path)
+    if "feature_vocab" in ckpt:
+        # dense vocab: ids are mapped to rows; ids outside the vocab are the ignored ones
+        VOCAB = FeatureVocab.from_state_dict(ckpt["feature_vocab"])
+        server_model = NetTransformer(len(VOCAB), ACTIONS_MAX).to(DEVICE).eval()
+    else:
+        with open(ignore_path, "rb") as f:
+            IGNORE_BM = BitMap.deserialize(f.read())
+        VALID_RANGE = BitMap(range(GLOBAL_MAX))
+        server_model = NetTransformer(GLOBAL_MAX, ACTIONS_MAX).to(DEVICE).eval()
     server_model.load_state_dict(ckpt["model_state_dict"])
 
     threading.Thread(target=worker_loop, daemon=True).start()
@@ -74,6 +79,10 @@ class Pending:
 def apply_ignore(indices: list[int], offsets: list[int] | None):
     if not offsets:
         offsets = [0]
+
+    if VOCAB is not None:
+        rows, new_offsets = VOCAB.map_bags(indices, offsets)
+        return rows.tolist(), new_offsets.tolist(), len(new_offsets)
 
     if len(offsets) == 1:
         # Single bag - pure bitmap ops in C

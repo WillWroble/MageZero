@@ -11,6 +11,7 @@ import shutil
 import test
 from model import NetTransformer, Net, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
 from dataset import H5Indexed, collate_batch,  create_redundancy_ignore_list, filter_opponent_states
+from vocab import FeatureVocab, kept_feature_ids
 from pyroaring import BitMap
 
 #add training data under: data/{deck name}/ver{your version num}/training/{your data}.hdf5
@@ -25,10 +26,57 @@ def train(
         use_checkpoint: bool = False,
         make_ignore_list: bool = True,
         train_opponent_head: bool = False,
+        dense_vocab: bool = False,
 ):
     os.makedirs(f"models/{deck}/ver{version}", exist_ok=True)
     ds_raw = H5Indexed(f"data/{deck}/ver{version}/training")
 
+    if dense_vocab:
+        vocab, model = prepare_dense_vocab(deck, version, ds_raw, use_checkpoint)
+        ds = H5Indexed(f"data/{deck}/ver{version}/training", vocab=vocab)
+        test_ds = H5Indexed(f"data/{deck}/ver{version}/testing", vocab=vocab)
+    else:
+        vocab = None
+        model, ds, test_ds = prepare_full_table(deck, version, ds_raw, use_checkpoint, make_ignore_list)
+
+    #if round-robin filter out opponent states AFTER making the ignore list
+    if not train_opponent_head:
+        ds = filter_opponent_states(ds,TARGETS_MAX)
+        test_ds = filter_opponent_states(test_ds,TARGETS_MAX)
+
+    train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab)
+
+
+def prepare_dense_vocab(deck: str, version: int, ds_raw: H5Indexed, use_checkpoint: bool):
+    """Feature vocab = previous checkpoint's vocab (rows unchanged) + newly kept ids appended.
+    The embedding table has one row per vocab entry."""
+    print("Building feature vocab from dataset (ignore-list rule over observed ids)")
+    kept = kept_feature_ids(ds_raw.indices_t.numpy(), ds_raw.idxptr_t.numpy())
+    vocab, state = FeatureVocab(feature_hash_bins=GLOBAL_MAX), None
+    if use_checkpoint:
+        checkpoint_path = f"models/{deck}/ver{version}/model.pt.gz"
+        try:
+            checkpoint = load_model(checkpoint_path)
+            if "feature_vocab" not in checkpoint:
+                raise ValueError(f"{checkpoint_path} has no feature vocab (full-table model). "
+                                 f"Convert it with util/convert_dense_vocab.py or train without --dense-vocab.")
+            vocab = FeatureVocab.from_state_dict(checkpoint["feature_vocab"])
+            state = checkpoint["model_state_dict"]
+            print(f"Successfully loaded checkpoint from {checkpoint_path}")
+        except FileNotFoundError:
+            print(f"INFO: Checkpoint file not found at {checkpoint_path}. Starting from scratch.")
+    prev_rows = len(vocab)
+    added = vocab.extend(kept)
+    model = NetTransformer(num_embeddings=max(prev_rows, 1) if state is not None else len(vocab))
+    if state is not None:
+        model.load_state_dict(state)
+        model.resize_embedding(len(vocab))
+    print(f"feature vocab: {len(kept)} kept ids in this dataset, {prev_rows} rows from checkpoint, "
+          f"{added} added -> {len(vocab)} embedding rows")
+    return vocab, model.cuda()
+
+
+def prepare_full_table(deck: str, version: int, ds_raw: H5Indexed, use_checkpoint: bool, make_ignore_list: bool):
 
     #ignore handling
     print("Generating ignore list from dataset to use for model")
@@ -66,11 +114,10 @@ def train(
     ds = H5Indexed(f"data/{deck}/ver{version}/training", ignore_list)
     test_ds = H5Indexed(f"data/{deck}/ver{version}/testing", ignore_list)
 
-    #if round-robin filter out opponent states AFTER making the ignore list
-    if not train_opponent_head:
-        ds = filter_opponent_states(ds,TARGETS_MAX)
-        test_ds = filter_opponent_states(test_ds,TARGETS_MAX)
+    return model, ds, test_ds
 
+
+def train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab):
 
 
     dl = DataLoader(ds, batch_size=512, shuffle=True, num_workers=0, collate_fn=collate_batch,
@@ -207,6 +254,7 @@ def train(
                     'optimizer_dense_state_dict': opt_dense.state_dict(),
                     'avg_p_loss': avg_pA_loss,
                     'avg_v_loss': avg_v_loss,
+                    **({'feature_vocab': vocab.state_dict()} if vocab is not None else {}),
                 }, temp_path)
 
                 # Stream-compress in chunks (constant memory)
@@ -227,6 +275,7 @@ def train(
             'optimizer_dense_state_dict': opt_dense.state_dict(),
             'avg_p_loss': avg_pA_loss,
             'avg_v_loss': avg_v_loss,
+            **({'feature_vocab': vocab.state_dict()} if vocab is not None else {}),
         }, temp_path)
 
         # Stream-compress in chunks (constant memory)
@@ -244,5 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--steps", type=int, default=15000)
     parser.add_argument("--checkpoint", action="store_true")
+    parser.add_argument("--dense-vocab", action="store_true",
+                        help="size the embedding table to the features actually used (see vocab.py)")
     args = parser.parse_args()
-    train(args.deck, args.version, args.epochs, args.steps, args.checkpoint)
+    train(args.deck, args.version, args.epochs, args.steps, args.checkpoint, dense_vocab=args.dense_vocab)

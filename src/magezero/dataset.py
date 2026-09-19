@@ -25,7 +25,12 @@ class H5Indexed(Dataset):
       (indices:int64[r], policy:float32[A], value:float32[1], is_player:float32[1], action_type:int64[1])
     """
 
-    def __init__(self, dir_path: str, ignore: set[int] | None = None):
+    def __init__(self, dir_path: str, ignore: set[int] | None = None, vocab=None):
+        """ignore: feature ids to drop (full-table models).
+        vocab: a FeatureVocab (dense-vocab models); ids are mapped to embedding rows and ids
+        outside the vocab are dropped. Use one or the other."""
+        if ignore and vocab is not None:
+            raise ValueError("pass either ignore or vocab, not both")
         p = Path(dir_path)
         h5_paths = sorted(list(p.glob("*.h5")) + list(p.glob("*.hdf5")))
         self.files = [str(pp) for pp in h5_paths]
@@ -95,6 +100,14 @@ class H5Indexed(Dataset):
                     new_idxptr[i + 1] = write_pos
             indices_np = indices_np[:write_pos]
             idxptr_np = new_idxptr
+
+        # --- DENSE VOCAB (optional): feature id -> embedding row, unknown ids dropped ---
+        if vocab is not None:
+            rows = vocab.lookup(indices_np)
+            keep = rows >= 0
+            kept_before = np.concatenate([[0], np.cumsum(keep)])
+            idxptr_np = kept_before[idxptr_np].astype(np.int64)
+            indices_np = rows[keep].astype(np.int32)
 
         # store as tensors; __getitem__ uses zero-copy views
         self.idxptr_t = torch.from_numpy(idxptr_np)  # int64 [N+1]

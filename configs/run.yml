@@ -28,6 +28,7 @@ training:
   analyze_dataset: true
   generate_plots: true
   eval_previous_model: true
+  dense_vocab: false          # true: embedding rows only for features in use (~MBs instead of ~4 GB)
 
 log_level: ACTIONS           # ALL | GAMEPLAY | ACTIONS | ERROR
 
