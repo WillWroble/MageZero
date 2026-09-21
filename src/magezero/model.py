@@ -191,6 +191,26 @@ class NetTransformer(nn.Module):
             nn.Linear(hidden_dim_mlp, 1), nn.Tanh(),
         )
 
+    def resize_embedding(self, num_embeddings: int, init_rows=None) -> None:
+        """Grow the embedding table to `num_embeddings` rows, keeping existing rows unchanged.
+        Used by dense-vocab training when a new generation adds features to the vocab. `init_rows`
+        supplies the added rows (vocab.initial_rows draws each from its feature id, so a feature
+        starts from the same row whenever it is first seen, whatever generation that is); without
+        it they get nn.Embedding's default init."""
+        old = self.embedding
+        if num_embeddings == old.num_embeddings:
+            return
+        if num_embeddings < old.num_embeddings:
+            raise ValueError("the feature vocab is append-only; the embedding table cannot shrink")
+        new = nn.Embedding(num_embeddings, old.embedding_dim, sparse=old.sparse).to(old.weight.device)
+        with torch.no_grad():
+            new.weight[:old.num_embeddings] = old.weight
+            if init_rows is not None:
+                added = num_embeddings - old.num_embeddings
+                new.weight[old.num_embeddings:] = torch.as_tensor(
+                    init_rows, dtype=new.weight.dtype, device=new.weight.device)[:added]
+        self.embedding = new
+
     def forward(self, indices, offsets):
         B = offsets.shape[0]
         ends = torch.cat([offsets[1:], torch.tensor([indices.shape[0]], device=offsets.device)])

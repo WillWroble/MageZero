@@ -58,7 +58,7 @@ def profile_train(
 
 
     #data sets with redundant filter
-    ds = H5Indexed(f"data/{deck}/ver{version}/training", ignore_list)
+    ds = H5Indexed(f"data/{deck}/ver{version}/training", ignore_list, fold_bins=GLOBAL_MAX)
 
     #if round-robin filter out opponent states AFTER making the ignore list
     if not train_opponent_head:

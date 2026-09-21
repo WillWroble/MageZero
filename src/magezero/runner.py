@@ -296,12 +296,14 @@ def launch_jvm(game_yml_path: str, log_path: Optional[Path] = None) -> None:
 
 
 def run_train(deck: str, version: int, epochs: int, use_checkpoint: bool,
-              run_dir: Path, gen: int) -> None:
+              run_dir: Path, gen: int, dense_vocab: bool = False) -> None:
     cmd = [PYTHON, f"{SRC}/train.py",
            "--deck", deck, "--version", str(version),
            "--epochs", str(epochs)]
     if use_checkpoint:
         cmd.append("--checkpoint")
+    if dense_vocab:
+        cmd.append("--dense-vocab")
     log_path = run_dir / "train.log"
     with open(log_path, "a") as f:
         f.write(f"\n=== GEN {gen} TRAIN {datetime.now().isoformat()} ===\n")
@@ -493,7 +495,7 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
         try:
             epochs = EPOCHS_BOOTSTRAP if bootstrap else EPOCHS_ONLINE
             run_train(run.deck, run.version, epochs, use_checkpoint=not bootstrap,
-                      run_dir=run_dir, gen=gen)
+                      run_dir=run_dir, gen=gen, dense_vocab=run.training.dense_vocab)
         finally:
             restore_from_archive(run.deck, run.version, archived)
 

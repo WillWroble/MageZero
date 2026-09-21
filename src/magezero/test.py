@@ -5,6 +5,7 @@ from torch import nn  # optim is not strictly needed for testing if not optimizi
 from torch.utils.data import DataLoader
 
 from dataset import H5Indexed, collate_batch, filter_opponent_states
+from vocab import FeatureVocab
 from model import NetTransformer, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
 
 SHOW_CONFUSION_MATRIX = True
@@ -180,28 +181,38 @@ if __name__ == "__main__":
     parser.add_argument("--opponent-head", action="store_true")
     args = parser.parse_args()
 
-    ignore_path = f"models/{args.deck}/ver{args.version}/ignore.roar"
-    with open(ignore_path, "rb") as f:
-        ignore = BitMap.deserialize(f.read())
-    print(f"ignore list size: {len(ignore)}")
+    checkpoint_path = f"models/{args.deck}/ver{args.version}/model.pt.gz"
+    try:
+        checkpoint = load_model(checkpoint_path)
+    except FileNotFoundError:
+        checkpoint = None
+        print(f"ERROR: Checkpoint not found at {checkpoint_path}. Testing with uninitialized model.")
 
-    ds = H5Indexed(f"data/{args.deck}/ver{args.version}/testing", set(ignore))
+    vocab = None
+    if checkpoint is not None and "feature_vocab" in checkpoint:
+        vocab = FeatureVocab.from_state_dict(checkpoint["feature_vocab"])
+        vocab.require_encoding(GLOBAL_MAX)
+        print(f"feature vocab: {len(vocab)} rows")
+        ds = H5Indexed(f"data/{args.deck}/ver{args.version}/testing", vocab=vocab)
+    else:
+        ignore_path = f"models/{args.deck}/ver{args.version}/ignore.roar"
+        with open(ignore_path, "rb") as f:
+            ignore = BitMap.deserialize(f.read())
+        print(f"ignore list size: {len(ignore)}")
+        ds = H5Indexed(f"data/{args.deck}/ver{args.version}/testing", set(ignore), fold_bins=GLOBAL_MAX)
     if not args.opponent_head:
         ds = filter_opponent_states(ds, TARGETS_MAX)
 
     dl = DataLoader(ds, batch_size=512, shuffle=False, num_workers=0,
                     collate_fn=collate_batch, pin_memory=True, persistent_workers=False)
 
-    model = NetTransformer(GLOBAL_MAX, ACTIONS_MAX).cuda()
+    model = NetTransformer(len(vocab) if vocab is not None else GLOBAL_MAX, ACTIONS_MAX).cuda()
     model.eval()
 
-    checkpoint_path = f"models/{args.deck}/ver{args.version}/model.pt.gz"
     try:
-        checkpoint = load_model(checkpoint_path)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        print(f"Loaded checkpoint from {checkpoint_path}")
-    except FileNotFoundError:
-        print(f"ERROR: Checkpoint not found at {checkpoint_path}. Testing with uninitialized model.")
+        if checkpoint is not None:
+            model.load_state_dict(checkpoint['model_state_dict'])
+            print(f"Loaded checkpoint from {checkpoint_path}")
     except Exception as e:
         print(f"ERROR: Could not load checkpoint: {e}. Testing with uninitialized model.")
 
