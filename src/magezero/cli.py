@@ -6,7 +6,8 @@ Commands:
   mz batch [--config FILE]          single JVM launch via game.yml
   mz play  --deck X [--version N]   host a local AI player (stub)
   mz import <file>                  auto-detects .dck or .mz (.txt stubbed)
-  mz export --deck X --version N    pack model into a .mz bundle
+  mz export --deck X --version N    pack model into a .mz bundle (checkpoint, plus
+                                    ignore.roar for full-table models)
 """
 import argparse
 import json
@@ -87,8 +88,14 @@ def cmd_import(args: argparse.Namespace) -> None:
             version = meta["version"]
             dst = Path("models") / deck / f"ver{version}"
             dst.mkdir(parents=True, exist_ok=True)
+            names = zf.namelist()
+            if "model.pt.gz" not in names:
+                sys.exit(f"{src} has no model.pt.gz")
             zf.extract("model.pt.gz", dst)
-            zf.extract("ignore.roar", dst)
+            if "ignore.roar" in names:          # full-table model; dense ones keep the vocab inside
+                zf.extract("ignore.roar", dst)
+            elif not meta.get("dense_vocab") and not checkpoint_has_vocab(dst / "model.pt.gz"):
+                sys.exit(f"{src} has neither ignore.roar nor a feature vocab in the checkpoint")
         print(f"✓ imported model → {dst}")
 
     elif suffix == ".txt":
@@ -101,6 +108,17 @@ def cmd_import(args: argparse.Namespace) -> None:
 
 # ─── export ──────────────────────────────────────────────────
 
+def checkpoint_has_vocab(path: Path) -> bool | None:
+    """True if the checkpoint carries its feature vocab, None if it cannot be read. Importing
+    torch here keeps `mz import`/`mz export` of a deck file fast."""
+    try:
+        from magezero.model import load_model
+        return "feature_vocab" in load_model(str(path))
+    except Exception as e:
+        print(f"! could not read {path} ({e}); going by the files on disk")
+        return None
+
+
 def cmd_export(args: argparse.Namespace) -> None:
     src = Path("models") / args.deck / f"ver{args.version}"
     if not src.exists():
@@ -108,20 +126,29 @@ def cmd_export(args: argparse.Namespace) -> None:
 
     model_file = src / "model.pt.gz"
     ignore_file = src / "ignore.roar"
-    if not model_file.exists() or not ignore_file.exists():
-        sys.exit(f"missing model.pt.gz or ignore.roar in {src}")
+    if not model_file.exists():
+        sys.exit(f"missing model.pt.gz in {src}")
+
+    # A dense-vocab checkpoint carries its feature vocab inside, so there is no ignore.roar to
+    # pack. With no ignore list on disk that is the only thing it can be; with one, the checkpoint
+    # decides, because converting a model in place leaves the old ignore.roar next to it.
+    dense = True
+    if ignore_file.exists():
+        dense = checkpoint_has_vocab(model_file) or False
 
     out_dir = Path("exports")
     out_dir.mkdir(exist_ok=True)
     out_path = out_dir / f"{args.deck}_v{args.version}.mz"
 
-    metadata = {"deck": args.deck, "version": args.version}
+    metadata = {"deck": args.deck, "version": args.version, "dense_vocab": dense}
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(model_file, "model.pt.gz")
-        zf.write(ignore_file, "ignore.roar")
+        if not dense:
+            zf.write(ignore_file, "ignore.roar")
         zf.writestr("metadata.json", json.dumps(metadata, indent=2))
 
-    print(f"✓ exported → {out_path}")
+    kind = "feature vocab inside the checkpoint" if dense else "with ignore.roar"
+    print(f"✓ exported → {out_path} ({kind})")
 
 
 # ─── main ────────────────────────────────────────────────────

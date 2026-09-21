@@ -15,16 +15,21 @@ unused rows removed. Concretely:
      that appends the feature, and the full-table model all start it from the same row;
   8. a vocab built under a different feature encoding is refused rather than reinterpreted;
   9. the loader hands the vocab the ids XMage wrote, so ids from a hash space wider than the
-     full table's bin count reach it intact.
+     full table's bin count reach it intact;
+ 10. `mz export` / `mz import` round-trip a dense checkpoint, which has no ignore.roar.
 
 Runs on CPU. Tables default to 200k rows for speed; set MZ_TEST_TABLE_ROWS=2000000 to test
 the production table size (needs ~4 GB RAM for inference, ~16 GB for the training test).
 
   python -m pytest tests/test_dense_vocab.py       or       python tests/test_dense_vocab.py
 """
+import gzip
+import json
 import os
+import shutil
 import sys
 import tempfile
+import zipfile
 
 import h5py
 import numpy as np
@@ -301,3 +306,47 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             fn()
             print(f"PASS {name}")
+
+
+def test_mz_export_import_round_trip():
+    """`mz export` packs a dense checkpoint without ignore.roar (the vocab is inside it) and a
+    full-table one with it; `mz import` restores either."""
+    import argparse
+    from pathlib import Path
+
+    from magezero import cli
+
+    vocab = FeatureVocab([3, 4, 5], feature_hash_bins=TABLE_ROWS)
+    torch.manual_seed(0)
+    dense_ckpt = {"model_state_dict": NetTransformer(num_embeddings=len(vocab)).state_dict(),
+                  "feature_vocab": vocab.state_dict()}
+    full_ckpt = {"model_state_dict": NetTransformer(num_embeddings=TABLE_ROWS).state_dict()}
+
+    cwd = os.getcwd()
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            os.chdir(d)
+            for deck, ckpt, with_ignore in (("dense", dense_ckpt, False), ("full", full_ckpt, True)):
+                src = Path("models") / deck / "ver1"
+                src.mkdir(parents=True)
+                with gzip.open(src / "model.pt.gz", "wb") as f:
+                    torch.save(ckpt, f)
+                if with_ignore:
+                    (src / "ignore.roar").write_bytes(BitMap([1, 2]).serialize())
+
+                cli.cmd_export(argparse.Namespace(deck=deck, version=1))
+                bundle = Path("exports") / f"{deck}_v1.mz"
+                with zipfile.ZipFile(bundle) as zf:
+                    names, meta = zf.namelist(), json.loads(zf.read("metadata.json"))
+                assert ("ignore.roar" in names) is with_ignore, names
+                assert meta["dense_vocab"] is not with_ignore
+
+                shutil.rmtree(src)
+                cli.cmd_import(argparse.Namespace(file=str(bundle)))
+                assert (src / "model.pt.gz").exists()
+                assert (src / "ignore.roar").exists() is with_ignore
+            restored = FeatureVocab.from_state_dict(
+                torch.load(gzip.open("models/dense/ver1/model.pt.gz", "rb"))["feature_vocab"])
+            assert np.array_equal(restored.ids, vocab.ids)
+        finally:
+            os.chdir(cwd)
