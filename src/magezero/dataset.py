@@ -101,6 +101,11 @@ class H5Indexed(Dataset):
             indices_np = indices_np[:write_pos]
             idxptr_np = new_idxptr
 
+        # the full-table embedding has one row per hash bin, so raw ids fold into that range;
+        # dense-vocab rows are produced below and must not be touched by it
+        if vocab is None:
+            np.mod(indices_np, GLOBAL_MAX, out=indices_np)
+
         # --- DENSE VOCAB (optional): feature id -> embedding row, unknown ids dropped ---
         if vocab is not None:
             rows = vocab.lookup(indices_np)
@@ -148,8 +153,8 @@ def collate_batch(batch):
         offsets[i] = p
         p += L
 
-    # single conversion for EmbeddingBag
-    idxs = idxs.to(torch.long) % 2000000
+    # single conversion for EmbeddingBag (ids are already rows, or raw ids clamped in H5Indexed)
+    idxs = idxs.to(torch.long)
 
     policies     = torch.stack([b[1] for b in batch], 0)
     values       = torch.stack([b[2] for b in batch], 0)

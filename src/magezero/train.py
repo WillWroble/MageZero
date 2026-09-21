@@ -11,7 +11,7 @@ import shutil
 import test
 from model import NetTransformer, Net, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
 from dataset import H5Indexed, collate_batch,  create_redundancy_ignore_list, filter_opponent_states
-from vocab import FeatureVocab, kept_feature_ids
+from vocab import FeatureVocab, initial_rows, kept_feature_ids
 from pyroaring import BitMap
 
 #add training data under: data/{deck name}/ver{your version num}/training/{your data}.hdf5
@@ -61,6 +61,7 @@ def prepare_dense_vocab(deck: str, version: int, ds_raw: H5Indexed, use_checkpoi
                 raise ValueError(f"{checkpoint_path} has no feature vocab (full-table model). "
                                  f"Convert it with util/convert_dense_vocab.py or train without --dense-vocab.")
             vocab = FeatureVocab.from_state_dict(checkpoint["feature_vocab"])
+            vocab.require_encoding(GLOBAL_MAX)
             state = checkpoint["model_state_dict"]
             print(f"Successfully loaded checkpoint from {checkpoint_path}")
         except FileNotFoundError:
@@ -68,9 +69,14 @@ def prepare_dense_vocab(deck: str, version: int, ds_raw: H5Indexed, use_checkpoi
     prev_rows = len(vocab)
     added = vocab.extend(kept)
     model = NetTransformer(num_embeddings=max(prev_rows, 1) if state is not None else len(vocab))
+    dim = model.embedding.embedding_dim
     if state is not None:
         model.load_state_dict(state)
-        model.resize_embedding(len(vocab))
+        # rows the appended features would have started from in any run
+        model.resize_embedding(len(vocab), initial_rows(vocab.ids[prev_rows:], dim))
+    else:
+        with torch.no_grad():
+            model.embedding.weight.copy_(torch.from_numpy(initial_rows(vocab.ids, dim)))
     print(f"feature vocab: {len(kept)} kept ids in this dataset, {prev_rows} rows from checkpoint, "
           f"{added} added -> {len(vocab)} embedding rows")
     return vocab, model.cuda()

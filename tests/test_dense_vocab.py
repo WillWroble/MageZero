@@ -7,7 +7,12 @@ unused rows removed. Concretely:
   2. a converted checkpoint gives bit-identical outputs to the original on the same states;
   3. training steps give bit-identical results (Adam never moves rows with no gradient);
   4. the dataset loader yields the same features per state either way;
-  5. the vocab/embedding are append-only across generations.
+  5. the vocab/embedding are append-only across generations;
+  6. a bag is a set: repeated ids (including two feature names colliding on one hash id) feed the
+     model the same tokens as the full-table path, which deduplicates through a BitMap;
+  7. a feature's initial row depends only on its id, so a fresh dense model, a later generation
+     that appends the feature, and the full-table model all start it from the same row;
+  8. a vocab built under a different feature encoding is refused rather than reinterpreted.
 
 Runs on CPU. Tables default to 200k rows for speed; set MZ_TEST_TABLE_ROWS=2000000 to test
 the production table size (needs ~4 GB RAM for inference, ~16 GB for the training test).
@@ -28,7 +33,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from dataset import H5Indexed, collate_batch, create_redundancy_ignore_list  # noqa: E402
 from model import NetTransformer  # noqa: E402
-from vocab import FeatureVocab, kept_feature_ids  # noqa: E402
+from vocab import FeatureVocab, initial_rows, kept_feature_ids  # noqa: E402
 from convert_dense_vocab import convert  # noqa: E402
 
 TABLE_ROWS = int(os.environ.get("MZ_TEST_TABLE_ROWS", 200_000))
@@ -175,6 +180,72 @@ def test_map_bags_offsets():
     vocab = FeatureVocab([5, 6, 7])
     rows, offsets = vocab.map_bags([5, 1, 6, 2, 3, 7], [0, 2, 3, 5])   # bags: [5,1] [6] [2,3] [7]
     assert rows.tolist() == [0, 1, 2] and offsets.tolist() == [0, 1, 2, 2]
+
+
+def test_duplicate_ids_in_a_bag_match_the_full_table_path():
+    """The full-table server maps a state through BitMap(indices), which drops repeats. A repeat
+    would otherwise be pooled twice, so the dense path has to collapse it too. Includes the case
+    the collision makes real: two distinct features hashing to one id, both active in one state."""
+    vocab = FeatureVocab([5, 6, 7], feature_hash_bins=TABLE_ROWS)
+    ignore = BitMap(set(range(TABLE_ROWS)) - {5, 6, 7})
+    torch.manual_seed(0)
+    model = NetTransformer(num_embeddings=TABLE_ROWS).eval()
+    dense = NetTransformer(num_embeddings=len(vocab)).eval()
+    with torch.no_grad():                      # same rows in both tables
+        dense.load_state_dict({k: v for k, v in model.state_dict().items() if k != "embedding.weight"},
+                              strict=False)
+        dense.embedding.weight.copy_(model.embedding.weight[torch.tensor(vocab.ids)])
+
+    raw = [5, 5, 6, 9, 7, 7, 7]                # 5 and 7 repeat; 9 is outside the vocab
+    full_ids = sorted(BitMap(raw) - ignore)    # what the full-table server feeds the model
+    rows, offsets = vocab.map_bags(raw, [0])
+    with torch.no_grad():
+        want = model(torch.tensor(full_ids), torch.tensor([0]))
+        got = dense(torch.tensor(rows), torch.tensor(offsets))
+    for a, b in zip(want, got):
+        torch.testing.assert_close(a, b, rtol=0, atol=0)
+
+    # and per bag, not just globally
+    rows, offsets = vocab.map_bags([5, 5, 6, 7, 7], [0, 3])
+    assert rows.tolist() == [0, 1, 2] and offsets.tolist() == [0, 2]
+
+
+def test_initial_rows_depend_only_on_the_feature_id():
+    """A feature's starting row comes from its id, so when it first appears - in a fresh vocab or
+    appended by a later generation - it starts from the same row either way."""
+    dim = 8
+    fresh = initial_rows([10, 20, 30], dim)
+    assert fresh.shape == (3, dim)
+    np.testing.assert_array_equal(fresh[1], initial_rows([20], dim)[0])
+    np.testing.assert_array_equal(fresh[::-1], initial_rows([30, 20, 10], dim))
+    assert not np.array_equal(fresh[0], fresh[1])
+
+    # a later generation appends 30; it lands on the row a fresh vocab would have given it
+    vocab = FeatureVocab([10, 20])
+    model = NetTransformer(num_embeddings=len(vocab))
+    d = model.embedding.embedding_dim
+    added = vocab.extend([30])
+    model.resize_embedding(len(vocab), initial_rows(vocab.ids[len(vocab) - added:], d))
+    torch.testing.assert_close(model.embedding.weight[2],
+                               torch.from_numpy(initial_rows([30], d)[0]), rtol=0, atol=0)
+
+
+def test_vocab_refuses_a_different_feature_encoding():
+    vocab = FeatureVocab([1, 2, 3], feature_hash_bins=2_000_000)
+    vocab.require_encoding(2_000_000)                      # same encoding: fine
+    for bad in ({"feature_hash_bins": 2 ** 31}, {"hash_version": 2}, {"hash_algorithm": "other"}):
+        try:
+            vocab.require_encoding(**{"feature_hash_bins": 2_000_000, **bad})
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"expected a refusal for {bad}")
+
+    # a vocab saved before the encoding record is read as this encoding, not refused
+    old = FeatureVocab.from_state_dict({"format_version": 1, "ids": torch.tensor([1, 2, 3]),
+                                        "feature_hash_bins": 2_000_000})
+    old.require_encoding(2_000_000)
+    assert np.array_equal(old.ids, vocab.ids)
 
 
 if __name__ == "__main__":

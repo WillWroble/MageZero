@@ -44,6 +44,7 @@ def init(deck: str, version: int, port: int):
     if "feature_vocab" in ckpt:
         # dense vocab: ids are mapped to rows; ids outside the vocab are the ignored ones
         VOCAB = FeatureVocab.from_state_dict(ckpt["feature_vocab"])
+        VOCAB.require_encoding(GLOBAL_MAX)
         server_model = NetTransformer(len(VOCAB), ACTIONS_MAX).to(DEVICE).eval()
     else:
         with open(ignore_path, "rb") as f:
@@ -147,7 +148,8 @@ def worker_loop():
             )
             off = (all_off + adjustments).to(DEVICE, non_blocking=True)
 
-        idx =  idx % 2000000
+        if VOCAB is None:
+            idx = idx % GLOBAL_MAX   # raw feature ids; dense-vocab rows are already < len(VOCAB)
         # Single forward pass
         with torch.no_grad(), torch.amp.autocast('cuda'):
             pA, pB, tgt, bin2, val = server_model(idx, off)
