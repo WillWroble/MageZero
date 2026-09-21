@@ -191,6 +191,7 @@ if __name__ == "__main__":
     vocab = None
     if checkpoint is not None and "feature_vocab" in checkpoint:
         vocab = FeatureVocab.from_state_dict(checkpoint["feature_vocab"])
+        vocab.require_encoding(GLOBAL_MAX)
         print(f"feature vocab: {len(vocab)} rows")
         ds = H5Indexed(f"data/{args.deck}/ver{args.version}/testing", vocab=vocab)
     else:
@@ -198,7 +199,7 @@ if __name__ == "__main__":
         with open(ignore_path, "rb") as f:
             ignore = BitMap.deserialize(f.read())
         print(f"ignore list size: {len(ignore)}")
-        ds = H5Indexed(f"data/{args.deck}/ver{args.version}/testing", set(ignore))
+        ds = H5Indexed(f"data/{args.deck}/ver{args.version}/testing", set(ignore), fold_bins=GLOBAL_MAX)
     if not args.opponent_head:
         ds = filter_opponent_states(ds, TARGETS_MAX)
 

@@ -195,7 +195,8 @@ class NetTransformer(nn.Module):
         """Grow the embedding table to `num_embeddings` rows, keeping existing rows unchanged.
         Used by dense-vocab training when a new generation adds features to the vocab. `init_rows`
         supplies the added rows (vocab.initial_rows draws each from its feature id, so a feature
-        starts from the same row whenever it is first seen); without it they get the default init."""
+        starts from the same row whenever it is first seen, whatever generation that is); without
+        it they get nn.Embedding's default init."""
         old = self.embedding
         if num_embeddings == old.num_embeddings:
             return

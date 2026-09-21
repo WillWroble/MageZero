@@ -9,10 +9,13 @@ unused rows removed. Concretely:
   4. the dataset loader yields the same features per state either way;
   5. the vocab/embedding are append-only across generations;
   6. a bag is a set: repeated ids (including two feature names colliding on one hash id) feed the
-     model the same tokens as the full-table path, which deduplicates through a BitMap;
+     model the same tokens as the full-table path, which deduplicates through a BitMap, and the
+     dataset loader maps a state exactly as the server does, so training and play agree;
   7. a feature's initial row depends only on its id, so a fresh dense model, a later generation
      that appends the feature, and the full-table model all start it from the same row;
-  8. a vocab built under a different feature encoding is refused rather than reinterpreted.
+  8. a vocab built under a different feature encoding is refused rather than reinterpreted;
+  9. the loader hands the vocab the ids XMage wrote, so ids from a hash space wider than the
+     full table's bin count reach it intact.
 
 Runs on CPU. Tables default to 200k rows for speed; set MZ_TEST_TABLE_ROWS=2000000 to test
 the production table size (needs ~4 GB RAM for inference, ~16 GB for the training test).
@@ -31,7 +34,7 @@ from pyroaring import BitMap
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "magezero"))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "magezero", "util"))
 
-from dataset import H5Indexed, collate_batch, create_redundancy_ignore_list  # noqa: E402
+from dataset import GLOBAL_MAX, H5Indexed, collate_batch, create_redundancy_ignore_list  # noqa: E402
 from model import NetTransformer  # noqa: E402
 from vocab import FeatureVocab, initial_rows, kept_feature_ids  # noqa: E402
 from convert_dense_vocab import convert  # noqa: E402
@@ -157,6 +160,51 @@ def test_dataset_loader_matches_ignore_path():
             ids_legacy = legacy[k][0].numpy()
             ids_dense = vocab.ids[dense[k][0].numpy()]
             assert np.array_equal(ids_legacy, ids_dense), k
+
+
+def write_states(d, states, name="session1_test.hdf5"):
+    indices, idxptr = as_flat(states)
+    with h5py.File(os.path.join(d, name), "w") as f:
+        f["/indices"] = indices.astype(np.int32)
+        f["/offsets"] = idxptr
+        f["/row"] = np.zeros((len(states), 8), dtype=np.float32)
+
+
+def test_dataset_loader_has_the_same_set_semantics_as_the_server():
+    """A state with a repeated id has to become the same tokens in training as in play; otherwise
+    the mean-pool weighs that feature twice while training and once while playing."""
+    vocab = FeatureVocab([5, 6, 7], feature_hash_bins=TABLE_ROWS)
+    states = [[5, 5, 6, 9, 7, 7], [6], [5, 5, 5]]
+    with tempfile.TemporaryDirectory() as d:
+        write_states(d, states)
+        ds = H5Indexed(d, vocab=vocab)
+        assert [ds[k][0].tolist() for k in range(len(states))] == [[0, 1, 2], [1], [0]]
+        for k, state in enumerate(states):                      # identical to the server's mapping
+            rows, _ = vocab.map_bags(state, [0])
+            assert ds[k][0].tolist() == rows.tolist()
+
+
+def test_ids_wider_than_the_full_table_reach_the_vocab():
+    """FeatureVocab keys on the id XMage wrote. The loader must not fold it into the full table's
+    bin count first, or a wider hash space collapses back onto 2M before the vocab sees it."""
+    wide = GLOBAL_MAX + 123                                     # would fold to 123
+    # distinct co-occurrence patterns, so the ignore rule keeps all three as separate features
+    rng = np.random.default_rng(3)
+    states = [sorted({7} | ({wide} if rng.random() < 0.6 else set()) | ({123} if rng.random() < 0.6 else set()))
+              for _ in range(60)]
+    with tempfile.TemporaryDirectory() as d:
+        write_states(d, states)
+        raw = H5Indexed(d)                                      # no fold_bins: ids as written
+        ids = kept_feature_ids(raw.indices_t.numpy(), raw.idxptr_t.numpy())
+        assert wide in ids.tolist() and 123 in ids.tolist()      # distinct features, distinct rows
+
+        vocab = FeatureVocab(ids, feature_hash_bins=2 ** 31)
+        dense = H5Indexed(d, vocab=vocab)
+        both = next(k for k, st in enumerate(states) if wide in st and 123 in st)
+        assert sorted(vocab.ids[dense[both][0].numpy()].tolist()) == [7, 123, wide]
+
+        folded = H5Indexed(d, fold_bins=GLOBAL_MAX)             # the full-table path still folds
+        assert sorted(folded[both][0].tolist()) == [7, 123, 123]
 
 
 def test_vocab_is_append_only():

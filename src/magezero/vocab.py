@@ -14,8 +14,10 @@ exactly one row per listed id:
     moves a row that receives no gradient);
   * append-only: once an id has a row it keeps that row, so a checkpoint's feature->row mapping
     stays valid as later generations add features. The vocab is saved inside the checkpoint;
-  * same starting point: a feature's initial row is drawn from a stream keyed by its id, so it
-    starts from the same row whether the vocab is built fresh or the feature is appended later;
+  * discovery-order independent init: a feature's initial row is drawn from a stream keyed by its
+    id, so it starts from the same row whether the vocab is built fresh or the feature is appended
+    by a later generation. (This is not the row it would have drawn in some particular full-table
+    model, which depends on that model's seed and on the order 2M rows were filled.);
   * set semantics: a state is a set of features, so map_bags collapses an id repeated within one
     bag, matching the full-table path's BitMap. The model mean-pools a bag, so a repeat would
     weigh that feature twice;
@@ -41,9 +43,9 @@ HASH_ALGORITHM = "xmage_feature_hash"
 HASH_VERSION = 1
 
 # Keyed generator for a feature's initial embedding row, so the row a feature starts from depends
-# only on its id: a fresh dense model and a full-table model give the same feature the same
-# starting row, and a row appended in a later generation is the row that feature would always
-# have had.
+# only on its id and not on when the feature was first seen: a row appended in a later generation
+# is the row that feature would have had in a fresh vocab. It is not the row the feature would
+# have drawn in a particular full-table model.
 FEATURE_INIT_KEY = 0x4D5A45524F5F4645415455524553   # "MZERO_FEATURES"
 
 
@@ -57,13 +59,10 @@ def initial_rows(ids, embedding_dim: int) -> np.ndarray:
     return out
 
 
-def _bags_are_sets(indices: np.ndarray, offsets: np.ndarray) -> bool:
-    """True when every bag is strictly increasing, hence already duplicate-free. XMage sends
-    states this way, so the sort-and-dedupe path below is only for hand-built input."""
-    if len(indices) < 2:
-        return True
+def _bags_are_sets(indices: np.ndarray, lengths: np.ndarray) -> bool:
+    """True when every bag is strictly increasing, hence already duplicate-free."""
     rising = indices[1:] > indices[:-1]
-    rising[offsets[1:] - 1] = True            # gaps between bags don't have to rise
+    rising[np.cumsum(lengths)[:-1] - 1] = True   # gaps between bags don't have to rise
     return bool(rising.all())
 
 
@@ -105,29 +104,37 @@ class FeatureVocab:
         hit = self._sorted[pos_c] == ids
         return np.where(hit, self._order[pos_c], -1)
 
-    def map_bags(self, indices, offsets) -> tuple[np.ndarray, np.ndarray]:
-        """Map a flat list of ids split into bags by `offsets` to rows, dropping unknown ids.
-        Returns (rows, new_offsets) with the same number of bags.
+    def _dedupe(self, indices: np.ndarray, lengths: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """(bag index, id) pairs with ids repeated within a bag collapsed, as the full-table
+        path's BitMap does. The model mean-pools a bag, so a repeat would weigh that feature
+        twice. XMage sends each bag sorted and unique, so the check below takes the fast path."""
+        bags = np.repeat(np.arange(len(lengths), dtype=np.int64), lengths)
+        if indices.size < 2 or _bags_are_sets(indices, lengths):
+            return bags, indices
+        order = np.lexsort((indices, bags))
+        bags, indices = bags[order], indices[order]
+        first = np.ones(len(indices), dtype=bool)
+        first[1:] = (bags[1:] != bags[:-1]) | (indices[1:] != indices[:-1])
+        return bags[first], indices[first]
 
-        A bag is a set of features: ids repeated within one bag are collapsed, as the full-table
-        path's BitMap does. The model mean-pools a bag's rows, so a repeat would otherwise weigh
-        that feature twice. XMage sends each feature once, so this only guards the invariant."""
+    def map_bags(self, indices, offsets) -> tuple[np.ndarray, np.ndarray]:
+        """Map a flat list of ids split into bags by `offsets` (bag starts) to rows, dropping
+        unknown ids. Returns (rows, new starts) with the same number of bags."""
         indices = np.asarray(indices, dtype=np.int64)
         offsets = np.asarray(offsets if len(offsets) else [0], dtype=np.int64)
-        lengths = np.diff(np.append(offsets, indices.size))
-        if indices.size and not _bags_are_sets(indices, offsets):
-            bags = np.repeat(np.arange(len(offsets), dtype=np.int64), lengths)
-            order = np.lexsort((indices, bags))
-            bags, indices = bags[order], indices[order]
-            first = np.ones(len(indices), dtype=bool)
-            first[1:] = (bags[1:] != bags[:-1]) | (indices[1:] != indices[:-1])
-            bags, indices = bags[first], indices[first]
-        else:
-            bags = np.repeat(np.arange(len(offsets), dtype=np.int64), lengths)
+        rows, idxptr = self.map_csr(indices, np.append(offsets, indices.size))
+        return rows, idxptr[:-1]
+
+    def map_csr(self, indices, idxptr) -> tuple[np.ndarray, np.ndarray]:
+        """Same mapping for CSR-style input (idxptr has one more entry than there are bags).
+        This is the form the dataset loader holds, so training and serving map identically."""
+        indices = np.asarray(indices, dtype=np.int64)
+        idxptr = np.asarray(idxptr, dtype=np.int64)
+        bags, indices = self._dedupe(indices, np.diff(idxptr))
         rows = self.lookup(indices)
         keep = rows >= 0
-        per_bag = np.bincount(bags[keep], minlength=len(offsets))
-        return rows[keep], np.concatenate([[0], np.cumsum(per_bag)[:-1]])
+        per_bag = np.bincount(bags[keep], minlength=len(idxptr) - 1)
+        return rows[keep], np.concatenate([[0], np.cumsum(per_bag)])
 
     def encoding(self) -> dict:
         return {"hash_algorithm": self.hash_algorithm, "hash_version": self.hash_version,

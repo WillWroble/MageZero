@@ -29,7 +29,10 @@ def train(
         dense_vocab: bool = False,
 ):
     os.makedirs(f"models/{deck}/ver{version}", exist_ok=True)
-    ds_raw = H5Indexed(f"data/{deck}/ver{version}/training")
+    # the full-table model has one row per hash bin, so it folds ids into that range; the dense
+    # vocab keys on the id XMage wrote, which may come from a wider hash space
+    ds_raw = H5Indexed(f"data/{deck}/ver{version}/training",
+                       fold_bins=None if dense_vocab else GLOBAL_MAX)
 
     if dense_vocab:
         vocab, model = prepare_dense_vocab(deck, version, ds_raw, use_checkpoint)
@@ -117,8 +120,8 @@ def prepare_full_table(deck: str, version: int, ds_raw: H5Indexed, use_checkpoin
         f.write(ignore.serialize())
 
     #data sets with redundant filter
-    ds = H5Indexed(f"data/{deck}/ver{version}/training", ignore_list)
-    test_ds = H5Indexed(f"data/{deck}/ver{version}/testing", ignore_list)
+    ds = H5Indexed(f"data/{deck}/ver{version}/training", ignore_list, fold_bins=GLOBAL_MAX)
+    test_ds = H5Indexed(f"data/{deck}/ver{version}/testing", ignore_list, fold_bins=GLOBAL_MAX)
 
     return model, ds, test_ds
 

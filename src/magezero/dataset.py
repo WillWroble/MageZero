@@ -25,10 +25,14 @@ class H5Indexed(Dataset):
       (indices:int64[r], policy:float32[A], value:float32[1], is_player:float32[1], action_type:int64[1])
     """
 
-    def __init__(self, dir_path: str, ignore: set[int] | None = None, vocab=None):
+    def __init__(self, dir_path: str, ignore: set[int] | None = None, vocab=None,
+                 fold_bins: int | None = None):
         """ignore: feature ids to drop (full-table models).
         vocab: a FeatureVocab (dense-vocab models); ids are mapped to embedding rows and ids
-        outside the vocab are dropped. Use one or the other."""
+        outside the vocab are dropped. Use one or the other.
+        fold_bins: fold raw ids into [0, fold_bins) — the full-table embedding has one row per
+        hash bin, so that path passes GLOBAL_MAX. Without it the loader hands back the ids XMage
+        wrote, so ids from a wider hash space reach the vocab intact."""
         if ignore and vocab is not None:
             raise ValueError("pass either ignore or vocab, not both")
         p = Path(dir_path)
@@ -101,18 +105,14 @@ class H5Indexed(Dataset):
             indices_np = indices_np[:write_pos]
             idxptr_np = new_idxptr
 
-        # the full-table embedding has one row per hash bin, so raw ids fold into that range;
-        # dense-vocab rows are produced below and must not be touched by it
-        if vocab is None:
-            np.mod(indices_np, GLOBAL_MAX, out=indices_np)
+        if fold_bins is not None:
+            np.mod(indices_np, fold_bins, out=indices_np)
 
         # --- DENSE VOCAB (optional): feature id -> embedding row, unknown ids dropped ---
+        # same mapping the server uses, so a state becomes the same tokens in training and play
         if vocab is not None:
-            rows = vocab.lookup(indices_np)
-            keep = rows >= 0
-            kept_before = np.concatenate([[0], np.cumsum(keep)])
-            idxptr_np = kept_before[idxptr_np].astype(np.int64)
-            indices_np = rows[keep].astype(np.int32)
+            rows, idxptr_np = vocab.map_csr(indices_np, idxptr_np)
+            indices_np = rows.astype(np.int32)
 
         # store as tensors; __getitem__ uses zero-copy views
         self.idxptr_t = torch.from_numpy(idxptr_np)  # int64 [N+1]

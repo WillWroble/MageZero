@@ -76,7 +76,7 @@ def load_variant(args, variant):
         return NetTransformer(num_embeddings=len(vocab)), H5Indexed(args.data, vocab=vocab)
     # the upstream path: ignore list over the 2M id space, one row per possible id
     ignore = create_redundancy_ignore_list(raw)
-    return NetTransformer(num_embeddings=2_000_000), H5Indexed(args.data, ignore)
+    return NetTransformer(num_embeddings=2_000_000), H5Indexed(args.data, ignore, fold_bins=2_000_000)
 
 
 def fixed_batches(ds, batch, n, seed=0):
