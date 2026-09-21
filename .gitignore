@@ -18,3 +18,4 @@ ignore.roar
 FeatureTable.txt
 /db
 *.ser
+/traces

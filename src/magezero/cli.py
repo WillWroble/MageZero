@@ -23,7 +23,7 @@ from magezero import runner
 
 def cmd_train(args: argparse.Namespace) -> None:
     run_cfg, cur_cfg = load_all(args.run)
-    runner.run_pipeline(run_cfg, cur_cfg, base_game_yml=args.game)
+    runner.run_pipeline(run_cfg, cur_cfg, base_game_yml=args.game, resume=args.resume)
 
 
 # ─── batch ───────────────────────────────────────────────────
@@ -75,7 +75,7 @@ def cmd_import(args: argparse.Namespace) -> None:
 
     suffix = src.suffix.lower()
     if suffix == ".dck":
-        dst = Path("xmage/decks") / src.name
+        dst = runner.DECKS_DIR / src.name
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(src, dst)
         print(f"✓ imported deck → {dst}")
@@ -92,8 +92,10 @@ def cmd_import(args: argparse.Namespace) -> None:
         print(f"✓ imported model → {dst}")
 
     elif suffix == ".txt":
-        sys.exit("`.txt` deck conversion not yet wired up. "
-                 "Convert manually to .dck for now.")
+        dst = Path("xmage/decks") / src.name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(src, dst)
+        print(f"✓ imported deck → {dst}")
 
     else:
         sys.exit(f"unknown file type: {suffix} (expected .dck, .mz, or .txt)")
@@ -133,6 +135,7 @@ def main() -> None:
     p_train = sub.add_parser("train", help="full curriculum pipeline")
     p_train.add_argument("--run", default="configs/run.yml")
     p_train.add_argument("--game", default="configs/game.yml")
+    p_train.add_argument("--resume", action="store_true", help="resume an active run without prompting")
     p_train.set_defaults(func=cmd_train)
 
     p_batch = sub.add_parser("batch", help="single JVM launch")

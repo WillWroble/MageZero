@@ -8,8 +8,9 @@ import waitress
 from pyroaring import BitMap
 from flask import Flask, request, Response
 import msgpack
-from model import NetTransformer, Net, load_model, GLOBAL_MAX, ACTIONS_MAX
 
+from model import NetTransformer, load_model, GLOBAL_MAX
+#
 # Device setup
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -18,7 +19,7 @@ TORCH_THREADS = 1 #max(1, os.cpu_count() // 2)
 torch.set_num_threads(TORCH_THREADS)
 
 # Batching config
-MAX_BATCH = 16
+MAX_BATCH = 64
 MAX_WAIT_MS = 0
 
 #module state
@@ -43,7 +44,7 @@ def init(deck: str, version: int, port: int):
 
     VALID_RANGE = BitMap(range(GLOBAL_MAX))
 
-    server_model = NetTransformer(GLOBAL_MAX, ACTIONS_MAX).to(DEVICE).eval()
+    server_model = NetTransformer(GLOBAL_MAX).to(DEVICE).eval()
     ckpt = load_model(model_path)
     server_model.load_state_dict(ckpt["model_state_dict"])
 
@@ -105,16 +106,10 @@ def worker_loop():
         p0 = Q.get()
         batch = [p0]
 
-        # Collect more requests up to MAX_BATCH or MAX_WAIT_MS
-        deadline = time.perf_counter() + (MAX_WAIT_MS / 1000.0)
-        while len(batch) < MAX_BATCH or not Q.empty():
-            remaining = deadline - time.perf_counter()
-            if remaining <= 0:
-                remaining = 0
-                if Q.empty():
-                    break
+        # Collect more requests up to MAX_BATCH
+        while len(batch) < MAX_BATCH:
             try:
-                batch.append(Q.get(timeout=remaining))
+                batch.append(Q.get(block=False))
             except Empty:
                 break
 
@@ -138,7 +133,7 @@ def worker_loop():
             )
             off = (all_off + adjustments).to(DEVICE, non_blocking=True)
 
-        idx =  idx % 2000000
+        idx =  idx % GLOBAL_MAX
         # Single forward pass
         with torch.no_grad(), torch.amp.autocast('cuda'):
             pA, pB, tgt, bin2, val = server_model(idx, off)

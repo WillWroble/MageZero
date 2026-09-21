@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import h5py
 import yaml
 
 from magezero.util.config import (
@@ -69,6 +70,16 @@ def next_session_id(deck: str) -> int:
 
 
 # run folders (history + active state)
+
+def games_completed(path: Path) -> int:
+    """Games fully flushed to an HDF5 shard. 0 for a missing, unreadable, or pre-game_offsets file."""
+    try:
+        with h5py.File(path, "r") as f:
+            if "/game_offsets" not in f:
+                return 0
+            return f["/game_offsets"].shape[0] - 1
+    except OSError:
+        return 0
 
 def find_active_run(deck: str, version: int) -> Optional[Path]:
     if not RUNS_DIR.exists():
@@ -128,21 +139,26 @@ def record_gen(run_dir: Path, gen: int, settings: GenSettings,
                primary_sessions: dict, opponent_sessions: dict) -> None:
     json_file = run_dir / "run.json"
     data = json.loads(json_file.read_text())
-    data["gens"][str(gen)] = {
-        "primary_sessions": primary_sessions,
-        "opponent_sessions": opponent_sessions,
-        "settings": {
-            "td_discount": settings.td_discount,
-            "prior_temperature": settings.prior_temperature,
-            "priors": {
-                "binary": settings.priors.binary,
-                "priority": settings.priors.priority,
-                "target": settings.priors.target,
-                "opponent": settings.priors.opponent,
+    if str(gen) not in data["gens"]:
+        data["gens"][str(gen)] = {
+            "primary_sessions": {k: [] for k in primary_sessions},
+            "opponent_sessions": {k: [] for k in opponent_sessions},
+            "settings": {
+                "td_discount": settings.td_discount,
+                "prior_temperature": settings.prior_temperature,
+                "priors": {
+                    "binary": settings.priors.binary,
+                    "priority": settings.priors.priority,
+                    "target": settings.priors.target,
+                    "opponent": settings.priors.opponent,
+                },
             },
-        },
-        "completed_at": datetime.now().isoformat(),
-    }
+            "completed_at": datetime.now().isoformat(),
+        }
+    for k, v in primary_sessions.items():
+        data["gens"][str(gen)]["primary_sessions"][k].extend(v)
+    for k, v in opponent_sessions.items():
+        data["gens"][str(gen)]["opponent_sessions"][k].extend(v)
     json_file.write_text(json.dumps(data, indent=2))
 
 
@@ -184,6 +200,15 @@ def copy_starting_checkpoint(run: RunConfig) -> None:
 
 
 # data file path helpers
+DECKS_DIR = Path("xmage/decks")
+
+
+def deck_file(deck: str) -> Path:
+    for ext in (".dck", ".txt"):
+        p = DECKS_DIR / f"{deck}{ext}"
+        if p.exists():
+            return p.resolve()
+    sys.exit(f"deck not found: {DECKS_DIR / deck}.dck or .txt")
 
 def primary_file(deck: str, version: int, sid: int, opponent: str) -> Path:
     name = f"session{sid}_{deck}_vs_{opponent}.hdf5"
@@ -207,14 +232,12 @@ def parse_session_id(filename: str) -> Optional[int]:
 
 def build_game_yml(base_path: str, settings: GenSettings, run: RunConfig,
                    opp: Opponent, primary_out: Path, opponent_out: Path,
-                   primary_offline: bool, opp_offline: bool) -> str:
+                   primary_offline: bool, opp_offline: bool, games_complete = 0) -> str:
     with open(base_path) as f:
         cfg = yaml.safe_load(f)
 
-    decks_dir = Path("xmage/decks").resolve()
-
     pa = cfg["player_a"]
-    pa["deckPath"] = str(decks_dir / f"{run.deck}.dck")
+    pa["deckPath"] = str(deck_file(run.deck))
     pa["output_file"] = str(primary_out.resolve())
     pa["mcts"]["offline_mode"] = primary_offline
     pa["mcts"]["td_discount"] = settings.td_discount
@@ -225,12 +248,12 @@ def build_game_yml(base_path: str, settings: GenSettings, run: RunConfig,
     pa["priors"]["opponent"] = settings.priors.opponent
 
     pb = cfg["player_b"]
-    pb["deckPath"] = str(decks_dir / f"{opp.deck}.dck")
+    pb["deckPath"] = str(deck_file(opp.deck))
     pb["output_file"] = str(opponent_out.resolve())
     pb["type"] = "minimax" if opp.mode == "minimax" else "mcts"
     pb["mcts"]["offline_mode"] = opp_offline
 
-    cfg["training"]["games"] = run.games_per_gen
+    cfg["training"]["games"] = run.games_per_gen - games_complete
     cfg["server"]["port"] = PRIMARY_PORT
     cfg["server"]["opponent_port"] = OPPONENT_PORT
 
@@ -287,7 +310,8 @@ def stop_server(proc: subprocess.Popen) -> None:
 
 def launch_jvm(game_yml_path: str, log_path: Optional[Path] = None) -> None:
     print(f"[jvm] launching with {game_yml_path}")
-    cmd = ["cmd", "/c", "xmage\\mz-xmage.bat", str(Path(game_yml_path).resolve())]
+    script = "xmage\\mz-xmage.bat" if sys.platform == "win32" else "xmage/mz-xmage.sh"
+    cmd = ["cmd", "/c", script, str(Path(game_yml_path).resolve())] if sys.platform == "win32" else [script, str(Path(game_yml_path).resolve())]
     if log_path is None:
         subprocess.run(cmd, check=True)
         return
@@ -334,7 +358,6 @@ def run_dataset_stats(deck: str, version: int, split: str,
 
 
 # data movement
-
 def move_testing_to_training(deck: str, version: int) -> None:
     src = Path("data") / deck / f"ver{version}" / "testing"
     dst = Path("data") / deck / f"ver{version}" / "training"
@@ -384,12 +407,15 @@ def restore_from_archive(deck: str, version: int, files: list[Path]) -> None:
 # main pipeline
 
 def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
-                 base_game_yml: str = "configs/game.yml") -> None:
+                 base_game_yml: str = "configs/game.yml", resume: bool = False) -> None:
     # resume detection
     active = find_active_run(run.deck, run.version)
     if active:
-        ans = input(f"Active run found: {active.name}. Resume? [Y/n] ").strip().lower()
-        if ans in ("", "y", "yes"):
+        if not resume:
+            ans = input(f"Active run found: {active.name}. Resume? [Y/n] ").strip().lower()
+            if ans in ("", "y", "yes"):
+                resume = True
+        if resume:
             run_dir = active
             start_gen = json.loads((active / "run.json").read_text())["current_gen"]
             print(f"Resuming from gen {start_gen}")
@@ -399,6 +425,7 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
             run_dir = create_run_dir(run)
             start_gen = 0
     else:
+        resume = False
         copy_starting_checkpoint(run)
         run_dir = create_run_dir(run)
         start_gen = 0
@@ -432,9 +459,18 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
             primary_path.parent.mkdir(parents=True, exist_ok=True)
             opponent_path.parent.mkdir(parents=True, exist_ok=True)
 
+            n_completed = 0
+            if resume and gen==start_gen and json.loads((active / "run.json").read_text())["gens"].get(str(gen)):
+                for prev_sid in json.loads((active / "run.json").read_text())["gens"][str(gen)]["primary_sessions"][opp.deck]:
+                    prev_path = primary_file(run.deck, run.version, prev_sid, opp.deck)
+                    n_completed += games_completed(prev_path)
+                print(f"{n_completed} / {run.games_per_gen} games already completed for {opp.deck}")
+            if n_completed == run.games_per_gen:
+                continue
             game_yml = build_game_yml(
                 base_game_yml, settings, run, opp,
                 primary_path, opponent_path, primary_offline, opp_offline,
+                n_completed
             )
             jobs.append((opp.deck, game_yml))
             primary_sessions.setdefault(opp.deck, []).append(primary_sid)
@@ -445,6 +481,7 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
         if not primary_offline:
             servers.append(start_server(run.deck, run.version, PRIMARY_PORT, run_dir))
 
+        record_gen(run_dir, gen, settings, primary_sessions, opponent_sessions)
         try:
             with ThreadPoolExecutor(max_workers=run.max_jvms) as pool:
                 futures = {}
@@ -483,10 +520,8 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
         # archive out-of-window data
         update_run(run_dir, stage="train")
         data = json.loads((run_dir / "run.json").read_text())
-        provisional = dict(data["gens"])
-        provisional[str(gen)] = {"primary_sessions": primary_sessions}
         archived = archive_out_of_window(
-            run.deck, run.version, provisional, gen, run.replay_buffer_gens,
+            run.deck, run.version, data["gens"], gen, run.replay_buffer_gens,
         )
 
         # train
@@ -496,8 +531,6 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
                       run_dir=run_dir, gen=gen)
         finally:
             restore_from_archive(run.deck, run.version, archived)
-
-        record_gen(run_dir, gen, settings, primary_sessions, opponent_sessions)
 
     update_run(run_dir, completed_at=datetime.now().isoformat(), stage="done")
     print(f"\n✓ Run complete: {run_dir.name}")

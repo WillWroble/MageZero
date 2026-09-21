@@ -3,6 +3,8 @@
 # before each JVM launch. Everything else passes through untouched — edit freely.
 
 goes_first: random  # player_a | player_b | random
+game_mode: normal # normal, commander
+
 
 player_a:
   deckPath: xmage/decks/UWTempo.dck
@@ -15,6 +17,8 @@ player_a:
     binary: false
     opponent: false
     prior_temperature: 1.5
+    prior_bonus: 0.0
+
 
   noise:
     enabled: false
@@ -26,6 +30,7 @@ player_a:
     timeout_ms: 4000
     td_discount: 0.85
     offline_mode: false
+    prune_duplicate_states: true
 
   gameplay:
     mulligans_enabled: false
@@ -45,6 +50,8 @@ player_b:
     binary: false
     opponent: false
     prior_temperature: 1.5
+    prior_bonus: 0.0
+
 
   noise:
     enabled: false
@@ -56,6 +63,7 @@ player_b:
     timeout_ms: 4000
     td_discount: 0.85
     offline_mode: false
+    prune_duplicate_states: true
 
   gameplay:
     mulligans_enabled: false
@@ -68,6 +76,7 @@ training:
   games: 200
   threads: 4
   max_turns: 50
+  max_minutes: 60
 
 server:
   host: localhost

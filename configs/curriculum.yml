@@ -1,4 +1,4 @@
-# curriculum.yml — hyperparameter schedule for power users
+# curriculum.yml — hyperparameter schedule
 
 defaults:
   td_discount: 0.70

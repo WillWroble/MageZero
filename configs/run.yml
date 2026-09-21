@@ -1,27 +1,60 @@
 # run.yml — defines a single deck training run
 
-deck: UWTempo
-version: 28
+deck: Standard32-UWB
+version: 1
 start_from_version: null     # null = offline bootstrap, set to resume from checkpoint
 
 generations: 1
-games_per_gen: 100
+games_per_gen: 4
 replay_buffer_gens: 10
 
 opponents:
-  - deck: Standard-MonoR
+  - deck: Standard-MonoB
     mode: mcts
     offline: true
   - deck: Standard-MonoG
     mode: mcts
     offline: true
-  - deck: Standard-MonoB
+  - deck: Standard-MonoR
+    mode: mcts
+    offline: true
+  - deck: Standard-MonoU
     mode: mcts
     offline: true
   - deck: Standard-MonoW
     mode: mcts
     offline: true
-  - deck: Standard-MonoU
+  - deck: Standard16-GB
+    mode: mcts
+    offline: true
+  - deck: Standard16-RB
+    mode: mcts
+    offline: true
+  - deck: Standard16-UB
+    mode: mcts
+    offline: true
+  - deck: Standard16-BW
+    mode: mcts
+    offline: true
+  - deck: Standard16-RG
+    mode: mcts
+    offline: true
+  - deck: Standard16-UG
+    mode: mcts
+    offline: true
+  - deck: Standard16-GW
+    mode: mcts
+    offline: true
+  - deck: Standard16-UR
+    mode: mcts
+    offline: true
+  - deck: Standard16-RW
+    mode: mcts
+    offline: true
+  - deck: Standard16-UW
+    mode: mcts
+    offline: true
+  - deck: Standard16-5C
     mode: mcts
     offline: true
 training:

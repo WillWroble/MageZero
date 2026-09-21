@@ -40,7 +40,7 @@ cd MageZero
 
 ### 2.2 Download the XMage distribution
 
-Go to the [latest release](https://github.com/WillWroble/MageZero/releases/latest) and download `magezero-xmage-v0.1.0-alpha.zip`. Extract it into the repo root so you end up with an `xmage/` folder containing `lib/`, `mz-xmage.bat`, `mz-xmage.sh`, and `log4j.properties`.
+Go to the [latest release](https://github.com/WillWroble/MageZero/releases/latest) and download `magezero-xmage-v0.1.2-alpha.zip`. Extract it into the repo root so you end up with an `xmage/` folder containing `lib/`, `mz-xmage.bat`, `mz-xmage.sh`, and `log4j.properties`.
 
 ```
 MageZero/
@@ -103,17 +103,17 @@ Training is deck-local. You need at least one deck to train and one or more deck
 
 ### 3.1 Convert your deck to .dck format
 
-Export your deck from Moxfield, MTGA, or MTGO as plain text. Use the XMage client's deck builder (or any `.txt` → `.dck` converter) to produce a `.dck` file.
+Export your deck from Moxfield, MTGA, or MTGO as a plain text file (ie `MyDeck.txt`) 
 
 Sideboards are not yet supported.
 
 ### 3.2 Drop it in
 
 ```
-MageZero/xmage/decks/MyDeck.dck
+MageZero/xmage/decks/MyDeck.txt
 ```
 
-The filename (without `.dck`) is what you'll reference everywhere else — in configs, on the command line, in the data/model folder names. Pick something without spaces.
+The filename (without `.txt`) is what you'll reference everywhere else — in configs, on the command line, in the data/model folder names. Pick something without spaces.
 
 A handful of reference decks are included in `xmage/decks/` out of the box for opponents — monocolored Standard decks. You can add your own or use those.
 
@@ -134,9 +134,9 @@ replay_buffer_gens: 3
 
 opponents:
   - deck: Standard-MonoR
-    mode: minimax
+    mode: mcts
   - deck: Standard-MonoG
-    mode: minimax
+    mode: mcts
 
 training:
   analyze_dataset: true
@@ -155,7 +155,7 @@ Fields worth knowing:
 - **`generations`** — how many full self-play / train / eval cycles to run.
 - **`games_per_gen`** — how many games per opponent per generation.
 - **`replay_buffer_gens`** — how many past generations of data to train on. Older data gets archived automatically.
-- **`opponents`** — list of decks to play against. `mode` is `minimax` (fast, heuristic bot) or `mcts` (full MCTS with its own trained model). Start with `minimax` for initial training.
+- **`opponents`** — list of decks to play against. `mode` is `minimax` (fast, heuristic bot) or `mcts` (full MCTS with its own trained model or heuristics).
 
 ### Curriculum (optional)
 
@@ -257,7 +257,7 @@ mz batch --config configs/game.yml
 Auto-detects file type:
 - `.dck` → copies to `xmage/decks/`
 - `.mz` → unpacks to `models/<deck>/ver<N>/`
-- `.txt` → not yet wired up, convert manually for now
+- `.txt` → copies to `xmage/decks/`
 
 ```
 mz import path/to/mydeck.dck
@@ -273,7 +273,7 @@ mz export --deck MyDeck --version 3
 Produces `exports/MyDeck_v3.mz` containing the model, ignore list, and metadata.
 
 ### `mz play`
-Host a local game server with a trained AI player. Starts the inference server for the chosen opponent deck, launches XMage, and waits for you to connect with the XMage client. See the Play section below for full instructions.
+Host a local game server with a trained AI player. Starts the inference server for the chosen opponent deck, and waits for you to connect with your own XMage client. See the Play section below for full instructions.
 
 ```
 mz play --deck UWTempo

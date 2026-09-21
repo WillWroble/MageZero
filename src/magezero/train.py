@@ -9,7 +9,7 @@ import gzip
 import shutil
 
 import test
-from model import NetTransformer, Net, load_model, GLOBAL_MAX, ACTIONS_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
+from model import NetTransformer, load_model, GLOBAL_MAX, PRIORITY_A_MAX, PRIORITY_B_MAX, TARGETS_MAX, BINARY_MAX, ActionType, lambda_pA, lambda_pB, lambda_t, lambda_b, normalize_policy_labels
 from dataset import H5Indexed, collate_batch,  create_redundancy_ignore_list, filter_opponent_states
 from pyroaring import BitMap
 
@@ -82,11 +82,6 @@ def train(
     test.SHOW_CONFUSION_MATRIX = False
 
     #optimizers
-    #opt_sparse = optim.SparseAdam(model.embedding_bag.parameters(), lr=1e-4)
-    #opt_sparse = optim.SparseAdam(model.embedding.parameters(), lr=1e-4)
-    dense_params = [p for n, p in model.named_parameters()
-                    if "embedding" not in n or "transformer" in n]
-    #opt_dense = optim.Adam(dense_params, lr=5e-4)
     opt_dense = optim.Adam(model.parameters(), lr=1e-4)
 
     mse = nn.MSELoss()
@@ -167,11 +162,8 @@ def train(
                 lv = mse(value_pred, batch_value_labels.squeeze(-1))
 
                 loss = lpA + lpB + lt + lb + lv
-            #opt_sparse.zero_grad()
+
             opt_dense.zero_grad()
-            #loss.backward()
-            #opt_sparse.step()
-            #opt_dense.step()
             scaler.scale(loss).backward()
             scaler.step(opt_dense)
             scaler.update()
@@ -194,27 +186,7 @@ def train(
               f"l1_dense={avg_l1_dense_loss} l1_sparse={avg_l1_sparse_loss} decision_states={total_decision_examples}")
         #run current model on testing set (if there is one)
         if len(test_ds)>0:
-            val_loss = test.validate(model, dl_test)
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                checkpoint_save_path = f"models/{deck}/ver{version}/best.pt.gz"
-                temp_path = checkpoint_save_path.replace('.gz', '.tmp')
-
-                # Save uncompressed
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_dense_state_dict': opt_dense.state_dict(),
-                    'avg_p_loss': avg_pA_loss,
-                    'avg_v_loss': avg_v_loss,
-                }, temp_path)
-
-                # Stream-compress in chunks (constant memory)
-                with open(temp_path, 'rb') as f_in:
-                    with gzip.open(checkpoint_save_path, 'wb', compresslevel=1) as f_out:
-                        shutil.copyfileobj(f_in, f_out, length=16 * 1024 * 1024)  # 16MB chunks
-
-                os.remove(temp_path)
+            test.validate(model, dl_test)
 
         #TODO: make validation based checkpoint schedule
         checkpoint_save_path = f"models/{deck}/ver{version}/model.pt.gz"

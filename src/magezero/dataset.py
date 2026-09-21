@@ -46,23 +46,30 @@ class H5Indexed(Dataset):
         A_ref = None
 
         for path in self.files:
-            with h5py.File(path, "r") as f:
-                off = f["/offsets"][...].astype(np.int64, copy=False)  # [N+1]
-                idx = f["/indices"][...].astype(np.int32, copy=False)  # [nnz]
-                row = f["/row"][...].astype(np.float32, copy=False)  # [N, A+4]
-                N = int(off.shape[0] - 1);
-                nnz = int(off[-1])
-                A_local = int(row.shape[1] - 4)
-                if A_ref is None:
-                    A_ref = A_local
-                else:
-                    assert A_local == A_ref, "Inconsistent A across shards"
+            try:
+                with h5py.File(path, "r") as f:
+                    off = f["/offsets"][...].astype(np.int64, copy=False)  # [N+1]
+                    idx = f["/indices"][...].astype(np.int32, copy=False)  # [nnz]
+                    row = f["/row"][...].astype(np.float32, copy=False)  # [N, A+4]
+            except (OSError, KeyError) as e:
+                print(f"[warn] skipping unreadable shard {path}: {e}")
+                continue
+            if off[0] != 0 or (np.diff(off) < 0).any() or off[-1] != idx.shape[0] or off.shape[0] - 1 != row.shape[0]:
+                print(f"[warn] skipping inconsistent shard {path}")
+                continue
+            N = int(off.shape[0] - 1);
+            nnz = int(off[-1])
+            A_local = int(row.shape[1] - 4)
+            if A_ref is None:
+                A_ref = A_local
+            else:
+                assert A_local == A_ref, "Inconsistent A across shards"
 
-                indices_chunks.append(idx)
-                row_chunks.append(row)
-                if N > 0: idxptr.extend((off[1:] + nnz_cum).tolist())
-                nnz_cum += nnz
-                N_total += N
+            indices_chunks.append(idx)
+            row_chunks.append(row)
+            if N > 0: idxptr.extend((off[1:] + nnz_cum).tolist())
+            nnz_cum += nnz
+            N_total += N
 
         self.N = N_total;
         self.A = A_ref if A_ref is not None else 0
