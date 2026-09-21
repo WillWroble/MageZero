@@ -25,7 +25,16 @@ class H5Indexed(Dataset):
       (indices:int64[r], policy:float32[A], value:float32[1], is_player:float32[1], action_type:int64[1])
     """
 
-    def __init__(self, dir_path: str, ignore: set[int] | None = None):
+    def __init__(self, dir_path: str, ignore: set[int] | None = None, vocab=None,
+                 fold_bins: int | None = None):
+        """ignore: feature ids to drop (full-table models).
+        vocab: a FeatureVocab (dense-vocab models); ids are mapped to embedding rows and ids
+        outside the vocab are dropped. Use one or the other.
+        fold_bins: fold raw ids into [0, fold_bins) — the full-table embedding has one row per
+        hash bin, so that path passes GLOBAL_MAX. Without it the loader hands back the ids XMage
+        wrote, so ids from a wider hash space reach the vocab intact."""
+        if ignore and vocab is not None:
+            raise ValueError("pass either ignore or vocab, not both")
         p = Path(dir_path)
         h5_paths = sorted(list(p.glob("*.h5")) + list(p.glob("*.hdf5")))
         self.files = [str(pp) for pp in h5_paths]
@@ -103,6 +112,15 @@ class H5Indexed(Dataset):
             indices_np = indices_np[:write_pos]
             idxptr_np = new_idxptr
 
+        if fold_bins is not None:
+            np.mod(indices_np, fold_bins, out=indices_np)
+
+        # --- DENSE VOCAB (optional): feature id -> embedding row, unknown ids dropped ---
+        # same mapping the server uses, so a state becomes the same tokens in training and play
+        if vocab is not None:
+            rows, idxptr_np = vocab.map_csr(indices_np, idxptr_np)
+            indices_np = rows.astype(np.int32)
+
         # store as tensors; __getitem__ uses zero-copy views
         self.idxptr_t = torch.from_numpy(idxptr_np)  # int64 [N+1]
         self.indices_t = torch.from_numpy(indices_np)  # int32 [nnz]
@@ -142,8 +160,8 @@ def collate_batch(batch):
         offsets[i] = p
         p += L
 
-    # single conversion for EmbeddingBag
-    idxs = idxs.to(torch.long) % 2000000
+    # single conversion for EmbeddingBag (ids are already rows, or raw ids clamped in H5Indexed)
+    idxs = idxs.to(torch.long)
 
     policies     = torch.stack([b[1] for b in batch], 0)
     values       = torch.stack([b[2] for b in batch], 0)
