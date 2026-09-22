@@ -8,9 +8,10 @@ This approach reframes the challenge of MTG AI from universal mastery to local o
 
 ---
 
-### 2. Current Status (April 2026): **First public alpha released**
+### 2. Current Status (September 2026): **Second public alpha released**
 
-MageZero v0.1.0-alpha is available on the [releases page](https://github.com/WillWroble/MageZero/releases/latest). This includes a precompiled XMage distribution and the `mz` CLI for running full training curricula end-to-end.
+MageZero v0.2.0-alpha is available on the [releases page](https://github.com/WillWroble/MageZero/releases/latest). This includes a precompiled XMage distribution and the `mz` CLI for running full training curricula end-to-end, as well as an included 16 opponent pool to train your constructed decks against.
+Right now these 16 decks are being used to simulate the 2022-2025 standard metagame, if you are interested in lending your compute to this experiment with your own standard-ish deck contact me or join the discord.  
 
 The project uses [XMage](https://github.com/magefree/mage), an Open Source complete MTG rules engine, as a gym environment. See this project's [XMage fork](https://github.com/WillWroble/mage) for the state vectorization and MCTS logic (relevant modules: `Player.AI.RL`, `Player.AI.MCTS`, `Mage.MageZero`).
 
@@ -100,26 +101,24 @@ MageZero's architecture is an end-to-end self-improvement cycle.
 
 Within the XMage fork, Game state is captured via a custom `StateEncoder.java`, which converts each decision point into a high-dimensional binary feature vector.
 
-* **Dynamic Feature Hashing**: This system supports a sparse, open-ended state representation to handle all the discrete artifacts and tokens MTG games can produce. This is done by use of a massive sparse Embedding Bag (2M features) with Weinberger style feature hashing. A typical 60card deck matchup utilizes a \~5,000 feature slice of this space. With usually around ~200 active features per state (after filtering redundant features) making chance of collision <0.01%. Since all decks share the same massive input space, overlapping deck feature slices allow for potential cross-deck learning.
+* **Dynamic Feature Hashing**: This system supports a sparse, open-ended state representation to handle all the discrete artifacts and tokens MTG games can produce. This is done by use of a massive sparse Embedding Table with Weinberger style feature hashing. A typical 60card deck matchup utilizes a \~5,000 feature slice of this space. With usually around ~200 active features per state (after filtering redundant features) making chance of collision <0.01%. Since all decks share the same massive input space, overlapping deck feature slices allow for potential cross-deck learning.
 * **Hierarchical & Abstracted Features**: The hashing captures not just card presence but also sub-features (like abilities on a card) and game metadata (life totals, turn phase). Numeric features are discretized, and cardinality is represented through thresholds. Sub-features pool up to parent features, creating additional layers of abstraction (e.g., a "green" sub-feature on a creature contributes to a "green permanents on the battlefield" count), providing a richer, more redundant signal for the model.
 
 #### **Neural Network Architecture**
 
-The model uses a single-layer Transformer encoder over sparse token embeddings, with 4 policy heads and 1 value head.
+The model uses a double-layer Transformer encoder over sparse token embeddings, with 4 policy heads and 1 value head.
 
 * **Structure**: 
-  * **Sparse Embedding**: 2M × 512D; `nn.Embedding(sparse=True)` with SparseAdam. Each active feature index maps to a 512D learned embedding. A typical state has ~200 active tokens.
+  * **Sparse Embedding**: N_active × 512D; `nn.Embedding(sparse=False)`  Each active feature index maps to a 512D learned embedding. A typical state has ~1000 active tokens.
   * **Input Token Dropout**: 30% of tokens are randomly dropped before attention during training, acting as a regularizer on the feature set.
-  * **Transformer Encoder**: Single `TransformerEncoderLayer` (d_model=512, nhead=4, dim_feedforward=512). Self-attention computes pairwise interactions between all active tokens, allowing each feature's representation to be context-dependent. This replaced an earlier EmbeddingBag(sum) architecture which destroyed co-occurrence information and caused systematic misattribution (see Skrelv problem below).
-  * **Mean Pooling**: Context-aware token embeddings are mean-pooled over real (non-padded, non-dropped) tokens to produce a single 512D state representation.
-  * **Hidden Layer**: 256D; ReLU activation. Shared pathway before policy/value branching.
+  * **Transformer Encoder**: Double  `TransformerEncoderLayer` (d_model=512, nhead=4, dim_feedforward=1024). Self-attention computes pairwise interactions between all active tokens, allowing each feature's representation to be context-dependent. This replaced an earlier EmbeddingBag(sum) architecture which destroyed co-occurrence information and caused systematic misattribution (see Skrelv problem below).
+  * **Mean Pooling**: Context-aware token embeddings are mean-pooled over real (non-padded, non-dropped) tokens to produce a single 512D state representation, which is reused for all MLP-heads.
   * **Policy Heads**: all deck local or matchup local
     * **Player Priority**: 128D; deck local; each logit corresponds to a priority action the Agent (PlayerA) can take (eg. activated abilities, casting spells). usually around ~20 logits are used per deck
     * **Opponent Priority**: 128D; opponent deck local; each logit corresponds to a priority action the opponent (PlayerB could take). when running MCTS vs MCTS games. both Agents share one network. and use each head.
     * **Targets**: 128D; matchup local; shared target space across both decks for all micro decisions involving targets. (this is used for selecting which attacking creature to use a blocker on). usually ~60 logits used per matchup
     * **Binary decisions** 2D: matchup local; shared binary space for all binary decisions made by either player. (this is used to select attackers sequentially)
   * **Value Head**: Estimates the probability of winning (trained with Mean Squared Error). The value target uses a MuZero style TD-blend over MCTS roots scores for richer, more stable value predictions.
-* **Optimization**: The network uses a combination of Adam and SparseAdam optimizers. Training incorporates dropout layers for regularization.
 * **Training**: all training samples are flagged with their decision type (player priority, opponent priority, target decision, binary decision). all sample types are trained together in mixed batches but policy gradients are gated to each sample's corresponding policy head.
 
 ### 5. MCTS
