@@ -36,6 +36,10 @@ def train(
         ds = filter_opponent_states(ds,TARGETS_MAX)
         test_ds = filter_opponent_states(test_ds,TARGETS_MAX)
 
+    if len(ds) == 0:
+        print(f"No training samples for {deck} ver{version}; skipping this training step.")
+        return
+
     train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab)
 
 
