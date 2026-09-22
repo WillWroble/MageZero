@@ -2,7 +2,7 @@
 
 deck: Standard32-UWB
 version: 1
-start_from_version: null     # null = offline bootstrap, set to resume from checkpoint
+start_from_version: 1     # null = offline bootstrap, set to resume from checkpoint
 
 generations: 1
 games_per_gen: 4
@@ -61,7 +61,6 @@ training:
   analyze_dataset: true
   generate_plots: true
   eval_previous_model: true
-  dense_vocab: false          # true: embedding rows only for features in use (~MBs instead of ~4 GB)
 
 log_level: ACTIONS           # ALL | GAMEPLAY | ACTIONS | ERROR
 

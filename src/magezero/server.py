@@ -5,7 +5,6 @@ from queue import Queue, Empty
 
 import torch
 import waitress
-from pyroaring import BitMap
 from flask import Flask, request, Response
 import msgpack
 from model import NetTransformer, load_model, GLOBAL_MAX
@@ -20,13 +19,10 @@ torch.set_num_threads(TORCH_THREADS)
 
 # Batching config
 MAX_BATCH = 64
-MAX_WAIT_MS = 0
 
 #module state
 server_model = None
-IGNORE_BM = None
-VALID_RANGE = None
-VOCAB = None  # FeatureVocab for dense-vocab checkpoints; None for full-table ones
+VOCAB = None
 
 app = Flask(__name__)
 
@@ -34,10 +30,9 @@ req_counter = 0
 req_counter_lock = threading.Lock()
 
 def init(deck: str, version: int, port: int):
-    global server_model, IGNORE_BM, VALID_RANGE, VOCAB
+    global server_model, VOCAB
 
     model_dir = f"models/{deck}/ver{version}"
-    ignore_path = f"{model_dir}/ignore.roar"
     model_path = f"{model_dir}/model.pt.gz"
 
     ckpt = load_model(model_path)
@@ -47,10 +42,7 @@ def init(deck: str, version: int, port: int):
         VOCAB.require_encoding(GLOBAL_MAX)
         server_model = NetTransformer(len(VOCAB)).to(DEVICE).eval()
     else:
-        with open(ignore_path, "rb") as f:
-            IGNORE_BM = BitMap.deserialize(f.read())
-        VALID_RANGE = BitMap(range(GLOBAL_MAX))
-        server_model = NetTransformer(GLOBAL_MAX).to(DEVICE).eval()
+        raise ValueError("old checkpoint version")
     server_model.load_state_dict(ckpt["model_state_dict"])
 
     threading.Thread(target=worker_loop, daemon=True).start()
@@ -81,30 +73,10 @@ def apply_ignore(indices: list[int], offsets: list[int] | None):
     if not offsets:
         offsets = [0]
 
-    if VOCAB is not None:
-        rows, new_offsets = VOCAB.map_bags(indices, offsets)
-        return rows.tolist(), new_offsets.tolist(), len(new_offsets)
 
-    if len(offsets) == 1:
-        # Single bag - pure bitmap ops in C
-        kept_bm = (BitMap(indices) - IGNORE_BM) & VALID_RANGE
-        return list(kept_bm), [0], 1
+    rows, new_offsets = VOCAB.map_bags(indices, offsets)
+    return rows.tolist(), new_offsets.tolist(), len(new_offsets)
 
-    # Multi-bag
-    n = len(indices)
-    new_indices = []
-    new_offsets = [0]
-
-    for b in range(len(offsets)):
-        start = offsets[b]
-        end = offsets[b + 1] if b + 1 < len(offsets) else n
-
-        kept_bm = (BitMap(indices[start:end]) - IGNORE_BM) & VALID_RANGE
-        new_indices.extend(kept_bm)
-        new_offsets.append(len(new_indices))
-
-    new_offsets = new_offsets[:-1]
-    return new_indices, new_offsets, len(new_offsets)
 
 
 Q: "Queue[Pending]" = Queue(maxsize=4096)
@@ -142,8 +114,7 @@ def worker_loop():
             )
             off = (all_off + adjustments).to(DEVICE, non_blocking=True)
 
-        if VOCAB is None:
-            idx = idx % GLOBAL_MAX   # raw feature ids; dense-vocab rows are already < len(VOCAB)
+
         # Single forward pass
         with torch.no_grad(), torch.amp.autocast('cuda'):
             pA, pB, tgt, bin2, val = server_model(idx, off)

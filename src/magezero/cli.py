@@ -88,7 +88,6 @@ def cmd_import(args: argparse.Namespace) -> None:
             dst = Path("models") / deck / f"ver{version}"
             dst.mkdir(parents=True, exist_ok=True)
             zf.extract("model.pt.gz", dst)
-            zf.extract("ignore.roar", dst)
         print(f"✓ imported model → {dst}")
 
     elif suffix == ".txt":
@@ -109,9 +108,8 @@ def cmd_export(args: argparse.Namespace) -> None:
         sys.exit(f"model not found: {src}")
 
     model_file = src / "model.pt.gz"
-    ignore_file = src / "ignore.roar"
-    if not model_file.exists() or not ignore_file.exists():
-        sys.exit(f"missing model.pt.gz or ignore.roar in {src}")
+    if not model_file.exists():
+        sys.exit(f"missing model.pt.gz in {src}")
 
     out_dir = Path("exports")
     out_dir.mkdir(exist_ok=True)
@@ -120,7 +118,6 @@ def cmd_export(args: argparse.Namespace) -> None:
     metadata = {"deck": args.deck, "version": args.version}
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(model_file, "model.pt.gz")
-        zf.write(ignore_file, "ignore.roar")
         zf.writestr("metadata.json", json.dumps(metadata, indent=2))
 
     print(f"✓ exported → {out_path}")

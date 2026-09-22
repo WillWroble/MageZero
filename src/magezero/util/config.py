@@ -26,7 +26,6 @@ class TrainingFlags:
     analyze_dataset: bool = True
     generate_plots: bool = True
     eval_previous_model: bool = True
-    dense_vocab: bool = False   # size the embedding table to the features used (see vocab.py)
 
 
 @dataclass

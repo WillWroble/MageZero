@@ -17,7 +17,7 @@ MageZero Neural Network architecture for AlphaZero style MCTS:
 """
 
 
-GLOBAL_MAX = 2000000
+GLOBAL_MAX = 2**31-1
 
 PRIORITY_A_MAX = 128
 PRIORITY_B_MAX = 128
@@ -42,7 +42,7 @@ lambda_t = head_weight(TARGETS_MAX)
 lambda_b = head_weight(BINARY_MAX)
 
 class NetTransformer(nn.Module):
-    def __init__(self, num_embeddings=GLOBAL_MAX, policy_size_pA=PRIORITY_A_MAX, policy_size_pB=PRIORITY_B_MAX, policy_size_t=TARGETS_MAX, policy_size_b=BINARY_MAX):
+    def __init__(self, num_embeddings=2048, policy_size_pA=PRIORITY_A_MAX, policy_size_pB=PRIORITY_B_MAX, policy_size_t=TARGETS_MAX, policy_size_b=BINARY_MAX):
         super().__init__()
 
         embedding_dim = 512

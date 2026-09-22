@@ -2,15 +2,11 @@
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader, Subset
-from typing import List, Tuple
 from pathlib import Path  # Use the modern pathlib for handling file paths
 import sys
-from typing import Set
-from scipy.sparse import coo_matrix
 import h5py
 
 
-GLOBAL_MAX = 2000000
 
 H5_RECIDX_DTYPE = np.dtype([("file", "i4"), ("row", "i8")])
 
@@ -25,16 +21,10 @@ class H5Indexed(Dataset):
       (indices:int64[r], policy:float32[A], value:float32[1], is_player:float32[1], action_type:int64[1])
     """
 
-    def __init__(self, dir_path: str, ignore: set[int] | None = None, vocab=None,
-                 fold_bins: int | None = None):
-        """ignore: feature ids to drop (full-table models).
-        vocab: a FeatureVocab (dense-vocab models); ids are mapped to embedding rows and ids
-        outside the vocab are dropped. Use one or the other.
-        fold_bins: fold raw ids into [0, fold_bins) — the full-table embedding has one row per
-        hash bin, so that path passes GLOBAL_MAX. Without it the loader hands back the ids XMage
-        wrote, so ids from a wider hash space reach the vocab intact."""
-        if ignore and vocab is not None:
-            raise ValueError("pass either ignore or vocab, not both")
+    def __init__(self, dir_path: str, vocab=None):
+        """vocab: a FeatureVocab (dense-vocab models); ids are mapped to embedding rows and ids
+        outside the vocab are dropped. """
+
         p = Path(dir_path)
         h5_paths = sorted(list(p.glob("*.h5")) + list(p.glob("*.hdf5")))
         self.files = [str(pp) for pp in h5_paths]
@@ -88,34 +78,10 @@ class H5Indexed(Dataset):
         row_np = (np.concatenate(row_chunks, axis=0) if row_chunks
                   else np.empty((0, self.A + 4), dtype=np.float32))  # [N, A+4]
 
-        # --- EAGER IGNORE (optional, once) ---
-        if ignore:
-            ign = np.fromiter(ignore, dtype=np.int32)
-            keep_all = ~np.isin(indices_np, ign, assume_unique=False)
-            new_idxptr = np.empty_like(idxptr_np)
-            new_idxptr[0] = 0
-            write_pos = 0
-            for i in range(self.N):
-                a = idxptr_np[i]
-                b = idxptr_np[i + 1]
-                if b > a:
-                    m = keep_all[a:b]
-                    L = int(m.sum())
-                    if L:
-                        # compact kept indices forward (single pass)
-                        src = indices_np[a:b][m]
-                        indices_np[write_pos:write_pos + L] = src
-                    new_idxptr[i + 1] = write_pos + L
-                    write_pos += L
-                else:
-                    new_idxptr[i + 1] = write_pos
-            indices_np = indices_np[:write_pos]
-            idxptr_np = new_idxptr
 
-        if fold_bins is not None:
-            np.mod(indices_np, fold_bins, out=indices_np)
 
-        # --- DENSE VOCAB (optional): feature id -> embedding row, unknown ids dropped ---
+
+        # --- DENSE VOCAB: feature id -> embedding row, unknown ids dropped ---
         # same mapping the server uses, so a state becomes the same tokens in training and play
         if vocab is not None:
             rows, idxptr_np = vocab.map_csr(indices_np, idxptr_np)
@@ -170,57 +136,7 @@ def collate_batch(batch):
 
     return idxs, offsets, policies, values, is_players, action_types
 
-def create_redundancy_ignore_list(ds, k=10) -> Set[int]:
-    """
-    constructs a data derived ignore list which includes perfectly redundant features, and features that occur less than k times.
-    """
-    # make sparse matrix
-    rows_list, cols_list = [], []
 
-    num_samples = 0
-
-    for (idxs, _, _, _, _) in ds:
-        idxs_np = idxs.cpu().numpy().astype(np.int32, copy=False)
-        rows_list.append(np.full(idxs_np.shape, num_samples, dtype=np.int32))
-        cols_list.append(idxs_np)
-        num_samples += 1
-
-    rows = np.concatenate(rows_list)
-    cols = np.concatenate(cols_list)
-
-    data = np.ones_like(cols, dtype=np.uint8)
-
-    x_csc = coo_matrix(
-        (data, (rows, cols)),
-        shape=(num_samples, GLOBAL_MAX),
-        dtype=np.uint8
-    ).tocsc()
-
-    # group identical columns
-    groups = {}
-    indptr = x_csc.indptr
-    idxs = x_csc.indices
-
-    ignore = set()
-
-    for j in range(GLOBAL_MAX):
-        start, end = indptr[j], indptr[j + 1]
-        key = tuple(idxs[start:end])  # () means unseen/empty
-        if len(key) <= k:
-            ignore.add(j)
-        groups.setdefault(key, []).append(j)
-
-    for key, js in groups.items():
-        if key == () or len(js) == 1:
-            continue
-        js.sort()
-        ignore.update(js[1:])
-
-    kept = GLOBAL_MAX - len(ignore)
-    print(f"A total of {len(ignore)} feature indices will be ignored.")
-    print(f"{kept} feature indices were kept.")
-
-    return ignore
 
 def filter_one_hots(dataset):
     """
