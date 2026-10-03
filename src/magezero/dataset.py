@@ -1,249 +1,187 @@
 # dataset.py
+from pathlib import Path
+
+import h5py
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader, Subset
-from pathlib import Path  # Use the modern pathlib for handling file paths
-import sys
-import h5py
+from torch.utils.data import Dataset
+
+from model import ActionType, Graphs, NodeType, PRIORITY_TYPES, TARGET_TYPES, Targets
+from vocab import feature_id
+
+BATCH_SIZE = 256
+
+# LabeledStateWriter layout: each offsets array (one entry per state + 1) indexes its per-item arrays
+GROUPS = {
+    "/offsets": ("/indices", "/values"),
+    "/edge_offsets": ("/edge_child", "/edge_parent", "/edge_label"),
+    "/policy_offsets": ("/policy_node", "/policy_visits"),
+}
+KEYS = ("/row", "/indices", "/values", "/offsets", "/edge_child", "/edge_parent", "/edge_label", "/edge_offsets",
+        "/policy_node", "/policy_visits", "/policy_offsets")
+ROW_WIDTH = 6
+
+# a typed node's id is the hash of its type name and the root's id is 0; every other node is a leaf
+TYPE_IDS = {0: NodeType.ROOT}
+for _t in NodeType:
+    if _t not in (NodeType.ROOT, NodeType.LEAF):
+        TYPE_IDS[feature_id(_t.name)] = _t
 
 
+def node_types(ids: np.ndarray) -> np.ndarray:
+    types = np.full(ids.shape, NodeType.LEAF, dtype=np.int8)
+    for type_id, t in TYPE_IDS.items():
+        types[ids == type_id] = t
+    return types
 
-H5_RECIDX_DTYPE = np.dtype([("file", "i4"), ("row", "i8")])
 
-class H5Indexed(Dataset):
+def states_of(offsets: np.ndarray) -> np.ndarray:
+    """State index of each item, from its offsets array."""
+    return np.repeat(np.arange(len(offsets) - 1), np.diff(offsets))
+
+
+def map_ids(ids, node_type, edge_label, vocab, edge_vocab):
+    """(node_row, edge_row) for the network: each leaf's vocab row (-1 for typed nodes and leaves
+    outside the vocab, whose edges the network drops) and each edge label's row + 1 (0 for labels
+    outside the vocab). Training data and inference requests map the same way."""
+    node_row = np.where(node_type == NodeType.LEAF, vocab.lookup(ids), -1)
+    return node_row.astype(np.int32), (edge_vocab.lookup(edge_label) + 1).astype(np.int32)
+
+
+def shard_problem(s: dict):
+    """Why a shard's arrays don't form a valid set of graphs, or None."""
+    n = s["/row"].shape[0]
+    if s["/row"].ndim != 2 or s["/row"].shape[1] != ROW_WIDTH:
+        return f"/row has shape {s['/row'].shape}, expected [states, {ROW_WIDTH}]"
+    for off_key, item_keys in GROUPS.items():
+        off = s[off_key]
+        if off.shape[0] != n + 1:
+            return f"{off_key} has {off.shape[0]} entries for {n} states (expected {n + 1})"
+        if off[0] != 0:
+            return f"{off_key} starts at {off[0]}, not 0"
+        drops = np.flatnonzero(np.diff(off) < 0)
+        if len(drops):
+            return f"{off_key} decreases at state {drops[0]} ({off[drops[0]]} -> {off[drops[0] + 1]})"
+        for key in item_keys:
+            if s[key].shape[0] != off[-1]:
+                return f"{key} has {s[key].shape[0]} entries but {off_key} ends at {off[-1]}"
+    nodes = np.diff(s["/offsets"])
+    for key, off_key in (("/edge_child", "/edge_offsets"), ("/edge_parent", "/edge_offsets"),
+                         ("/policy_node", "/policy_offsets")):
+        state = states_of(s[off_key])
+        bad = np.flatnonzero((s[key] < 0) | (s[key] >= nodes[state]))
+        if len(bad):
+            i = bad[0]
+            return f"{key} has node index {s[key][i]} in state {state[i]}, which has {nodes[state[i]]} nodes"
+    return None
+
+
+class H5Graphs(Dataset):
     """
-    Preloads all HDF5 shards into RAM for fast random access.
-    Expects per-file datasets:
-      /indices  (int32, [nnz])
-      /offsets  (int64, [N+1], offsets[0]=0, offsets[-1]=nnz)
-      /row      (float32, [N, A+4])  -> [policy(A), resultLabel, stateScore, isPlayer(0/1), actionType]
-    Returns (per sample):
-      (indices:int64[r], policy:float32[A], value:float32[1], is_player:float32[1], action_type:int64[1])
+    Preloads all HDF5 shards in a directory into RAM for fast random access (LabeledStateWriter layout):
+      /indices, /values             int32 [nodes]       node feature id, numeric value
+      /offsets                      int64 [N+1]
+      /edge_child, /edge_parent     int32 [edges]       node index local to the state
+      /edge_label                   int32 [edges]       hashed edge label
+      /edge_offsets                 int64 [N+1]
+      /policy_node, /policy_visits  int32 [candidates]  node index local to the state, MCTS visits
+      /policy_offsets               int64 [N+1]
+      /row                          float32 [N, 6]      resultLabel, stateScore, isPlayer, actionType,
+                                                        useFalseVisits, useTrueVisits
+    Ids stay raw until apply_vocab maps them to embedding rows; __getitem__ needs the mapped form.
     """
 
-    def __init__(self, dir_path: str, vocab=None):
-        """vocab: a FeatureVocab (dense-vocab models); ids are mapped to embedding rows and ids
-        outside the vocab are dropped. """
-
+    def __init__(self, dir_path: str, vocab=None, edge_vocab=None):
         p = Path(dir_path)
-        h5_paths = sorted(list(p.glob("*.h5")) + list(p.glob("*.hdf5")))
-        self.files = [str(pp) for pp in h5_paths]
+        self.files = [str(pp) for pp in sorted(list(p.glob("*.h5")) + list(p.glob("*.hdf5")))]
 
-        if not self.files:
-            self.N = 0
-            self.A = 0
-            self.idxptr_t = torch.zeros(1, dtype=torch.long)
-            self.indices_t = torch.empty(0, dtype=torch.int32)
-            self.row_t = torch.empty(0, 0, dtype=torch.float32)
-            return
-
-        idxptr = [0]
-        indices_chunks = []
-        row_chunks = []
-        nnz_cum = 0
-        N_total = 0
-        A_ref = None
-
+        shards = []
         for path in self.files:
             try:
                 with h5py.File(path, "r") as f:
-                    off = f["/offsets"][...].astype(np.int64, copy=False)  # [N+1]
-                    idx = f["/indices"][...].astype(np.int32, copy=False)  # [nnz]
-                    row = f["/row"][...].astype(np.float32, copy=False)  # [N, A+4]
+                    shard = {key: f[key][...] for key in KEYS}
             except (OSError, KeyError) as e:
                 print(f"[warn] skipping unreadable shard {path}: {e}")
                 continue
-            if off[0] != 0 or (np.diff(off) < 0).any() or off[-1] != idx.shape[0] or off.shape[0] - 1 != row.shape[0]:
-                print(f"[warn] skipping inconsistent shard {path}")
+            problem = shard_problem(shard)
+            if problem:
+                print(f"[warn] skipping inconsistent shard {path}: {problem}")
                 continue
-            N = int(off.shape[0] - 1);
-            nnz = int(off[-1])
-            A_local = int(row.shape[1] - 4)
-            if A_ref is None:
-                A_ref = A_local
-            else:
-                assert A_local == A_ref, "Inconsistent A across shards"
+            shards.append(shard)
 
-            indices_chunks.append(idx)
-            row_chunks.append(row)
-            if N > 0: idxptr.extend((off[1:] + nnz_cum).tolist())
-            nnz_cum += nnz
-            N_total += N
+        def cat(key, dtype):
+            return np.concatenate([s[key] for s in shards]).astype(dtype, copy=False) if shards else np.empty(0, dtype)
 
-        self.N = N_total;
-        self.A = A_ref if A_ref is not None else 0
-        idxptr_np = np.asarray(idxptr, dtype=np.int64)  # [N+1]
-        indices_np = (np.concatenate(indices_chunks) if indices_chunks
-                      else np.empty(0, dtype=np.int32))  # [nnz]
-        row_np = (np.concatenate(row_chunks, axis=0) if row_chunks
-                  else np.empty((0, self.A + 4), dtype=np.float32))  # [N, A+4]
+        def cat_offsets(key):
+            parts, base = [np.zeros(1, dtype=np.int64)], 0
+            for s in shards:
+                parts.append(s[key][1:].astype(np.int64) + base)
+                base += int(s[key][-1])
+            return np.concatenate(parts)
 
+        self.row = np.concatenate([s["/row"] for s in shards]).astype(np.float32) if shards \
+            else np.empty((0, ROW_WIDTH), dtype=np.float32)
+        self.N = len(self.row)
+        self.ids = cat("/indices", np.int32)
+        self.values = cat("/values", np.int32)
+        self.offsets = cat_offsets("/offsets")
+        self.edge_child = cat("/edge_child", np.int32)
+        self.edge_parent = cat("/edge_parent", np.int32)
+        self.edge_label = cat("/edge_label", np.int32)
+        self.edge_offsets = cat_offsets("/edge_offsets")
+        self.cand_node = cat("/policy_node", np.int32)
+        self.cand_visits = cat("/policy_visits", np.int32)
+        self.cand_offsets = cat_offsets("/policy_offsets")
+        self.node_type = node_types(self.ids)
+        self.check_candidates()
 
-
-
-        # --- DENSE VOCAB: feature id -> embedding row, unknown ids dropped ---
-        # same mapping the server uses, so a state becomes the same tokens in training and play
         if vocab is not None:
-            rows, idxptr_np = vocab.map_csr(indices_np, idxptr_np)
-            indices_np = rows.astype(np.int32)
+            self.apply_vocab(vocab, edge_vocab)
 
-        # store as tensors; __getitem__ uses zero-copy views
-        self.idxptr_t = torch.from_numpy(idxptr_np)  # int64 [N+1]
-        self.indices_t = torch.from_numpy(indices_np)  # int32 [nnz]
-        self.row_t = torch.from_numpy(row_np)  # float32 [N,A+4]
+    def apply_vocab(self, vocab, edge_vocab) -> None:
+        self.node_row, self.edge_row = map_ids(self.ids, self.node_type, self.edge_label, vocab, edge_vocab)
 
+    def check_candidates(self) -> None:
+        """Report policy candidates that aren't nodes of their head's types. The head still scores
+        them, but it means the encoder gave an action's object an unexpected type."""
+        state = states_of(self.cand_offsets)
+        types = self.node_type[self.cand_node + self.offsets[state]]
+        action = self.row[state, 3]
+        for action_type, allowed in ((ActionType.PRIORITY, PRIORITY_TYPES), (ActionType.CHOOSE_TARGET, TARGET_TYPES)):
+            bad = (action == action_type.value) & ~np.isin(types, allowed)
+            if bad.any():
+                found, counts = np.unique(types[bad], return_counts=True)
+                print(f"[warn] {int(bad.sum())} {action_type.name} candidates are not "
+                      f"{'/'.join(t.name for t in allowed)} nodes: "
+                      + ", ".join(f"{NodeType(int(t)).name} x{c}" for t, c in zip(found, counts)))
 
     def __len__(self) -> int:
         return int(self.N)
 
     def __getitem__(self, k: int):
-        a = int(self.idxptr_t[k].item())
-        b = int(self.idxptr_t[k + 1].item())
+        n = slice(self.offsets[k], self.offsets[k + 1])
+        e = slice(self.edge_offsets[k], self.edge_offsets[k + 1])
+        c = slice(self.cand_offsets[k], self.cand_offsets[k + 1])
+        return (self.node_type[n], self.node_row[n], self.values[n],
+                self.edge_child[e], self.edge_parent[e], self.edge_row[e],
+                self.cand_node[c], self.cand_visits[c], self.row[k])
 
-        sv_idx_t = self.indices_t.narrow(0, a, b - a)  # int32 view
-        row_k = self.row_t[k]  # float32 [A+4] view
-
-        A = self.A
-        policy_t = row_k.narrow(0, 0, A)  # float32 [A]
-        value_t = row_k[A + 0].unsqueeze(0)  # float32 [1]
-        isP_t = (row_k[A + 2] > 0.5).float().unsqueeze(0)  # float32 [1]
-        aType_t = row_k[A + 3].to(torch.long).unsqueeze(0)  # int64 [1]
-
-        return sv_idx_t, policy_t, value_t, isP_t, aType_t
 
 def collate_batch(batch):
-    n = len(batch)
-    lens = [b[0].numel() for b in batch]
-    total = int(sum(lens))
+    """Concatenate states into one batch of graphs, shifting state-local node indices to batch-wide ones."""
+    node_type, node_row, values, edge_child, edge_parent, edge_row, cand_node, cand_visits, rows = zip(*batch)
+    starts = np.cumsum([0] + [len(t) for t in node_type])
 
-    idxs = torch.empty(total, dtype=torch.int32)  # keep int32 for now
-    offsets = torch.empty(n, dtype=torch.long)
+    def cat(parts, dtype=np.int64):
+        return torch.from_numpy(np.concatenate(parts).astype(dtype))
 
-    p = 0
-    for i, (ix, _, _, _, _) in enumerate(batch):
-        L = ix.numel()
-        if L: idxs[p:p+L].copy_(ix)              # bulk copy
-        offsets[i] = p
-        p += L
+    def nodes(local):
+        return cat([idx + start for idx, start in zip(local, starts)])
 
-    # single conversion for EmbeddingBag (ids are already rows, or raw ids clamped in H5Indexed)
-    idxs = idxs.to(torch.long)
-
-    policies     = torch.stack([b[1] for b in batch], 0)
-    values       = torch.stack([b[2] for b in batch], 0)
-    is_players   = torch.stack([b[3] for b in batch], 0)
-    action_types = torch.stack([b[4] for b in batch], 0)
-
-    return idxs, offsets, policies, values, is_players, action_types
-
-
-
-def filter_one_hots(dataset):
-    """
-    Return a torch.utils.data.Subset that excludes samples whose policy label is one-hot.
-    """
-    keep_indices = []
-    n = len(dataset)
-
-
-    for i in range(n):
-        _, policy, _, _, _ = dataset[i]  # (indices, policy, value)
-        # policy is a FloatTensor of shape [A]
-        # treat near-zeros as zero via eps
-        nonzero = (policy > 0).sum().item()
-        is_one_hot = (nonzero == 1)
-        if not is_one_hot:
-            keep_indices.append(i)
-
-
-    removed = n - len(keep_indices)
-    print(f"[one hot filter] scanned {n} samples "
-          f" kept {len(keep_indices)} (removed {removed} one-hot policies).")
-
-    return Subset(dataset, keep_indices)
-
-def filter_opponent_states(dataset, targets_max):
-    """
-    Return a torch.utils.data.Subset that excludes samples from opponent (Player B)'s perspective. and targeting samples that include opponent targets
-    """
-    keep_states = []
-    n = len(dataset)
-
-
-    for i in range(n):
-        _, policy, _, is_player, d_type = dataset[i]  # (indices, policy, value, isPlayer, decision type)
-        if not ((not is_player) and d_type == 0) : #keep anything but opponent priorities
-            keep_states.append(i)
-
-
-    removed = n - len(keep_states)
-    print(f"[opponent filter] scanned {n} samples "
-          f" kept {len(keep_states)} (removed {removed} opponent states).")
-
-    return Subset(dataset, keep_states)
-
-
-if __name__ == "__main__":
-
-    # Define the directory where you save your game data files.
-    data_directory = "data/MTGA_MonoU/ver1/testing"
-
-    try:
-        # Load dataset from the specified folder
-        full_dataset = H5Indexed(data_directory)
-
-        winning = 0
-        num_samples_to_process = 0
-
-        dl = DataLoader(full_dataset, batch_size=1, shuffle=False, collate_fn=collate_batch)
-
-        for i, (indices_batch, offsets_batch, policies_batch, values_batch, players_batch, action_types_batch) in enumerate(dl):
-            num_samples_to_process += 1
-
-            current_sample_indices = indices_batch
-            indices_to_print = current_sample_indices.tolist()
-
-            if len(indices_to_print) > 100:
-                sb = " ".join(map(str, indices_to_print[:100])) + " ..."
-            else:
-                sb = " ".join(map(str, indices_to_print))
-            if not indices_to_print:
-                sb = "[No active features]"
-
-            action = policies_batch[0]
-            av = action.tolist()
-
-            label_tensor = values_batch[0]
-            lbl = label_tensor.item()
-
-            player = players_batch[0]
-
-            action_type = action_types_batch[0]
-
-            print(f"State: {sb}, Action: {av}, Result: {lbl}, isPlayer: {player}, ActionType: {action_type}")
-
-            if lbl > 0:
-                winning += 1
-            if i >= 100000:
-                break
-
-        print(f"\nDataset size: {len(full_dataset)}\n")
-
-        # Calculate the number of unique feature indices across the entire dataset
-        if len(full_dataset) > 0:
-            all_feature_indices = set()
-            # We iterate through the dataset directly to access each sample's indices
-            for sample_idx in range(len(full_dataset)):
-                indices, _, _, _, _ = full_dataset[sample_idx]  # Unpack the sample tuple
-                all_feature_indices.update(indices.tolist())
-            print(f"Total unique feature indices in dataset: {len(all_feature_indices)}")
-
-        if num_samples_to_process > 0:
-            print(f"Winning rate (over {num_samples_to_process} samples): {winning / num_samples_to_process:.3f}")
-        else:
-            print("No samples were processed.")
-
-
-    except (FileNotFoundError, ValueError, IOError, IndexError) as e:
-        print(f"An error occurred: {e}", file=sys.stderr)
-
+    rows = np.stack(rows)
+    graphs = Graphs(cat(node_type), cat(node_row), cat(values), torch.from_numpy(starts),
+                    nodes(edge_child), nodes(edge_parent), cat(edge_row))
+    targets = Targets(torch.from_numpy(rows[:, 0].copy()), torch.from_numpy(rows[:, 3].astype(np.int64)),
+                      torch.from_numpy(rows[:, 4:6].copy()), nodes(cand_node), cat(cand_visits, np.float32),
+                      torch.from_numpy(np.repeat(np.arange(len(batch)), [len(c) for c in cand_node])))
+    return graphs, targets
