@@ -35,6 +35,7 @@ import torch
 from scipy.sparse import coo_matrix
 
 VOCAB_FORMAT_VERSION = 2
+SKIP_DEDUP = True
 
 # How XMage turned a feature into the id stored in the data. A vocab's rows are only meaningful
 # under the encoding they were built with, so this travels in the checkpoint and is checked on
@@ -109,7 +110,7 @@ class FeatureVocab:
         path's BitMap does. The model mean-pools a bag, so a repeat would weigh that feature
         twice. XMage sends each bag sorted and unique, so the check below takes the fast path."""
         bags = np.repeat(np.arange(len(lengths), dtype=np.int64), lengths)
-        if indices.size < 2 or _bags_are_sets(indices, lengths):
+        if SKIP_DEDUP or indices.size < 2 or _bags_are_sets(indices, lengths):
             return bags, indices
         order = np.lexsort((indices, bags))
         bags, indices = bags[order], indices[order]

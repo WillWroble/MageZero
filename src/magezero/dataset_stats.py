@@ -219,16 +219,18 @@ def main(deck, version, split):
     ids, counts = feature_counts(ds)
     print(f"[stats] unique active raw feature indices ={ids.size}")
 
-    # global kept set = the checkpoint's vocab (was ignore.roar)
+    # global kept set = the checkpoint's vocab (count only)
     vocab = load_vocab()
     if vocab is not None:
-        in_vocab = vocab.lookup(ids) >= 0
-        print(f"[stats] unique active feature indices in checkpoint vocab ={int(in_vocab.sum())}")
+        print(f"[stats] unique active feature indices in checkpoint vocab ={int((vocab.lookup(ids) >= 0).sum())}")
 
     # local kept set = ignore rule over this split alone (was create_redundancy_ignore_list)
     local_kept = kept_feature_ids(ds.indices_t.numpy(), ds.idxptr_t.numpy())
     print(f"[stats] unique active feature indices after local ignore ={local_kept.size}")
 
+    # idx distribution is over the local kept set: it collapses same-pattern features against this split,
+    # which the cumulative vocab never does
+    kept_mask = np.isin(ids, local_kept)
     sv = stream_stats(ds)
     print(f"[stats] aggregated samples={sv['num_samples']} "
           f"(pA={sv['counts']['pA']}, pB={sv['counts']['pB']}, "
@@ -261,7 +263,7 @@ def main(deck, version, split):
         os.path.join(OUT_DIR, f"avg_policy_binary_{deck}_v{version}_{split}.png") if SAVE_PLOTS else None
     )
     plot_idx_dist(
-        sv["feature_ids"], sv["feature_counts"], "Idx distribution",
+        sv["feature_ids"][kept_mask], sv["feature_counts"][kept_mask], "Idx distribution (kept)",
         os.path.join(OUT_DIR, f"idx_dist_{deck}_v{version}_{split}.png") if SAVE_PLOTS else None
     )
 

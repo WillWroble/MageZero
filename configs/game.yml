@@ -26,7 +26,7 @@ player_a:
     selection_temperature: 2
 
   mcts:
-    search_budget: 4000
+    search_budget: 1000
     timeout_ms: 4000
     td_discount: 0.85
     offline_mode: false
@@ -59,7 +59,7 @@ player_b:
     selection_temperature: 2
 
   mcts:
-    search_budget: 4000
+    search_budget: 1000
     timeout_ms: 4000
     td_discount: 0.85
     offline_mode: false

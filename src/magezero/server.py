@@ -48,7 +48,7 @@ def init(deck: str, version: int, port: int):
     threading.Thread(target=worker_loop, daemon=True).start()
 
     print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE}")
-    waitress.serve(app, host="127.0.0.1", port=port, threads=6)
+    waitress.serve(app, host="127.0.0.1", port=port, threads=8)
 
 class Pending:
     __slots__ = ("idx", "off", "evt", "out", "req_id", "pre_count", "post_count", "t_recv", "t_done", "num_bags")
@@ -188,7 +188,6 @@ def healthz():
 
 if __name__ == "__main__":
     import argparse
-    import waitress
     parser = argparse.ArgumentParser()
     parser.add_argument("--deck", required=True)
     parser.add_argument("--version", type=int, required=True)

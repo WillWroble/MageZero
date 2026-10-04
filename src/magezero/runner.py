@@ -509,7 +509,7 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
             run_dataset_stats(run.deck, run.version, "testing", run_dir, gen)
 
         # eval previous model on new data
-        if run.training.eval_previous_model and gen > 0:
+        if run.training.eval_previous_model and not bootstrap:
             update_run(run_dir, stage="eval")
             run_test(run.deck, run.version, run_dir, gen)
 

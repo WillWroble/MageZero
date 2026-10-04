@@ -1,7 +1,7 @@
 # curriculum.yml — hyperparameter schedule
 
 defaults:
-  td_discount: 0.70
+  td_discount: 0.92
   prior_temperature: 1.5
   priors:
     binary: false
@@ -11,9 +11,9 @@ defaults:
 
 # gen index at which each prior head activates (null = never)
 prior_schedule:
-  binary: 2
-  priority: 3
-  target: 10 #4
+  binary: null
+  priority: null
+  target: null
   opponent: null
 
 # sparse per-gen overrides — unset fields inherit the previous gen's value
@@ -23,6 +23,6 @@ schedule:
   - gen: 1
     td_discount: 0.92
   - gen: 2
-    td_discount: 0.85
+    td_discount: 0.92
   - gen: 3
-    td_discount: 0.70
+    td_discount: 0.92

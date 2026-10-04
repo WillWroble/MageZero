@@ -1,11 +1,11 @@
 # run.yml — defines a single deck training run
 
-deck: Standard32-UWB
-version: 1
-start_from_version: 1     # null = offline bootstrap, set to resume from checkpoint
+deck: UWTempo
+version: 30
+start_from_version: 30     # null = offline bootstrap, set to resume from checkpoint
 
-generations: 1
-games_per_gen: 4
+generations: 3
+games_per_gen: 40
 replay_buffer_gens: 10
 
 opponents:

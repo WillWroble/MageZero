@@ -203,7 +203,7 @@ if __name__ == "__main__":
     if not args.opponent_head:
         ds = filter_opponent_states(ds, TARGETS_MAX)
 
-    dl = DataLoader(ds, batch_size=512, shuffle=False, num_workers=0,
+    dl = DataLoader(ds, batch_size=64, shuffle=False, num_workers=0,
                     collate_fn=collate_batch, pin_memory=True, persistent_workers=False)
 
     model = NetTransformer(len(vocab) if vocab is not None else GLOBAL_MAX).cuda()

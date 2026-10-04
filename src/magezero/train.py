@@ -78,10 +78,10 @@ def prepare_dense_vocab(deck: str, version: int, use_checkpoint: bool):
 def train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab):
 
 
-    dl = DataLoader(ds, batch_size=512, shuffle=True, num_workers=0, collate_fn=collate_batch,
+    dl = DataLoader(ds, batch_size=64, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=True, persistent_workers=False)
 
-    dl_test = DataLoader(test_ds, batch_size=512, shuffle=False, num_workers=0, collate_fn=collate_batch,
+    dl_test = DataLoader(test_ds, batch_size=64, shuffle=False, num_workers=0, collate_fn=collate_batch,
                     pin_memory=True, persistent_workers=False)
 
     test.SHOW_CONFUSION_MATRIX = False
