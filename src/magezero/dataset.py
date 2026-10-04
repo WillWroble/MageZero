@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 from model import ActionType, Graphs, NodeType, PRIORITY_TYPES, TARGET_TYPES, Targets
 from vocab import feature_id
 
-BATCH_SIZE = 256
+BATCH_SIZE = 64
 
 # LabeledStateWriter layout: each offsets array (one entry per state + 1) indexes its per-item arrays
 GROUPS = {
