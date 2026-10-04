@@ -1,12 +1,8 @@
 # Core numerical + ML
 numpy>=1.24
-scipy>=1.10
 torch>=2.1
 h5py>=3.8
 pyyaml
-
-# Data structures
-pyroaring>=0.3.6
 
 # Server + serialization
 flask>=2.3

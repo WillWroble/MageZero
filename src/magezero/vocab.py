@@ -148,10 +148,16 @@ class FeatureVocab:
                    d.get("hash_algorithm", HASH_ALGORITHM), d.get("hash_version", 1))
 
 
-def kept_feature_ids(ids, states, k: int = 10) -> np.ndarray:
-    """Sorted ids that occur in more than k distinct states. states[i] is the state ids[i] occurs
+def feature_state_counts(ids, states) -> tuple[np.ndarray, np.ndarray]:
+    """(sorted distinct ids, number of states each occurs in). states[i] is the state ids[i] occurs
     in; an id repeated within a state (numeric leaves share their name's id) counts once."""
     ids = np.asarray(ids, dtype=np.int64) - np.iinfo(np.int32).min   # ids are Java ints -> [0, 2^32)
     pairs = np.unique(np.asarray(states, dtype=np.int64) << 32 | ids)
     present, counts = np.unique(pairs & 0xFFFFFFFF, return_counts=True)
-    return present[counts > k] + np.iinfo(np.int32).min
+    return present + np.iinfo(np.int32).min, counts
+
+
+def kept_feature_ids(ids, states, k: int = 10) -> np.ndarray:
+    """Sorted ids that occur in more than k states."""
+    present, counts = feature_state_counts(ids, states)
+    return present[counts > k]

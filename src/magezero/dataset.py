@@ -167,21 +167,30 @@ class H5Graphs(Dataset):
                 self.cand_node[c], self.cand_visits[c], self.row[k])
 
 
+def concat(parts, dtype=np.int64):
+    return torch.from_numpy(np.concatenate(parts).astype(dtype))
+
+
+def shift(local, starts):
+    """State-local node indices -> batch-wide ones, given each state's first node."""
+    return concat([idx + start for idx, start in zip(local, starts)])
+
+
+def collate_graphs(node_type, node_row, values, edge_child, edge_parent, edge_row):
+    """Concatenate per-state node and edge arrays into one batch of graphs. Training batches and
+    inference requests both go through here."""
+    starts = np.cumsum([0] + [len(t) for t in node_type], dtype=np.int64)
+    return Graphs(concat(node_type), concat(node_row), concat(values), torch.from_numpy(starts),
+                  shift(edge_child, starts), shift(edge_parent, starts), concat(edge_row))
+
+
 def collate_batch(batch):
-    """Concatenate states into one batch of graphs, shifting state-local node indices to batch-wide ones."""
-    node_type, node_row, values, edge_child, edge_parent, edge_row, cand_node, cand_visits, rows = zip(*batch)
-    starts = np.cumsum([0] + [len(t) for t in node_type])
-
-    def cat(parts, dtype=np.int64):
-        return torch.from_numpy(np.concatenate(parts).astype(dtype))
-
-    def nodes(local):
-        return cat([idx + start for idx, start in zip(local, starts)])
-
+    """A training batch: the states' graphs and their labels."""
+    *graph, cand_node, cand_visits, rows = zip(*batch)
+    graphs = collate_graphs(*graph)
     rows = np.stack(rows)
-    graphs = Graphs(cat(node_type), cat(node_row), cat(values), torch.from_numpy(starts),
-                    nodes(edge_child), nodes(edge_parent), cat(edge_row))
     targets = Targets(torch.from_numpy(rows[:, 0].copy()), torch.from_numpy(rows[:, 3].astype(np.int64)),
-                      torch.from_numpy(rows[:, 4:6].copy()), nodes(cand_node), cat(cand_visits, np.float32),
+                      torch.from_numpy(rows[:, 4:6].copy()), shift(cand_node, np.asarray(graphs.node_offsets)),
+                      concat(cand_visits, np.float32),
                       torch.from_numpy(np.repeat(np.arange(len(batch)), [len(c) for c in cand_node])))
     return graphs, targets

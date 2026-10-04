@@ -1,17 +1,16 @@
-import os
 import threading
 import time
+import traceback
 from queue import Queue, Empty
 
+import msgpack
+import numpy as np
 import torch
 import waitress
 from flask import Flask, request, Response
-import msgpack
-from model import NetTransformer, load_model, GLOBAL_MAX
-from vocab import FeatureVocab
 
-# Device setup
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from dataset import collate_graphs, map_ids, node_types
+from model import load_checkpoint, AMP, DEVICE, NodeType
 
 # Threading config
 TORCH_THREADS = 1 #max(1, os.cpu_count() // 2)
@@ -23,6 +22,7 @@ MAX_BATCH = 64
 #module state
 server_model = None
 VOCAB = None
+EDGE_VOCAB = None
 
 app = Flask(__name__)
 
@@ -30,53 +30,59 @@ req_counter = 0
 req_counter_lock = threading.Lock()
 
 def init(deck: str, version: int, port: int):
-    global server_model, VOCAB
+    global server_model, VOCAB, EDGE_VOCAB
 
-    model_dir = f"models/{deck}/ver{version}"
-    model_path = f"{model_dir}/model.pt.gz"
-
-    ckpt = load_model(model_path)
-    if "feature_vocab" in ckpt:
-        # dense vocab: ids are mapped to rows; ids outside the vocab are the ignored ones
-        VOCAB = FeatureVocab.from_state_dict(ckpt["feature_vocab"])
-        VOCAB.require_encoding(GLOBAL_MAX)
-        server_model = NetTransformer(len(VOCAB)).to(DEVICE).eval()
-    else:
-        raise ValueError("old checkpoint version")
-    server_model.load_state_dict(ckpt["model_state_dict"])
+    model_path = f"models/{deck}/ver{version}/model.pt.gz"
+    model, VOCAB, EDGE_VOCAB = load_checkpoint(model_path)
+    server_model = model.to(DEVICE).eval()
 
     threading.Thread(target=worker_loop, daemon=True).start()
 
-    print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE}")
+    print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE} "
+          f"leaf_rows={len(VOCAB)} edge_rows={len(EDGE_VOCAB)}")
     waitress.serve(app, host="127.0.0.1", port=port, threads=6)
 
-class Pending:
-    __slots__ = ("idx", "off", "evt", "out", "req_id", "pre_count", "post_count", "t_recv", "t_done", "num_bags")
 
-    def __init__(self, req_id, indices, offsets):
+def request_states(data):
+    """Split an /evaluate request into per-state arrays in the form collate_graphs takes, with ids
+    mapped to embedding rows the same way the training data is. RemoteModelEvaluator sends every
+    state's nodes and edges concatenated:
+      indices, values                       per node
+      offsets                               per state, its first node
+      edge_child, edge_parent, edge_label   per edge; child and parent are local to the state
+      edge_offsets                          per state, its first edge"""
+    ids = np.asarray(data["indices"], dtype=np.int32)
+    values = np.asarray(data["values"], dtype=np.int32)
+    edge_child = np.asarray(data["edge_child"], dtype=np.int32)
+    edge_parent = np.asarray(data["edge_parent"], dtype=np.int32)
+    node_type = node_types(ids)
+    node_row, edge_row = map_ids(ids, node_type, np.asarray(data["edge_label"], dtype=np.int32), VOCAB, EDGE_VOCAB)
+
+    node_start = np.append(np.asarray(data["offsets"], dtype=np.int64), len(ids))
+    edge_start = np.append(np.asarray(data["edge_offsets"], dtype=np.int64), len(edge_child))
+    states = []
+    for i in range(len(node_start) - 1):
+        n = slice(node_start[i], node_start[i + 1])
+        e = slice(edge_start[i], edge_start[i + 1])
+        states.append((node_type[n], node_row[n], values[n], edge_child[e], edge_parent[e], edge_row[e]))
+    return states
+
+
+class Pending:
+    __slots__ = ("req_id", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
+
+    def __init__(self, req_id, data):
         self.req_id = req_id
-        self.pre_count = len(indices)
         self.t_recv = time.perf_counter()
         self.evt = threading.Event()
         self.out = None
+        self.error = None
         self.t_done = 0.0
 
-        indices, offsets, num_bags = apply_ignore(indices, offsets)
-        self.post_count = len(indices)
-        self.num_bags = num_bags
-
-        self.idx = torch.tensor(indices, dtype=torch.long)
-        self.off = torch.tensor(offsets, dtype=torch.long)
-
-
-def apply_ignore(indices: list[int], offsets: list[int] | None):
-    if not offsets:
-        offsets = [0]
-
-
-    rows, new_offsets = VOCAB.map_bags(indices, offsets)
-    return rows.tolist(), new_offsets.tolist(), len(new_offsets)
-
+        self.states = request_states(data)
+        self.nodes = sum(len(s[0]) for s in self.states)
+        # nodes the network uses: typed nodes, and leaves with a vocab row
+        self.kept = sum(int(((s[0] != NodeType.LEAF) | (s[1] >= 0)).sum()) for s in self.states)
 
 
 Q: "Queue[Pending]" = Queue(maxsize=4096)
@@ -94,68 +100,39 @@ def worker_loop():
             except Empty:
                 break
 
-        bag_counts = [p.num_bags for p in batch]
+        states = [s for p in batch for s in p.states]
+        try:
+            # Single forward pass over every state of every request
+            graphs = collate_graphs(*zip(*states))
+            with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
+                out = server_model(graphs.to(DEVICE))
+            priority, target, use, value = (t.float().cpu().numpy() for t in out)
 
-        # Fast path: single request
-        if len(batch) == 1:
-            idx = batch[0].idx.to(DEVICE, non_blocking=True)
-            off = batch[0].off.to(DEVICE, non_blocking=True)
-        else:
-            # Concatenate indices
-            idx = torch.cat([p.idx for p in batch]).to(DEVICE, non_blocking=True)
+            # Split results back to individual requests: per-node scores in the order each state was sent
+            starts = np.asarray(graphs.node_offsets)
+            row = 0
+            for p in batch:
+                p.out = []
+                for _ in p.states:
+                    nodes = slice(starts[row], starts[row + 1])
+                    p.out.append({
+                        "policy_priority": priority[nodes].tolist(),
+                        "policy_target": target[nodes].tolist(),
+                        "policy_binary": use[row].tolist(),
+                        "value": float(value[row]),
+                    })
+                    row += 1
+        except Exception as e:
+            # fail these requests instead of the worker, so later requests still get served
+            traceback.print_exc()
+            for p in batch:
+                p.error = f"{type(e).__name__}: {e}"
 
-            # Vectorized offset adjustment
-            all_off = torch.cat([p.off for p in batch])
-            idx_lens = torch.tensor([len(p.idx) for p in batch])
-            bag_counts_t = torch.tensor(bag_counts)
-            adjustments = torch.repeat_interleave(
-                torch.cat([torch.tensor([0]), idx_lens.cumsum(0)[:-1]]),
-                bag_counts_t
-            )
-            off = (all_off + adjustments).to(DEVICE, non_blocking=True)
-
-
-        # Single forward pass
-        with torch.no_grad(), torch.amp.autocast('cuda'):
-            pA, pB, tgt, bin2, val = server_model(idx, off)
-
-        # Move to CPU once
-        pA = pA.cpu()
-        pB = pB.cpu()
-        tgt = tgt.cpu()
-        bin2 = bin2.cpu()
-        val = val.cpu()
-
-        # Split results back to individual requests
-        row = 0
-        for p, num_bags in zip(batch, bag_counts):
-            if num_bags == 1:
-                p.out = {
-                    "policy_player": pA[row].tolist(),
-                    "policy_opponent": pB[row].tolist(),
-                    "policy_target": tgt[row].tolist(),
-                    "policy_binary": bin2[row].tolist(),
-                    "value": float(val[row].item()),
-                }
-            else:
-                p.out = [
-                    {
-                        "policy_player": pA[row + i].tolist(),
-                        "policy_opponent": pB[row + i].tolist(),
-                        "policy_target": tgt[row + i].tolist(),
-                        "policy_binary": bin2[row + i].tolist(),
-                        "value": float(val[row + i].item()),
-                    }
-                    for i in range(num_bags)
-                ]
-            row += num_bags
+        for p in batch:
             p.t_done = time.perf_counter()
             p.evt.set()
 
-        print(f"[BATCH] size={len(batch)}, total_bag_size={row}")
-
-
-#threading.Thread(target=worker_loop, daemon=True).start()
+        print(f"[BATCH] size={len(batch)}, total_states={len(states)}")
 
 
 @app.post("/evaluate")
@@ -165,19 +142,23 @@ def evaluate():
     data = msgpack.unpackb(request.data, raw=False)
     with req_counter_lock:
         req_counter += 1
+        req_id = req_counter
 
-    indices = data.get("indices", [])
-    offsets = data.get("offsets", [])
-    pending = Pending(req_counter, indices, offsets)
+    pending = Pending(req_id, data)
 
-    print(f"[REQ {pending.req_id}] indices={pending.pre_count}, kept={pending.post_count}, bag_size={pending.num_bags}")
+    print(f"[REQ {req_id}] nodes={pending.nodes}, kept={pending.kept}, states={len(pending.states)}")
 
     Q.put(pending)
     pending.evt.wait()
 
-    total_ms = (pending.t_done - pending.t_recv) * 1000.0
-    print(f"[REQ {pending.req_id}] done: {total_ms:.1f}ms")
+    if pending.error is not None:
+        print(f"[REQ {req_id}] failed: {pending.error}")
+        return Response(pending.error, status=500, mimetype="text/plain")
 
+    total_ms = (pending.t_done - pending.t_recv) * 1000.0
+    print(f"[REQ {req_id}] done: {total_ms:.1f}ms")
+
+    # always an array with one result map per state, as RemoteModelEvaluator reads it
     return Response(msgpack.packb(pending.out, use_bin_type=True), mimetype="application/x-msgpack")
 
 
@@ -188,7 +169,6 @@ def healthz():
 
 if __name__ == "__main__":
     import argparse
-    import waitress
     parser = argparse.ArgumentParser()
     parser.add_argument("--deck", required=True)
     parser.add_argument("--version", type=int, required=True)

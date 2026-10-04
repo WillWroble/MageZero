@@ -24,7 +24,12 @@ def train(
         use_checkpoint: bool = False,
 ):
     os.makedirs(f"models/{deck}/ver{version}", exist_ok=True)
-    ds = H5Graphs(f"data/{deck}/ver{version}/training")
+    data_path = f"data/{deck}/ver{version}/training"
+    ds = H5Graphs(data_path)
+    if len(ds) == 0:
+        found = (f"{len(ds.files)} .hdf5/.h5 files, none with readable states (see warnings above)" if ds.files
+                 else "no .hdf5/.h5 files")
+        raise SystemExit(f"no training data in {data_path}: {found}")
     vocab, edge_vocab, model = prepare_vocab(deck, version, use_checkpoint, ds)
     ds.apply_vocab(vocab, edge_vocab)
     test_ds = H5Graphs(f"data/{deck}/ver{version}/testing", vocab, edge_vocab)
