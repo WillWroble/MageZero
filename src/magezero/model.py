@@ -13,10 +13,10 @@ from vocab import FeatureVocab
 MageZero graph network for AlphaZero style MCTS. Input: StateEncoder's state graph, nodes typed
 (ROOT, PLAYER, ZONE, STACK_OBJECT, PERMANENT, CARD, ABILITY) or LEAF, edges child -> parent.
   embeddings: typed node = type embedding; leaf = leaf vocab row + numeric value bucket
-  2 bottom-up passes (separate weights), each one NodeLayer per type, run in order
+  local layers: 2 bottom-up passes (separate weights), each one LocalLayer per type, run in order
       ABILITY -> CARD -> PERMANENT -> STACK_OBJECT -> ZONE -> PLAYER -> ROOT
       every node attends over [itself, children + edge label embedding] (d=512, nhead=4, ff=1024)
-  2-layer TransformerEncoder over [CLS, the state's internal nodes]
+  global layers: 2-layer TransformerEncoder over [CLS, the state's internal nodes]
       ├── MLP(512 -> 256 -> 1)  per node  priority       (read at ABILITY nodes)
       ├── MLP(512 -> 256 -> 1)  per node  target         (read at CARD/PERMANENT/STACK_OBJECT/PLAYER nodes)
       ├── MLP(512 -> 256 -> 2)  CLS       choose_use     (false, true)
@@ -31,7 +31,7 @@ N_HEADS = 4
 D_FF = 1024
 DROPOUT = 0.25
 N_PASSES = 2
-MIXER_LAYERS = 2
+GLOBAL_LAYERS = 2
 HIDDEN_MLP = 256
 
 # numeric value buckets: exact -5..20 (P/T, counters, mana, costs, small counts), then 21-25, 26-30,
@@ -109,7 +109,7 @@ def segment_logsumexp(x: torch.Tensor, seg: torch.Tensor, n: int) -> torch.Tenso
     return m + x.new_zeros((n, *x.shape[1:])).index_add(0, seg, (x - m[seg]).exp()).log()
 
 
-class NodeLayer(nn.TransformerEncoderLayer):
+class LocalLayer(nn.TransformerEncoderLayer):
     """A pre-norm transformer layer run over each node's [node, children...] sequence, keeping only
     the node's output token. The children's output tokens would be discarded, so only the node's
     query is computed: attention from the node to itself and its children, then the FFN on the node.
@@ -152,18 +152,18 @@ class NetGraph(nn.Module):
         self.value_embedding = nn.Embedding(len(VALUE_BOUNDS) + 1, D_MODEL)
         self.register_buffer("value_bounds", torch.tensor(VALUE_BOUNDS), persistent=False)
 
-        self.passes = nn.ModuleList(
-            nn.ModuleDict({t.name: NodeLayer() for t in STAGES}) for _ in range(N_PASSES))
+        self.local_layers = nn.ModuleList(
+            nn.ModuleDict({t.name: LocalLayer() for t in STAGES}) for _ in range(N_PASSES))
 
         self.cls = nn.Parameter(torch.randn(D_MODEL))
-        mixer_layer = nn.TransformerEncoderLayer(D_MODEL, N_HEADS, D_FF, DROPOUT, activation="gelu",
-                                                 batch_first=True, norm_first=True)
-        self.mixer = nn.TransformerEncoder(mixer_layer, MIXER_LAYERS, norm=nn.LayerNorm(D_MODEL),
-                                           enable_nested_tensor=False)
+        global_layer = nn.TransformerEncoderLayer(D_MODEL, N_HEADS, D_FF, DROPOUT, activation="gelu",
+                                                  batch_first=True, norm_first=True)
+        self.global_layers = nn.TransformerEncoder(global_layer, GLOBAL_LAYERS, norm=nn.LayerNorm(D_MODEL),
+                                                   enable_nested_tensor=False)
 
         self.priority_head = mlp(1)
         self.target_head = mlp(1)
-        self.use_head = mlp(2)
+        self.binary_head = mlp(2)
         self.value_head = mlp(1, nn.Tanh())
 
     def resize_embedding(self, num_embeddings: int, init_rows=None, name: str = "embedding") -> None:
@@ -209,13 +209,13 @@ class NetGraph(nn.Module):
                 edges = (parent_type == t).nonzero().squeeze(1)
                 stages.append((t.name, nodes, child[edges], label[edges], torch.searchsorted(nodes, parent[edges])))
 
-        # bottom-up passes: children earlier in the order arrive updated in this pass, children of
-        # the same type or later in the order (attachments, targets, linked exile) from the last one
-        for layers in self.passes:
+        # local layers, bottom-up passes: children earlier in the order arrive updated in this pass,
+        # children of the same type or later in the order (attachments, targets, linked exile) from the last one
+        for layers in self.local_layers:
             for name, nodes, c, lbl, seg in stages:
                 h = h.index_copy(0, nodes, layers[name](h[nodes], h[c] + self.edge_embedding(lbl), seg))
 
-        # final self-attention over [CLS, internal nodes], one padded sequence per state
+        # global layers: self-attention over [CLS, internal nodes], one padded sequence per state
         internal = (g.node_type != NodeType.LEAF).nonzero().squeeze(1)
         gi = graph_index(g.node_offsets)[internal]
         counts = torch.bincount(gi, minlength=B)
@@ -224,22 +224,24 @@ class NetGraph(nn.Module):
         x[:, 0] = self.cls
         x[gi, pos] = h[internal]
         pad = torch.arange(x.shape[1], device=h.device) > counts.unsqueeze(1)
-        x = self.mixer(x, src_key_padding_mask=pad)
+        x = self.global_layers(x, src_key_padding_mask=pad)
         cls, z = x[:, 0], x[gi, pos]
 
         def per_node(head):
             return torch.full((N,), float("-inf"), device=h.device).index_copy(
                 0, internal, head(z).squeeze(-1).float())
 
-        return per_node(self.priority_head), per_node(self.target_head), self.use_head(cls), self.value_head(cls).squeeze(-1)
+        return per_node(self.priority_head), per_node(self.target_head), self.binary_head(cls), self.value_head(cls).squeeze(-1)
 
 
 def node_policy_loss(scores, domain, states, node_graph, t: Targets):
     """KL from the normalized MCTS visits to a softmax over each state's domain nodes, for `states`
-    ([B] bool). correct: states whose highest-scored candidate is one of the most visited."""
+    ([B] bool). correct: states whose top-scored domain node (legal or not) is one of MCTS's most
+    visited candidates."""
     B = states.shape[0]
     idx = (domain & states[node_graph]).nonzero().squeeze(1)
-    lse = segment_logsumexp(scores[idx].float(), node_graph[idx], B)
+    domain_scores, domain_graph = scores[idx].float(), node_graph[idx]
+    lse = segment_logsumexp(domain_scores, domain_graph, B)
     in_states = states[t.cand_graph]
     cand, visits, graph = t.cand_node[in_states], t.cand_visits[in_states], t.cand_graph[in_states]
     s = scores[cand].float()
@@ -247,10 +249,12 @@ def node_policy_loss(scores, domain, states, node_graph, t: Targets):
     n = states.sum()
     loss = (torch.xlogy(p, p) - p * (s - lse[graph])).sum() / n.clamp(min=1)
     with torch.no_grad():
-        best_s = torch.full((B,), float("-inf"), device=s.device).scatter_reduce(0, graph, s, "amax")
+        node_visits = torch.zeros(len(scores), device=s.device).index_add(0, cand, visits)[idx]
+        best_s = torch.full((B,), float("-inf"), device=s.device).scatter_reduce(0, domain_graph, domain_scores, "amax")
         best_v = torch.zeros(B, device=s.device).scatter_reduce(0, graph, visits, "amax")
-        hit = ((s == best_s[graph]) & (visits == best_v[graph])).float()
-        correct = (torch.zeros(B, device=s.device).index_add(0, graph, hit) > 0).sum()
+        top = domain_scores == best_s[domain_graph]
+        hit = (top & (node_visits > 0) & (node_visits == best_v[domain_graph])).float()
+        correct = (torch.zeros(B, device=s.device).index_add(0, domain_graph, hit) > 0).sum()
     return loss, n, correct
 
 

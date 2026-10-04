@@ -96,6 +96,8 @@ def train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab, edge_voc
     dl_test = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, collate_fn=collate_batch,
                          pin_memory=AMP, persistent_workers=False)
 
+    test.SHOW_CONFUSION_MATRIX = False
+
     opt = optim.Adam(model.parameters(), lr=1e-4)
     scaler = torch.amp.GradScaler(enabled=AMP)
 
@@ -130,7 +132,7 @@ def train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab, edge_voc
 
         #run current model on testing set (if there is one)
         if len(test_ds) > 0:
-            val_loss = test.validate(model, dl_test)
+            val_loss = test.validate(model, dl_test, vocab, edge_vocab)
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 save_checkpoint(f"models/{deck}/ver{version}/best.pt.gz", epoch, model, opt, vocab, edge_vocab, avg)
