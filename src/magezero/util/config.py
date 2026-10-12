@@ -19,6 +19,7 @@ class Opponent:
     mode: str
     version: Optional[int] = None
     offline : bool = True
+    co_train: bool = False  # train this opponent's own model from these same self-play games
 
 
 @dataclass
@@ -96,7 +97,8 @@ def load_run(path: str = "configs/run.yml") -> RunConfig:
             deck=o["deck"],
             mode=mode,
             version=o.get("version"),
-            offline=o.get("offline", True)
+            offline=o.get("offline", True),
+            co_train=o.get("co_train", False)
         ))
 
     log_level = raw.get("log_level", "ACTIONS")

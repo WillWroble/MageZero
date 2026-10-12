@@ -7,7 +7,7 @@ game_mode: normal # normal, commander
 
 
 player_a:
-  deckPath: xmage/decks/UWTempo.dck
+  deckPath: decks/UWTempo.dck
   type: mcts
   # output_file: set by runner
 
@@ -40,7 +40,7 @@ player_a:
     see_opponent_hand: true
 
 player_b:
-  deckPath: xmage/decks/UWTempo.dck
+  deckPath: decks/UWTempo.dck
   type: mcts
   # output_file: set by runner
 

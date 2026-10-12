@@ -78,7 +78,7 @@ def cmd_import(args: argparse.Namespace) -> None:
         dst = runner.DECKS_DIR / src.name
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(src, dst)
-        print(f"✓ imported deck → {dst}")
+        print(f"imported deck -> {dst}")
 
     elif suffix == ".mz":
         with zipfile.ZipFile(src) as zf:
@@ -88,7 +88,7 @@ def cmd_import(args: argparse.Namespace) -> None:
             dst = Path("models") / deck / f"ver{version}"
             dst.mkdir(parents=True, exist_ok=True)
             zf.extract("model.pt.gz", dst)
-        print(f"✓ imported model → {dst}")
+        print(f"imported model -> {dst}")
 
     elif suffix == ".txt":
         dst = Path("xmage/decks") / src.name
@@ -120,7 +120,7 @@ def cmd_export(args: argparse.Namespace) -> None:
         zf.write(model_file, "model.pt.gz")
         zf.writestr("metadata.json", json.dumps(metadata, indent=2))
 
-    print(f"✓ exported → {out_path}")
+    print(f"exported -> {out_path}")
 
 
 # ─── main ────────────────────────────────────────────────────

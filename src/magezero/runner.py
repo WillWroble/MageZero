@@ -17,6 +17,7 @@ For each generation:
   9. Record gen completion in the run file
 """
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -50,6 +51,15 @@ SRC = "src/magezero"
 PYTHON = sys.executable
 EPOCHS_BOOTSTRAP = 2
 EPOCHS_ONLINE = 1
+
+
+def _gpu_count() -> int:
+    """Number of CUDA devices visible to this process, or 0 if torch/CUDA isn't available."""
+    try:
+        import torch
+        return torch.cuda.device_count()
+    except Exception:
+        return 0
 
 
 # deck-level state (session counter)
@@ -267,18 +277,24 @@ def build_game_yml(base_path: str, settings: GenSettings, run: RunConfig,
 
 # subprocess wrappers
 
-def start_server(deck: str, version: int, port: int, run_dir: Path) -> subprocess.Popen:
-    print(f"[server] start {deck} v{version} on :{port}")
+def start_server(deck: str, version: int, port: int, run_dir: Path,
+                 gpu: Optional[int] = None) -> subprocess.Popen:
+    print(f"[server] start {deck} v{version} on :{port}" + (f" (GPU {gpu})" if gpu is not None else ""))
     log_path = run_dir / f"server_{port}.log"
     log_file = open(log_path, "a")
     log_file.write(f"\n=== START {datetime.now().isoformat()} deck={deck} v{version} ===\n")
     log_file.flush()
+
+    env = os.environ.copy()
+    if gpu is not None:
+        env["CUDA_VISIBLE_DEVICES"] = str(gpu)
 
     proc = subprocess.Popen(
         [PYTHON, f"{SRC}/server.py",
          "--deck", deck, "--version", str(version), "--port", str(port)],
         stdout=log_file,
         stderr=subprocess.STDOUT,
+        env=env,
     )
     proc._mz_log_file = log_file
 
@@ -328,7 +344,7 @@ def run_train(deck: str, version: int, epochs: int, use_checkpoint: bool,
         cmd.append("--checkpoint")
     log_path = run_dir / "train.log"
     with open(log_path, "a") as f:
-        f.write(f"\n=== GEN {gen} TRAIN {datetime.now().isoformat()} ===\n")
+        f.write(f"\n=== GEN {gen} TRAIN deck={deck} v{version} {datetime.now().isoformat()} ===\n")
         f.flush()
         subprocess.run(cmd, check=True, stdout=f, stderr=subprocess.STDOUT)
 
@@ -336,7 +352,7 @@ def run_train(deck: str, version: int, epochs: int, use_checkpoint: bool,
 def run_test(deck: str, version: int, run_dir: Path, gen: int) -> None:
     log_path = run_dir / "test.log"
     with open(log_path, "a") as f:
-        f.write(f"\n=== GEN {gen} TEST {datetime.now().isoformat()} ===\n")
+        f.write(f"\n=== GEN {gen} TEST deck={deck} v{version} {datetime.now().isoformat()} ===\n")
         f.flush()
         subprocess.run(
             [PYTHON, f"{SRC}/test.py", "--deck", deck, "--version", str(version)],
@@ -348,7 +364,7 @@ def run_dataset_stats(deck: str, version: int, split: str,
                       run_dir: Path, gen: int) -> None:
     log_path = run_dir / "dataset_stats.log"
     with open(log_path, "a") as f:
-        f.write(f"\n=== GEN {gen} DATASET_STATS {datetime.now().isoformat()} ===\n")
+        f.write(f"\n=== GEN {gen} DATASET_STATS deck={deck} v{version} {datetime.now().isoformat()} ===\n")
         f.flush()
         subprocess.run(
             [PYTHON, f"{SRC}/dataset_stats.py",
@@ -369,8 +385,15 @@ def move_testing_to_training(deck: str, version: int) -> None:
 
 
 def archive_out_of_window(deck: str, version: int, gens: dict,
-                          current_gen: int, window: int) -> list[Path]:
-    """Move training files outside the replay window into archive/. Returns moved paths."""
+                          current_gen: int, window: int,
+                          session_key: str = "primary_sessions",
+                          filter_deck: Optional[str] = None) -> list[Path]:
+    """Move training files outside the replay window into archive/. Returns moved paths.
+
+    session_key/filter_deck let this be reused for a co-trained opponent's own
+    sessions (recorded under "opponent_sessions" keyed by that opponent's deck name)
+    instead of the primary's.
+    """
     cutoff = current_gen - window + 1
     if cutoff <= 0:
         return []
@@ -378,8 +401,12 @@ def archive_out_of_window(deck: str, version: int, gens: dict,
     archive_ids: set[int] = set()
     for g_str, g_data in gens.items():
         if int(g_str) < cutoff:
-            for sids in g_data.get("primary_sessions", {}).values():
-                archive_ids.update(sids)
+            sessions = g_data.get(session_key, {})
+            if filter_deck is not None:
+                archive_ids.update(sessions.get(filter_deck, []))
+            else:
+                for sids in sessions.values():
+                    archive_ids.update(sids)
 
     if not archive_ids:
         return []
@@ -442,20 +469,41 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
 
         primary_offline = bootstrap
 
+        co_trainers = [o for o in run.opponents if o.co_train]
+        if len(co_trainers) > 1:
+            raise ValueError("at most one co_train opponent is supported per run "
+                              "(only one opponent inference port is available)")
+        co_opp = co_trainers[0] if co_trainers else None
+        co_opp_ver: Optional[int] = None
+        co_opp_offline = True
+        if co_opp is not None:
+            if co_opp.mode != "mcts":
+                raise ValueError(f"co_train opponent '{co_opp.deck}' must use mode: mcts")
+            if co_opp.version is None:
+                raise ValueError(f"co_train opponent '{co_opp.deck}' must set an explicit version")
+            co_opp_ver = co_opp.version
+            # bootstraps offline until it has its own checkpoint, same rule as the primary.
+            co_opp_offline = not has_checkpoint(co_opp.deck, co_opp_ver)
 
         jobs = []
         for opp in run.opponents:
             opp_ver = opp.version #if opp.version is not None else latest_version(opp.deck)
             if opp_ver is None:
                 opp_ver = 1
-            opp_offline = opp.offline
-            if opp.mode == "mcts" and not opp_offline:
+            is_co_train = co_opp is not None and opp is co_opp
+            opp_offline = co_opp_offline if is_co_train else opp.offline
+            if opp.mode == "mcts" and not opp_offline and not is_co_train:
                 raise NotImplementedError("online mcts opponents need a server port each; not supported")
 
             primary_sid = next_session_id(run.deck)
             opponent_sid = next_session_id(opp.deck)
             primary_path = primary_file(run.deck, run.version, primary_sid, opp.deck)
-            opponent_path = opponent_file(opp.deck, opp_ver, opponent_sid, run.deck)
+            # a co-trained opponent's games go into its own testing/ buffer (it's a
+            # trainee too), everyone else's go into the throwaway archive/ dump.
+            if is_co_train:
+                opponent_path = primary_file(opp.deck, opp_ver, opponent_sid, run.deck)
+            else:
+                opponent_path = opponent_file(opp.deck, opp_ver, opponent_sid, run.deck)
             primary_path.parent.mkdir(parents=True, exist_ok=True)
             opponent_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -478,8 +526,15 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
 
         failed = []
         servers = []
+        n_gpus = _gpu_count()
         if not primary_offline:
-            servers.append(start_server(run.deck, run.version, PRIMARY_PORT, run_dir))
+            gpu = 0 if n_gpus > 0 else None
+            servers.append(start_server(run.deck, run.version, PRIMARY_PORT, run_dir, gpu=gpu))
+        if co_opp is not None and not co_opp_offline:
+            # give the co-trained opponent's server its own GPU when there's more than
+            # one available, so the two live inference servers don't contend for GPU 0.
+            gpu = 1 if n_gpus > 1 else (0 if n_gpus == 1 else None)
+            servers.append(start_server(co_opp.deck, co_opp_ver, OPPONENT_PORT, run_dir, gpu=gpu))
 
         record_gen(run_dir, gen, settings, primary_sessions, opponent_sessions)
         try:
@@ -531,6 +586,28 @@ def run_pipeline(run: RunConfig, curriculum: CurriculumConfig,
                       run_dir=run_dir, gen=gen)
         finally:
             restore_from_archive(run.deck, run.version, archived)
+
+        # mirror the same analyze -> eval -> move -> archive -> train sequence for
+        # the co-trained opponent's own deck, so it improves from these same games.
+        if co_opp is not None:
+            if run.training.analyze_dataset:
+                run_dataset_stats(co_opp.deck, co_opp_ver, "testing", run_dir, gen)
+
+            if run.training.eval_previous_model and gen > 0:
+                run_test(co_opp.deck, co_opp_ver, run_dir, gen)
+
+            move_testing_to_training(co_opp.deck, co_opp_ver)
+
+            co_archived = archive_out_of_window(
+                co_opp.deck, co_opp_ver, data["gens"], gen, run.replay_buffer_gens,
+                session_key="opponent_sessions", filter_deck=co_opp.deck,
+            )
+            try:
+                co_epochs = EPOCHS_BOOTSTRAP if co_opp_offline else EPOCHS_ONLINE
+                run_train(co_opp.deck, co_opp_ver, co_epochs, use_checkpoint=not co_opp_offline,
+                          run_dir=run_dir, gen=gen)
+            finally:
+                restore_from_archive(co_opp.deck, co_opp_ver, co_archived)
 
     update_run(run_dir, completed_at=datetime.now().isoformat(), stage="done")
     print(f"\n✓ Run complete: {run_dir.name}")
