@@ -96,7 +96,7 @@ def train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab, edge_voc
     dl_test = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, collate_fn=collate_batch,
                          pin_memory=AMP, persistent_workers=False)
 
-    test.SHOW_CONFUSION_MATRIX = False
+    #test.SHOW_CONFUSION_MATRIX = False
 
     opt = optim.Adam(model.parameters(), lr=1e-4)
     scaler = torch.amp.GradScaler(enabled=AMP)
