@@ -149,6 +149,8 @@ class NetGraph(nn.Module):
                            order arrive updated in the same pass)
              "parallel"    one layer per type, every stage reads the embeddings from the pass's start
              "joint"       one layer for all internal nodes per pass (a single call)
+             "flat"        no local layers: each internal node adds the mean of its own leaves (with their
+                           edge labels) once; no hierarchy and no object-to-object edges
       global_tokens: "internal"  global layers see [CLS, internal nodes]
                      "all"       they also see the leaves; with n_passes=0 the state is a bag of tokens"""
 
@@ -167,7 +169,7 @@ class NetGraph(nn.Module):
         self.groups = {"INTERNAL": STAGES} if local == "joint" else {t.name: (t,) for t in STAGES}
         self.local_layers = nn.ModuleList(
             nn.ModuleDict({name: LocalLayer(d_model, n_heads, d_ff, dropout) for name in self.groups})
-            for _ in range(n_passes))
+            for _ in range(0 if local == "flat" else n_passes))
 
         self.cls = nn.Parameter(torch.randn(d_model))
         global_layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, activation="gelu",
@@ -213,6 +215,12 @@ class NetGraph(nn.Module):
         # leaves outside the vocab have no embedding, so their edges are dropped
         keep = (g.node_type[g.edge_child] != NodeType.LEAF) | (g.node_row[g.edge_child] >= 0)
         child, parent, label = g.edge_child[keep], g.edge_parent[keep], g.edge_label[keep]
+
+        if self.arch["local"] == "flat":
+            leaf = g.node_type[child] == NodeType.LEAF
+            p = parent[leaf]
+            count = torch.bincount(p, minlength=N).clamp(min=1).unsqueeze(1)
+            h = h + h.new_zeros(h.shape).index_add(0, p, h[child[leaf]] + self.edge_embedding(label[leaf])) / count
 
         # one stage per group of types: its nodes, their children, and each child's parent position
         parent_type = g.node_type[parent]
