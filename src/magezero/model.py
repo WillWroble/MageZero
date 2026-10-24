@@ -15,7 +15,7 @@ MageZero graph network for AlphaZero style MCTS. Input: StateEncoder's state gra
   embeddings: typed node = type embedding; leaf = leaf vocab row + numeric value bucket
   local layers: 2 bottom-up passes (separate weights), each one LocalLayer per type, run in order
       ABILITY -> CARD -> PERMANENT -> STACK_OBJECT -> ZONE -> PLAYER -> ROOT
-      every node attends over [itself, children + edge label embedding] (d=512, nhead=4, ff=1024)
+      every node attends over [itself, children + edge label embedding] (d=256, nhead=4, ff=512)
   global layers: 2-layer TransformerEncoder over [CLS, the state's internal nodes]
       ├── MLP(512 -> 256 -> 1)  per node  priority       (read at ABILITY nodes)
       ├── MLP(512 -> 256 -> 1)  per node  target         (read at CARD/PERMANENT/STACK_OBJECT/PLAYER nodes)
@@ -26,13 +26,15 @@ MageZero graph network for AlphaZero style MCTS. Input: StateEncoder's state gra
 
 GLOBAL_MAX = 2**31-1
 
-D_MODEL = 512
+D_MODEL = 256
 N_HEADS = 4
-D_FF = 1024
-DROPOUT = 0.25
+D_FF = 512
+DROPOUT = 0.0
 N_PASSES = 2
 GLOBAL_LAYERS = 2
 HIDDEN_MLP = 256
+# checkpoints saved before the arch was stored in them
+LEGACY_ARCH = dict(d_model=512, d_ff=1024, dropout=0.25)
 
 # numeric value buckets: exact -5..20 (P/T, counters, mana, costs, small counts), then 21-25, 26-30,
 # 31-40, 41-60, 61+ (life totals, library and zone sizes); everything below -5 is one bucket
@@ -116,8 +118,8 @@ class LocalLayer(nn.TransformerEncoderLayer):
     Same parameters, init and result as nn.TransformerEncoderLayer, without padding to the largest
     child count and without running the FFN on children."""
 
-    def __init__(self):
-        super().__init__(D_MODEL, N_HEADS, D_FF, DROPOUT, activation="gelu", batch_first=True, norm_first=True)
+    def __init__(self, d_model, n_heads, d_ff, dropout):
+        super().__init__(d_model, n_heads, d_ff, dropout, activation="gelu", batch_first=True, norm_first=True)
 
     def forward(self, node: torch.Tensor, child: torch.Tensor, seg: torch.Tensor) -> torch.Tensor:
         """node: [S, d] this stage's nodes; child: [E, d] child tokens (child embedding + edge label
@@ -139,32 +141,48 @@ class LocalLayer(nn.TransformerEncoderLayer):
         return node + self._ff_block(self.norm2(node))
 
 
-def mlp(out_dim: int, *tail: nn.Module) -> nn.Sequential:
-    return nn.Sequential(nn.Linear(D_MODEL, HIDDEN_MLP), nn.ReLU(), nn.Linear(HIDDEN_MLP, out_dim), *tail)
+def mlp(d_model: int, out_dim: int, *tail: nn.Module) -> nn.Sequential:
+    return nn.Sequential(nn.Linear(d_model, HIDDEN_MLP), nn.ReLU(), nn.Linear(HIDDEN_MLP, out_dim), *tail)
 
 
 class NetGraph(nn.Module):
-    def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0):
+    """Architecture options (saved in checkpoints as `arch`):
+      local: "sequential"  one layer per type, run bottom-up in STAGES order (children earlier in the
+                           order arrive updated in the same pass)
+             "parallel"    one layer per type, every stage reads the embeddings from the pass's start
+             "joint"       one layer for all internal nodes per pass (a single call)
+             "flat"        no local layers: each internal node adds the mean of its own leaves (with their
+                           edge labels) once; no hierarchy and no object-to-object edges
+      global_tokens: "internal"  global layers see [CLS, internal nodes]
+                     "all"       they also see the leaves; with n_passes=0 the state is a bag of tokens"""
+
+    def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
+                 n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
+                 global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal"):
         super().__init__()
-        self.embedding = nn.Embedding(num_embeddings, D_MODEL)                         # leaves
-        self.edge_embedding = nn.Embedding(num_edge_labels + 1, D_MODEL, padding_idx=0)  # row 0: unknown label
-        self.type_embedding = nn.Embedding(len(NodeType), D_MODEL)
-        self.value_embedding = nn.Embedding(len(VALUE_BOUNDS) + 1, D_MODEL)
+        self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
+                         global_layers=global_layers, local=local, global_tokens=global_tokens)
+        self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
+        self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
+        self.type_embedding = nn.Embedding(len(NodeType), d_model)
+        self.value_embedding = nn.Embedding(len(VALUE_BOUNDS) + 1, d_model)
         self.register_buffer("value_bounds", torch.tensor(VALUE_BOUNDS), persistent=False)
 
+        self.groups = {"INTERNAL": STAGES} if local == "joint" else {t.name: (t,) for t in STAGES}
         self.local_layers = nn.ModuleList(
-            nn.ModuleDict({t.name: LocalLayer() for t in STAGES}) for _ in range(N_PASSES))
+            nn.ModuleDict({name: LocalLayer(d_model, n_heads, d_ff, dropout) for name in self.groups})
+            for _ in range(0 if local == "flat" else n_passes))
 
-        self.cls = nn.Parameter(torch.randn(D_MODEL))
-        global_layer = nn.TransformerEncoderLayer(D_MODEL, N_HEADS, D_FF, DROPOUT, activation="gelu",
+        self.cls = nn.Parameter(torch.randn(d_model))
+        global_layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, activation="gelu",
                                                   batch_first=True, norm_first=True)
-        self.global_layers = nn.TransformerEncoder(global_layer, GLOBAL_LAYERS, norm=nn.LayerNorm(D_MODEL),
+        self.global_layers = nn.TransformerEncoder(global_layer, global_layers, norm=nn.LayerNorm(d_model),
                                                    enable_nested_tensor=False)
 
-        self.priority_head = mlp(1)
-        self.target_head = mlp(1)
-        self.binary_head = mlp(2)
-        self.value_head = mlp(1, nn.Tanh())
+        self.priority_head = mlp(d_model, 1)
+        self.target_head = mlp(d_model, 1)
+        self.binary_head = mlp(d_model, 2)
+        self.value_head = mlp(d_model, 1, nn.Tanh())
 
     def resize_embedding(self, num_embeddings: int, init_rows=None, name: str = "embedding") -> None:
         """Grow an embedding table to `num_embeddings` rows, keeping existing rows unchanged.
@@ -200,23 +218,36 @@ class NetGraph(nn.Module):
         keep = (g.node_type[g.edge_child] != NodeType.LEAF) | (g.node_row[g.edge_child] >= 0)
         child, parent, label = g.edge_child[keep], g.edge_parent[keep], g.edge_label[keep]
 
-        # one stage per type: every node of that type, its children, and each child's parent position
+        if self.arch["local"] == "flat":
+            leaf = g.node_type[child] == NodeType.LEAF
+            p = parent[leaf]
+            count = torch.bincount(p, minlength=N).clamp(min=1).unsqueeze(1)
+            h = h + h.new_zeros(h.shape).index_add(0, p, h[child[leaf]] + self.edge_embedding(label[leaf])) / count
+
+        # one stage per group of types: its nodes, their children, and each child's parent position
         parent_type = g.node_type[parent]
         stages = []
-        for t in STAGES:
-            nodes = (g.node_type == t).nonzero().squeeze(1)
+        for name, types in self.groups.items():
+            types = torch.tensor(types, device=h.device)
+            nodes = torch.isin(g.node_type, types).nonzero().squeeze(1)
             if len(nodes):
-                edges = (parent_type == t).nonzero().squeeze(1)
-                stages.append((t.name, nodes, child[edges], label[edges], torch.searchsorted(nodes, parent[edges])))
+                edges = torch.isin(parent_type, types).nonzero().squeeze(1)
+                stages.append((name, nodes, child[edges], label[edges], torch.searchsorted(nodes, parent[edges])))
 
-        # local layers, bottom-up passes: children earlier in the order arrive updated in this pass,
-        # children of the same type or later in the order (attachments, targets, linked exile) from the last one
+        # local layers, bottom-up passes. sequential: children earlier in the order arrive updated in this
+        # pass, children of the same type or later in the order (attachments, targets, linked exile) from the last one
         for layers in self.local_layers:
+            src = h
             for name, nodes, c, lbl, seg in stages:
-                h = h.index_copy(0, nodes, layers[name](h[nodes], h[c] + self.edge_embedding(lbl), seg))
+                if self.arch["local"] == "sequential":
+                    src = h
+                h = h.index_copy(0, nodes, layers[name](src[nodes], src[c] + self.edge_embedding(lbl), seg))
 
-        # global layers: self-attention over [CLS, internal nodes], one padded sequence per state
-        internal = (g.node_type != NodeType.LEAF).nonzero().squeeze(1)
+        # global layers: self-attention over [CLS, tokens], one padded sequence per state
+        internal = g.node_type != NodeType.LEAF
+        if self.arch["global_tokens"] == "all":
+            internal |= g.node_row >= 0
+        internal = internal.nonzero().squeeze(1)
         gi = graph_index(g.node_offsets)[internal]
         counts = torch.bincount(gi, minlength=B)
         pos = torch.arange(len(internal), device=h.device) - (counts.cumsum(0) - counts)[gi] + 1
@@ -337,6 +368,6 @@ def load_checkpoint(path):
     edge_vocab = FeatureVocab.from_state_dict(checkpoint["edge_vocab"])
     vocab.require_encoding(GLOBAL_MAX)
     edge_vocab.require_encoding(GLOBAL_MAX)
-    model = NetGraph(len(vocab), len(edge_vocab))
+    model = NetGraph(len(vocab), len(edge_vocab), **checkpoint.get("arch", LEGACY_ARCH))
     model.load_state_dict(checkpoint["model_state_dict"])
     return model, vocab, edge_vocab

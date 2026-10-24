@@ -1,0 +1,4 @@
+Building vocabs from dataset (ids seen in more than 10 states)
+leaf vocab: 937 kept ids in this dataset, 0 rows from checkpoint -> 937 rows
+edge vocab: 17 kept labels in this dataset, 0 rows from checkpoint -> 17 rows
+Killed

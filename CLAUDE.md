@@ -21,7 +21,7 @@ This repo holds the Python side: dataset, model, training and the inference serv
 - Record every experiment in `results/`: its config, the Kaggle run, metrics, and a one-line conclusion.
 
 ## Code map
-- `src/magezero/model.py`: `NetGraph`. d=512, 4 heads, FF 1024. Two bottom-up local passes, each one a `LocalLayer`
+- `src/magezero/model.py`: `NetGraph`. d=256, 4 heads, FF 512, no dropout (chosen from the sweep in `results/experiments.md`). Two bottom-up local passes, each one a `LocalLayer`
   per node type, run in order ABILITY -> CARD -> PERMANENT -> STACK_OBJECT -> ZONE -> PLAYER -> ROOT. Then a
   2-layer global TransformerEncoder over [CLS, internal nodes], padded to the batch's largest state.
   Heads: per-node priority and target, CLS choose_use and value.

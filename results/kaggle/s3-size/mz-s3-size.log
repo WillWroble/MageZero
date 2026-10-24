@@ -1,0 +1,587 @@
+[{"stream_name":"stdout","time":10019.54507802,"data":"Building vocabs from dataset (ids seen in more than 10 states)\n"}
+,{"stream_name":"stdout","time":10019.545139149,"data":"leaf vocab: 937 kept ids in this dataset, 0 rows from checkpoint -\u003e 937 rows\n"}
+,{"stream_name":"stdout","time":10019.545145342,"data":"edge vocab: 17 kept labels in this dataset, 0 rows from checkpoint -\u003e 17 rows\n"}
+,{"stream_name":"stdout","time":10019.545149142,"data":"arch: {'d_model': 256, 'n_heads': 4, 'd_ff': 512, 'dropout': 0.25, 'n_passes': 2, 'global_layers': 2, 'local': 'sequential', 'global_tokens': 'internal'}  parameters: 8,953,605\n"}
+,{"stream_name":"stdout","time":10019.545153199,"data":"/tmp/mz/model.py:323: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\n"}
+,{"stream_name":"stdout","time":10019.54515713,"data":"Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)\n"}
+,{"stream_name":"stdout","time":10019.545161053,"data":"  s[0] += float(loss) * n\n"}
+,{"stream_name":"stdout","time":10019.545164555,"data":"Epoch 1  priority_loss=0.923  choose_target_loss=0.513  choose_use_loss=0.119  value_loss=0.147  decision_states=420483  steps=6573  time=681s\n"}
+,{"stream_name":"stdout","time":10019.545168089,"data":"Validation loss:  priority_loss=1.038  choose_target_loss=0.353  choose_use_loss=0.068  value_loss=0.053  avg_total_loss=1.512  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.545172137,"data":"Test priority_accuracy=0.478  non-pass=0.141 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.545175404,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.545178629,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.545182483,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545186187,"data":"   0 |12113   27   64   91   79   25   34    7   50    1    0    0    6    0    7   11   12    0\n"}
+,{"stream_name":"stdout","time":10019.545189892,"data":"   1 | 3381 1410  102    0  112    0   15    3   26    0    0    0   21    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545193884,"data":"   2 | 1058    1  302    0   49    0   14    0   10    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.54519759,"data":"   3 | 1133    0   29  192   32   14    1    0    0    0    0    0    6    1    1    5    0    0\n"}
+,{"stream_name":"stdout","time":10019.54520095,"data":"   4 | 1044    5   26    0  285    0   19    1   10    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545204545,"data":"   5 | 1220    0   14   12   13   68    8    2    6    0    0    1    2    0    0   19    0    0\n"}
+,{"stream_name":"stdout","time":10019.545208749,"data":"   6 |  823    0   16    0   12    0   93    1   24    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545213832,"data":"   7 |  909    0    1    0    3    0    4    3    7    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545217525,"data":"   8 |  814    0    0    0    0    0    0    0   11    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545221255,"data":"   9 |  726    0   19    4   11   20    4    3    4    0    0    0    2    0    0    4    0    0\n"}
+,{"stream_name":"stdout","time":10019.5452248,"data":"  10 |  787    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545228733,"data":"  11 |  750    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545239046,"data":"  12 |  482    1   31    0   34    0    3    1    0    0    0    0   64    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.54524332,"data":"  13 |  481    0    0    0    0    0    0    0    0    0    0    0    0    1    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545247067,"data":"  14 |  349    0    0    0    0    0    0    0    0    0    0    0    0    0   49    0    9    0\n"}
+,{"stream_name":"stdout","time":10019.545250799,"data":"  15 |  280    0   12    6    7    3   10    1    1    0    0    0    0    0    0    9    0    0\n"}
+,{"stream_name":"stdout","time":10019.545255124,"data":"  16 |  230    0    0    0    0    0    0    0    0    0    0    0    0    0    1    0   80    0\n"}
+,{"stream_name":"stdout","time":10019.545258314,"data":"  17 |  284    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545262,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545266182,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.545269949,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.545273509,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.545276865,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.54528015,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.545283685,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.545286987,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.545290476,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.545293694,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.545296727,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.545299722,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.54530282,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.545305854,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.545312652,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.545315992,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.545319545,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.545322525,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.545325576,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.545328983,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.54533233,"data":"Test choose_target_accuracy=0.651\n"}
+,{"stream_name":"stdout","time":10019.545335868,"data":"Test choose_use_accuracy=0.864\n"}
+,{"stream_name":"stdout","time":10019.545339917,"data":"Epoch 2  priority_loss=0.732  choose_target_loss=0.386  choose_use_loss=0.104  value_loss=0.076  decision_states=420483  steps=6573  time=675s\n"}
+,{"stream_name":"stdout","time":10019.54534349,"data":"Validation loss:  priority_loss=0.946  choose_target_loss=0.344  choose_use_loss=0.064  value_loss=0.052  avg_total_loss=1.406  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.54534717,"data":"Test priority_accuracy=0.533  non-pass=0.246 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.545350812,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.545355073,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.545361948,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545366527,"data":"   0 |11877   86   80   74  161   64   71    1   25    0    0    0   27    0   15    7   31    8\n"}
+,{"stream_name":"stdout","time":10019.545370537,"data":"   1 | 2663 2171    1    0  122    0   71    0   42    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545374138,"data":"   2 |  796   56  351    0  187    0   27    0    9    0    0    0    8    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545377626,"data":"   3 | 1136    1   20  170   49   16    3    0    0    0    0    0    8    9    0    2    0    0\n"}
+,{"stream_name":"stdout","time":10019.545382047,"data":"   4 |  734    0    0    0  613    0   28    0   13    0    0    0    2    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.54538588,"data":"   5 | 1149    1   12    9   15  148   19    0    2    0    0    0    8    0    0    2    0    0\n"}
+,{"stream_name":"stdout","time":10019.545389605,"data":"   6 |  602    2    8    0   40    0  278    1   32    0    0    0    6    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545393549,"data":"   7 |  841    7   14    0   27    0   14    0   17    0    0    0    7    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545397804,"data":"   8 |  676    0    0    0    1    0    0    0  148    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545401622,"data":"   9 |  714    0   10    3   16   39   10    0    0    0    0    0    2    0    0    3    0    0\n"}
+,{"stream_name":"stdout","time":10019.545405135,"data":"  10 |  787    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545408784,"data":"  11 |  750    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545412958,"data":"  12 |  378   24   11    0   54    0    5    0    2    0    0    0  142    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545416698,"data":"  13 |  462    0    0    0    0    0    0    0    0    0    0    0    0   20    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545420254,"data":"  14 |  185    0    0    0    0    0    0    0    0    0    0    0    0    0  203    0   19    0\n"}
+,{"stream_name":"stdout","time":10019.545423686,"data":"  15 |  263    0    7    1    7   22   19    0    0    0    0    0    2    0    0    8    0    0\n"}
+,{"stream_name":"stdout","time":10019.545427617,"data":"  16 |   91    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0  220    0\n"}
+,{"stream_name":"stdout","time":10019.54543128,"data":"  17 |  284    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545434988,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.54543876,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.54544223,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.545445843,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.545450297,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.545453932,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.545457641,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.54546192,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.545465537,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.545469362,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.545476365,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.545479774,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.54548362,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.545486602,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.545490029,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.54549387,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.545497374,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.545500966,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.545504356,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.545507769,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545511398,"data":"Test choose_target_accuracy=0.662\n"}
+,{"stream_name":"stdout","time":10019.54551517,"data":"Test choose_use_accuracy=0.886\n"}
+,{"stream_name":"stdout","time":10019.545518955,"data":"Epoch 3  priority_loss=0.567  choose_target_loss=0.368  choose_use_loss=0.097  value_loss=0.070  decision_states=420483  steps=6573  time=676s\n"}
+,{"stream_name":"stdout","time":10019.545522717,"data":"Validation loss:  priority_loss=0.730  choose_target_loss=0.335  choose_use_loss=0.063  value_loss=0.048  avg_total_loss=1.175  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.545526639,"data":"Test priority_accuracy=0.652  non-pass=0.515 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.545530273,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.54553387,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.545537718,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545541469,"data":"   0 |10656  121  303  111  191  292  192   22  115   17   27    0   76   44   69  213   78    0\n"}
+,{"stream_name":"stdout","time":10019.545545384,"data":"   1 | 1951 2504  193    0  145    0   86   32   77    0    0    0   61    0    0   21    0    0\n"}
+,{"stream_name":"stdout","time":10019.545548892,"data":"   2 |   53    0 1330    0   17    0   23    0   10    0    0    0    1    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545552774,"data":"   3 |  994    2   35  272   26   33    3    0    2    0    0    0    8   10    0   29    0    0\n"}
+,{"stream_name":"stdout","time":10019.545557357,"data":"   4 |   54    1  109    0 1176    0   35    0   10    0    0    0    5    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545561545,"data":"   5 |  503    1   20   22   13  611   32    0    4    0    0    1    6    2    0  150    0    0\n"}
+,{"stream_name":"stdout","time":10019.545565234,"data":"   6 |   41    0   18    0    8    0  890    0    2    0    0    0    7    0    0    3    0    0\n"}
+,{"stream_name":"stdout","time":10019.545568983,"data":"   7 |  738   10   24    3   14    3   17   67   22    0    0    0   17    0    0   12    0    0\n"}
+,{"stream_name":"stdout","time":10019.545572855,"data":"   8 |   60    0   11    1   15    0   57    0  672    0    0    0    1    0    0    8    0    0\n"}
+,{"stream_name":"stdout","time":10019.545576092,"data":"   9 |  559    0    8   20   11   89   15    0    0   32    1    0    0    3    1   58    0    0\n"}
+,{"stream_name":"stdout","time":10019.545580305,"data":"  10 |  429    0    0    6    0    8    0    0    0    0  213    0    0  119    0   12    0    0\n"}
+,{"stream_name":"stdout","time":10019.545584589,"data":"  11 |  690    0    0    4    1   27    0    0    3    1    5    0    0    5    1   12    1    0\n"}
+,{"stream_name":"stdout","time":10019.545591297,"data":"  12 |  112    7   48    0   32    0    4    0    4    0    0    0  408    0    0    1    0    0\n"}
+,{"stream_name":"stdout","time":10019.545595251,"data":"  13 |  169    0    0    6    0    0    0    0    0    0    0    0    0  301    0    6    0    0\n"}
+,{"stream_name":"stdout","time":10019.545598737,"data":"  14 |   28    0    0    0    0    0    0    0    0    0    0    0    0    0  370    0    9    0\n"}
+,{"stream_name":"stdout","time":10019.54560223,"data":"  15 |   71    0    6    1    4    0   25    0    2    0    0    0    2    0    0  218    0    0\n"}
+,{"stream_name":"stdout","time":10019.545605837,"data":"  16 |   21    0    0    0    0    0    0    0    0    0    0    0    0    0    8    0  282    0\n"}
+,{"stream_name":"stdout","time":10019.545609721,"data":"  17 |  284    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.54561371,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545617709,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.545620882,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.545624447,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.545628135,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.545631689,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.545635485,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.545638711,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.54564217,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.54564582,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.54564961,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.545652857,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.54565631,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.545660052,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.545663677,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.54566718,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.545670733,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.545674243,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.545677684,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.545681084,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545684602,"data":"Test choose_target_accuracy=0.663\n"}
+,{"stream_name":"stdout","time":10019.54568802,"data":"Test choose_use_accuracy=0.886\n"}
+,{"stream_name":"stdout","time":10019.54569167,"data":"Epoch 4  priority_loss=0.450  choose_target_loss=0.357  choose_use_loss=0.091  value_loss=0.066  decision_states=420483  steps=6573  time=672s\n"}
+,{"stream_name":"stdout","time":10019.545695686,"data":"Validation loss:  priority_loss=0.682  choose_target_loss=0.322  choose_use_loss=0.063  value_loss=0.050  avg_total_loss=1.118  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.545699664,"data":"Test priority_accuracy=0.650  non-pass=0.502 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.545703281,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.545707142,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.545714022,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545718059,"data":"   0 |10813   50  310   90  219  269  151  121   97   22   19    0  106   48   71   89   49    3\n"}
+,{"stream_name":"stdout","time":10019.545722024,"data":"   1 | 2520 1886  197    0  195    0   38  107   45    0    0    0   82    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545725883,"data":"   2 |   30    0 1332    0   56    0   11    0    5    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545730182,"data":"   3 | 1044    1   37  223   38   23    2    0    1    0    0    0    9   21    0   15    0    0\n"}
+,{"stream_name":"stdout","time":10019.545734053,"data":"   4 |   31    0   60    0 1266    0   11    0    8    0    0    0   14    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545737724,"data":"   5 |  503    0   21   24   15  705   26    0    3    0    2    0    8    5    0   53    0    0\n"}
+,{"stream_name":"stdout","time":10019.545741755,"data":"   6 |  113    0   45    0   39    0  763    0    0    0    0    0    9    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545745384,"data":"   7 |  537    0   25    1   16    2    7  311   10    0    0    0   14    0    0    4    0    0\n"}
+,{"stream_name":"stdout","time":10019.545749563,"data":"   8 |   70    0   13    0   16    0   50    2  668    0    0    0    5    0    0    1    0    0\n"}
+,{"stream_name":"stdout","time":10019.545753435,"data":"   9 |  617    0    9   18   11   55   13    0    0   50    1    0    0    3    1   19    0    0\n"}
+,{"stream_name":"stdout","time":10019.545758101,"data":"  10 |  399    0    0    8    0    2    0    0    0    0  248    0    0  127    0    3    0    0\n"}
+,{"stream_name":"stdout","time":10019.545761967,"data":"  11 |  703    0    0    3    1   24    0    0    0    0    6    0    1    5    0    7    0    0\n"}
+,{"stream_name":"stdout","time":10019.545765925,"data":"  12 |   28    0   51    0   23    0    2    0    3    0    0    0  509    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.5457695,"data":"  13 |  136    0    0    0    0    0    0    0    0    0    0    0    0  346    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545773258,"data":"  14 |   29    0    0    0    0    0    0    0    0    0    0    0    0    0  368    0   10    0\n"}
+,{"stream_name":"stdout","time":10019.545777215,"data":"  15 |  109    0   10    1    4    0   19    0    1    0    0    0    3    0    0  182    0    0\n"}
+,{"stream_name":"stdout","time":10019.545780971,"data":"  16 |   38    0    0    0    0    0    0    0    0    0    0    0    0    0    7    0  266    0\n"}
+,{"stream_name":"stdout","time":10019.545784821,"data":"  17 |  284    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545788253,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.54579203,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.545795326,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.545798862,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.545802329,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.545805582,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.545808957,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.54581255,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.545816094,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.545830968,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.545879182,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.545888137,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.545891601,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.545895668,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.54589923,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.545903439,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.545906797,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.545909762,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.545913007,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.545916684,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545920802,"data":"Test choose_target_accuracy=0.676\n"}
+,{"stream_name":"stdout","time":10019.545924421,"data":"Test choose_use_accuracy=0.886\n"}
+,{"stream_name":"stdout","time":10019.545928048,"data":"Epoch 5  priority_loss=0.410  choose_target_loss=0.345  choose_use_loss=0.092  value_loss=0.063  decision_states=420483  steps=6573  time=671s\n"}
+,{"stream_name":"stdout","time":10019.545931995,"data":"Validation loss:  priority_loss=0.686  choose_target_loss=0.309  choose_use_loss=0.070  value_loss=0.049  avg_total_loss=1.115  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.545936234,"data":"Test priority_accuracy=0.683  non-pass=0.582 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.545939902,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.545943964,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.545947654,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.545951492,"data":"   0 |10380  117  297  155  225  309  176  239  110   32   55    5  112   63   65  115   64    8\n"}
+,{"stream_name":"stdout","time":10019.545955261,"data":"   1 | 1860 2451  196    4  206    8   66  163   36    0    0    0   75    0    0    5    0    0\n"}
+,{"stream_name":"stdout","time":10019.54595899,"data":"   2 |   36    1 1293    0   64    1   24    0   10    0    0    0    5    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545962637,"data":"   3 |  879    1   43  368   36   34    3    0    1    0    5    0   10   17    0   17    0    0\n"}
+,{"stream_name":"stdout","time":10019.545966564,"data":"   4 |   30    0   30    0 1264    0   39    0    9    0    0    0   18    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545970504,"data":"   5 |  477    0   20   20   11  723   33    0    3    0    3    0    6    4    0   65    0    0\n"}
+,{"stream_name":"stdout","time":10019.545974262,"data":"   6 |   29    0    4    0    4    0  926    0    5    0    0    0    1    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.545978159,"data":"   7 |  298   10   26    3   15    3   10  534    6    0    0    0   14    0    0    8    0    0\n"}
+,{"stream_name":"stdout","time":10019.545981759,"data":"   8 |   21    0    3    1    3    0   29    1  763    0    0    0    3    0    0    1    0    0\n"}
+,{"stream_name":"stdout","time":10019.545985452,"data":"   9 |  582    0    5   24   12   65   14    0    0   64    1    0    0    3    1   26    0    0\n"}
+,{"stream_name":"stdout","time":10019.545989396,"data":"  10 |  221    0    0   15    0    1    0    0    0    0  418    0    0  123    0    7    0    2\n"}
+,{"stream_name":"stdout","time":10019.545997549,"data":"  11 |  680    0    0    5    1   26    0    2    3    1   13    5    1    6    0    6    1    0\n"}
+,{"stream_name":"stdout","time":10019.546003117,"data":"  12 |   24    2   40    0   23    0    3    0    5    0    0    0  519    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546006895,"data":"  13 |  100    0    0    4    0    0    0    0    0    0    2    0    0  375    0    1    0    0\n"}
+,{"stream_name":"stdout","time":10019.546010761,"data":"  14 |   27    0    0    0    0    0    0    0    0    0    0    0    0    0  379    0    1    0\n"}
+,{"stream_name":"stdout","time":10019.546015154,"data":"  15 |   85    0    5    0    3    0   23    0    2    0    0    0    1    1    0  209    0    0\n"}
+,{"stream_name":"stdout","time":10019.546022484,"data":"  16 |   27    0    0    0    0    0    0    0    0    0    0    0    0    0   19    0  265    0\n"}
+,{"stream_name":"stdout","time":10019.546026457,"data":"  17 |  272    0    0    1    0    0    0    0    0    0    0    0    0    0    0    0    0   11\n"}
+,{"stream_name":"stdout","time":10019.546030201,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546033855,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.546037552,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.546041107,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.54604552,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.546049181,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.546052875,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.546056398,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.546059958,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.546063619,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.546067035,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.546070394,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.546074384,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.546078205,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.546081533,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.546084676,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.546088079,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.546091461,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.54609502,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.546098635,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546102244,"data":"Test choose_target_accuracy=0.687\n"}
+,{"stream_name":"stdout","time":10019.546105695,"data":"Test choose_use_accuracy=0.870\n"}
+,{"stream_name":"stdout","time":10019.546109382,"data":"Epoch 6  priority_loss=0.384  choose_target_loss=0.337  choose_use_loss=0.086  value_loss=0.061  decision_states=420483  steps=6573  time=668s\n"}
+,{"stream_name":"stdout","time":10019.546113369,"data":"Validation loss:  priority_loss=0.677  choose_target_loss=0.312  choose_use_loss=0.071  value_loss=0.044  avg_total_loss=1.103  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.546117231,"data":"Test priority_accuracy=0.680  non-pass=0.582 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.546121424,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.546130402,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.546136923,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546140821,"data":"   0 |10305  107  288  196  248  274  171  202  114   94   33   43  114   72   62   94   98   12\n"}
+,{"stream_name":"stdout","time":10019.546144392,"data":"   1 | 2045 2311  204    0  218    0   64  105   41    0    0    0   80    0    0    2    0    0\n"}
+,{"stream_name":"stdout","time":10019.546148029,"data":"   2 |   27    0 1186    0  182    0   21    0   11    0    0    0    7    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546152169,"data":"   3 |  730    2   28  522   53   25    2    0    2    0    0    0    9   25    0   15    0    1\n"}
+,{"stream_name":"stdout","time":10019.546155921,"data":"   4 |   21    0    1    0 1319    0   35    0    9    0    0    0    5    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.54616012,"data":"   5 |  458    1   19   37   12  730   31    0    4    0    4    2    9    5    0   53    0    0\n"}
+,{"stream_name":"stdout","time":10019.54616393,"data":"   6 |   27    0    7    0    3    0  921    0   10    0    0    0    1    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546184101,"data":"   7 |  311   12   24    0   15    2   11  527    5    0    0    0   14    0    0    6    0    0\n"}
+,{"stream_name":"stdout","time":10019.546188427,"data":"   8 |   14    0    0    1    4    0   16    0  789    0    0    0    1    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546193139,"data":"   9 |  528    0    5   26   14   60   14    1    0  123    1    0    0    3    1   20    0    1\n"}
+,{"stream_name":"stdout","time":10019.546197551,"data":"  10 |  312    0    0    8    0    3    0    0    0    3  304    0    0  150    0    0    2    5\n"}
+,{"stream_name":"stdout","time":10019.546201581,"data":"  11 |  621    0    0   13    1   33    0    2    3   10    8   40    1    8    1    8    1    0\n"}
+,{"stream_name":"stdout","time":10019.54620572,"data":"  12 |   14    0   37    0   43    0    3    0    5    0    0    0  514    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546210264,"data":"  13 |   77    0    0    0    0    0    0    0    0    0    0    0    0  405    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546214764,"data":"  14 |   32    0    0    0    0    0    0    0    0    0    0    0    0    0  375    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546219161,"data":"  15 |  100    0    6    5    4    0   23    0    1    0    0    0    2    1    0  187    0    0\n"}
+,{"stream_name":"stdout","time":10019.546230339,"data":"  16 |   22    0    0    0    0    0    0    0    0    0    0    0    0    0   16    0  273    0\n"}
+,{"stream_name":"stdout","time":10019.546235284,"data":"  17 |  234    0    0    1    0    0    0    0    0    0    0    0    0   14    0    0    0   35\n"}
+,{"stream_name":"stdout","time":10019.546240349,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546244709,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.546249057,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.546254277,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.546258829,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.54626289,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.546267144,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.546271539,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.54627588,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.546282851,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.54628706,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.546291187,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.546295579,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.546299619,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.546303456,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.546307536,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.546311718,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.546315896,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.546320892,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.546324686,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546329879,"data":"Test choose_target_accuracy=0.704\n"}
+,{"stream_name":"stdout","time":10019.546335094,"data":"Test choose_use_accuracy=0.886\n"}
+,{"stream_name":"stdout","time":10019.546340155,"data":"arch: {'d_model': 256, 'n_heads': 4, 'd_ff': 512, 'dropout': 0.25, 'n_passes': 2, 'global_layers': 2, 'local': 'sequential', 'global_tokens': 'internal'}\n"}
+,{"stream_name":"stdout","time":10019.546344841,"data":"bench batch=1  17.1 ms  59 states/s  0.06 GB\n"}
+,{"stream_name":"stdout","time":10019.54635062,"data":"bench batch=8  20.6 ms  388 states/s  0.06 GB\n"}
+,{"stream_name":"stdout","time":10019.546354709,"data":"bench batch=32  24.3 ms  1319 states/s  0.09 GB\n"}
+,{"stream_name":"stdout","time":10019.546359104,"data":"bench batch=128  35.6 ms  3599 states/s  0.21 GB\n"}
+,{"stream_name":"stdout","time":10019.546363146,"data":"bench batch=512  132.2 ms  3874 states/s  0.71 GB\n"}
+,{"stream_name":"stdout","time":10019.546367319,"data":"\n"}
+,{"stream_name":"stdout","time":10019.546371471,"data":"Building vocabs from dataset (ids seen in more than 10 states)\n"}
+,{"stream_name":"stdout","time":10019.546375821,"data":"leaf vocab: 937 kept ids in this dataset, 0 rows from checkpoint -\u003e 937 rows\n"}
+,{"stream_name":"stdout","time":10019.546381078,"data":"edge vocab: 17 kept labels in this dataset, 0 rows from checkpoint -\u003e 17 rows\n"}
+,{"stream_name":"stdout","time":10019.546385593,"data":"arch: {'d_model': 512, 'n_heads': 4, 'd_ff': 1024, 'dropout': 0.25, 'n_passes': 2, 'global_layers': 4, 'local': 'sequential', 'global_tokens': 'internal'}  parameters: 38,887,685\n"}
+,{"stream_name":"stdout","time":10019.546390316,"data":"/tmp/mz/model.py:323: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\n"}
+,{"stream_name":"stdout","time":10019.546395061,"data":"Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)\n"}
+,{"stream_name":"stdout","time":10019.546399621,"data":"  s[0] += float(loss) * n\n"}
+,{"stream_name":"stdout","time":10019.546403904,"data":"Epoch 1  priority_loss=0.827  choose_target_loss=0.500  choose_use_loss=0.118  value_loss=0.154  decision_states=420483  steps=6573  time=1520s\n"}
+,{"stream_name":"stdout","time":10019.546408614,"data":"Validation loss:  priority_loss=0.826  choose_target_loss=0.343  choose_use_loss=0.063  value_loss=0.107  avg_total_loss=1.339  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.546413252,"data":"Test priority_accuracy=0.556  non-pass=0.292 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.54641761,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.546426032,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.546430743,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546435232,"data":"   0 |11756  246   33   39  149   10  137   41   59    0    0    0    9    1   37    0   10    0\n"}
+,{"stream_name":"stdout","time":10019.546439721,"data":"   1 | 1865 3023    0    0   17    0   52    0  113    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546443976,"data":"   2 |  750  135  246    0  250    0   32    0   12    0    0    0    9    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546448368,"data":"   3 | 1230    5    9  120   39    0    1    0    0    0    0    0    6    4    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546452759,"data":"   4 |  667  168    0    0  493    0   37    0   25    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546457329,"data":"   5 | 1269   10    1    7   18   33   24    0    1    0    0    0    2    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546461949,"data":"   6 |  294   19   14    0   48    0  585    0    5    0    0    0    4    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.54646658,"data":"   7 |  728   53    3    0    9    0   10   70   53    0    0    0    1    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546471038,"data":"   8 |  538   16    0    0   19    0   40    1  210    0    0    0    1    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546475562,"data":"   9 |  754    6    3    2   13    6   13    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546480072,"data":"  10 |  785    0    0    0    0    0    0    0    0    0    0    0    0    2    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546484559,"data":"  11 |  748    0    0    0    1    1    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546488828,"data":"  12 |  353   47   25    0   96    0   11    0    0    0    0    0   84    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546493312,"data":"  13 |  457    0    0    0    0    0    0    0    0    0    0    0    0   25    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546497853,"data":"  14 |  123    0    0    0    0    0    0    0    0    0    0    0    0    0  278    0    6    0\n"}
+,{"stream_name":"stdout","time":10019.546501944,"data":"  15 |  292    0    7    2    6    7   15    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546506434,"data":"  16 |  174    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0  137    0\n"}
+,{"stream_name":"stdout","time":10019.54651081,"data":"  17 |  284    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546515163,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546520004,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.546524146,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.546528162,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.546532216,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.546536409,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.546540492,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.546544404,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.546551921,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.54655633,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.546560489,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.546564458,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.546568458,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.546572462,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.546576692,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.54658097,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.546584552,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.546589077,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.546593249,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.546597131,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546601366,"data":"Test choose_target_accuracy=0.645\n"}
+,{"stream_name":"stdout","time":10019.546605235,"data":"Test choose_use_accuracy=0.885\n"}
+,{"stream_name":"stdout","time":10019.546609455,"data":"Epoch 2  priority_loss=0.524  choose_target_loss=0.378  choose_use_loss=0.100  value_loss=0.078  decision_states=420483  steps=6573  time=1526s\n"}
+,{"stream_name":"stdout","time":10019.546614543,"data":"Validation loss:  priority_loss=0.705  choose_target_loss=0.329  choose_use_loss=0.063  value_loss=0.067  avg_total_loss=1.164  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.546618986,"data":"Test priority_accuracy=0.615  non-pass=0.419 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.546623189,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.546627798,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.5466325,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546636904,"data":"   0 |11275   78  178  140  190  200  108    7  130    0   29    0   89   21   30   31   21    0\n"}
+,{"stream_name":"stdout","time":10019.546641175,"data":"   1 | 2310 2210  141   10  126   17   47   53   85    0    0    0   62    0    0    9    0    0\n"}
+,{"stream_name":"stdout","time":10019.546645643,"data":"   2 |  320    2  902    0  180    2    1    0    2    0    0    0   25    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546650332,"data":"   3 |  923    2   20  359   45   24    2    0    1    0    5    0   13   17    0    3    0    0\n"}
+,{"stream_name":"stdout","time":10019.546654381,"data":"   4 |  231    0   26    0 1108    2    4    0    0    0    0    0   19    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546658455,"data":"   5 |  787    1   13   46   18  457   23    0    5    0    1    0    7    2    0    5    0    0\n"}
+,{"stream_name":"stdout","time":10019.546663416,"data":"   6 |  245    3   88    0   59    1  557    0    4    0    0    0   12    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546668115,"data":"   7 |  805   12   17    2   16    1    4   40   14    0    0    0   14    0    0    2    0    0\n"}
+,{"stream_name":"stdout","time":10019.546672521,"data":"   8 |  130    1   50    3   54    5   40    0  511    0    0    0   27    0    0    4    0    0\n"}
+,{"stream_name":"stdout","time":10019.546676918,"data":"   9 |  673    0    5   27   11   55   14    1    2    0    0    0    0    2    1    6    0    0\n"}
+,{"stream_name":"stdout","time":10019.546680895,"data":"  10 |  532    0    0    0    0    0    0    0    0    0  195    0    0   60    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546688729,"data":"  11 |  710    0    0   13    2   14    0    0    3    0    4    0    1    1    0    2    0    0\n"}
+,{"stream_name":"stdout","time":10019.546693053,"data":"  12 |   81    0    6    0   51    0    1    0    0    0    0    0  477    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.54669767,"data":"  13 |  282    0    0    0    0    0    0    0    0    0    4    0    0  196    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546702416,"data":"  14 |  101    0    0    0    0    0    0    0    0    0    0    0    0    0  290    0   16    0\n"}
+,{"stream_name":"stdout","time":10019.546707041,"data":"  15 |  203    0   10    6    3   12   18    0    0    0    0    0    2    0    0   75    0    0\n"}
+,{"stream_name":"stdout","time":10019.546711194,"data":"  16 |   86    0    0    0    0    0    0    0    0    0    0    0    0    0    1    0  224    0\n"}
+,{"stream_name":"stdout","time":10019.546715139,"data":"  17 |  284    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546719703,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546724204,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.546727849,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.546732001,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.546736158,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.546740227,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.546744852,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.546749035,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.546753366,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.546757302,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.546761526,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.546765569,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.546770161,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.546774238,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.546778347,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.546782246,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.546786491,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.546790177,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.546794418,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.546798406,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546802781,"data":"Test choose_target_accuracy=0.663\n"}
+,{"stream_name":"stdout","time":10019.546806919,"data":"Test choose_use_accuracy=0.886\n"}
+,{"stream_name":"stdout","time":10019.546811311,"data":"Epoch 3  priority_loss=0.444  choose_target_loss=0.358  choose_use_loss=0.093  value_loss=0.069  decision_states=420483  steps=6573  time=1521s\n"}
+,{"stream_name":"stdout","time":10019.546815975,"data":"Validation loss:  priority_loss=0.700  choose_target_loss=0.323  choose_use_loss=0.062  value_loss=0.069  avg_total_loss=1.153  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.54682768,"data":"Test priority_accuracy=0.643  non-pass=0.494 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.546832005,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.546862544,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.54686756,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546872174,"data":"   0 |10766   83  194  167  138  367  221   94   86   32   47   19   76   37   51  109   39    1\n"}
+,{"stream_name":"stdout","time":10019.546876788,"data":"   1 | 2173 2197  167    3  115   22  115  157   53    9    0    0   51    0    0    8    0    0\n"}
+,{"stream_name":"stdout","time":10019.54688106,"data":"   2 |  294    0 1078    0    0    3   33    0    5    0    0    0   21    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546885388,"data":"   3 |  858    4   30  408   25   39    8    0    2    0    1    0    9   19    0   11    0    0\n"}
+,{"stream_name":"stdout","time":10019.546889901,"data":"   4 |  150    1  158    0 1019    2   51    0    3    0    0    0    6    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546894344,"data":"   5 |  526    1    8   18    7  734   35    1    2    0    2    0    1    5    0   25    0    0\n"}
+,{"stream_name":"stdout","time":10019.546899069,"data":"   6 |   58    0   18    0    5    0  887    0    1    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546903479,"data":"   7 |  545    6   19    0   12    7   24  295    4    0    0    0   13    0    0    2    0    0\n"}
+,{"stream_name":"stdout","time":10019.546907684,"data":"   8 |  198    3   28    1   47    2   53   10  464    1    0    0   18    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546912134,"data":"   9 |  565    2    2   21    5   97   17    2    1   61    2    0    0    3    0   19    0    0\n"}
+,{"stream_name":"stdout","time":10019.546916584,"data":"  10 |  413    0    0    0    0    0    0    0    0    0  292    0    0   82    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.54692097,"data":"  11 |  680    0    0    1    2   29    1    0    2    1    6   15    1    5    0    7    0    0\n"}
+,{"stream_name":"stdout","time":10019.546925822,"data":"  12 |  110    7   29    0   27    2   12    0    2    0    0    0  426    0    0    1    0    0\n"}
+,{"stream_name":"stdout","time":10019.546930218,"data":"  13 |  193    0    0    0    0    0    0    0    0    0    6    0    0  283    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.546934496,"data":"  14 |   54    0    0    0    0    0    0    0    0    0    0    0    0    0  349    0    4    0\n"}
+,{"stream_name":"stdout","time":10019.54693894,"data":"  15 |   73    0    1    1    2   11   23    0    2    0    1    0    0    1    0  214    0    0\n"}
+,{"stream_name":"stdout","time":10019.546943749,"data":"  16 |   52    0    0    0    0    0    0    0    0    0    0    0    0    0   18    0  241    0\n"}
+,{"stream_name":"stdout","time":10019.546948334,"data":"  17 |  270    0    0    0    0    0    0    0    0    0    1    0    0    7    0    0    0    6\n"}
+,{"stream_name":"stdout","time":10019.546952701,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.546957011,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.546961647,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.546966278,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.546970458,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.546974523,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.546979335,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.546986882,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.546991283,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.546995465,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.546999477,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.547003763,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.547008047,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.547012058,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.547016104,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.54702019,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.547024869,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.547028829,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.547032961,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.547037078,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547041237,"data":"Test choose_target_accuracy=0.664\n"}
+,{"stream_name":"stdout","time":10019.547045272,"data":"Test choose_use_accuracy=0.870\n"}
+,{"stream_name":"stdout","time":10019.547049635,"data":"Epoch 4  priority_loss=0.404  choose_target_loss=0.348  choose_use_loss=0.089  value_loss=0.065  decision_states=420483  steps=6573  time=1517s\n"}
+,{"stream_name":"stdout","time":10019.547054115,"data":"Validation loss:  priority_loss=0.697  choose_target_loss=0.312  choose_use_loss=0.057  value_loss=0.076  avg_total_loss=1.142  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.547059114,"data":"Test priority_accuracy=0.662  non-pass=0.524 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.547063972,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.547068454,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.547072626,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547076978,"data":"   0 |10793   92  163  275  212  138  183  162  150   13   37    0   85   13   57  109   45    0\n"}
+,{"stream_name":"stdout","time":10019.547081881,"data":"   1 | 1983 2452  133    8  131   20   71  111   89    2    0    0   56    0    0   14    0    0\n"}
+,{"stream_name":"stdout","time":10019.547086441,"data":"   2 |  285    0  939    0  142    0   21    0   23    0    0    0   24    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547090675,"data":"   3 |  613    2   17  678   51    0    4    0    5    0    4    0   10   16    0   14    0    0\n"}
+,{"stream_name":"stdout","time":10019.547095061,"data":"   4 |   88    0   25    0 1211    0   41    1   21    0    0    0    3    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547099549,"data":"   5 |  700    1   12   79   11  494   25    1    8    0    2    0    2    3    0   27    0    0\n"}
+,{"stream_name":"stdout","time":10019.547104152,"data":"   6 |   66    1    7    0    6    0  860    0   29    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547108418,"data":"   7 |  451    9   17    0   13    0   18  382   18    1    0    0   13    0    0    5    0    0\n"}
+,{"stream_name":"stdout","time":10019.54711259,"data":"   8 |   45    0    1    0    2    0    6    1  767    0    0    0    2    0    0    1    0    0\n"}
+,{"stream_name":"stdout","time":10019.547116508,"data":"   9 |  659    0    3   36   11   22   14    0    3   25    0    0    0    2    1   21    0    0\n"}
+,{"stream_name":"stdout","time":10019.547124324,"data":"  10 |  529    0    0    0    0    0    0    0    0    0  210    0    0   48    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547129073,"data":"  11 |  701    0    0   15    1   17    0    0    3    0    4    0    1    1    0    7    0    0\n"}
+,{"stream_name":"stdout","time":10019.547133489,"data":"  12 |   72    0   16    0   44    1    4    0    8    0    0    0  471    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547137669,"data":"  13 |  264    0    0    0    0    0    0    0    0    0   12    0    0  206    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547141784,"data":"  14 |   42    0    0    0    0    0    0    0    0    0    0    0    0    0  363    0    2    0\n"}
+,{"stream_name":"stdout","time":10019.547146418,"data":"  15 |   86    0    1    6    2    5   22    0    3    0    0    0    0    1    0  203    0    0\n"}
+,{"stream_name":"stdout","time":10019.547150409,"data":"  16 |   33    0    0    0    0    0    0    0    0    0    0    0    0    0   22    0  256    0\n"}
+,{"stream_name":"stdout","time":10019.547154684,"data":"  17 |  284    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547160218,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.54716531,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.547169028,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.547173284,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.547177514,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.547181634,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.547185625,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.547189589,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.54719375,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.547198347,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.547202285,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.547206652,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.547210709,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.54721497,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.547219083,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.547222932,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.547227299,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.547231332,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.547235444,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.547239664,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547243996,"data":"Test choose_target_accuracy=0.682\n"}
+,{"stream_name":"stdout","time":10019.547248035,"data":"Test choose_use_accuracy=0.886\n"}
+,{"stream_name":"stdout","time":10019.547252551,"data":"Epoch 5  priority_loss=0.383  choose_target_loss=0.339  choose_use_loss=0.086  value_loss=0.062  decision_states=420483  steps=6573  time=1517s\n"}
+,{"stream_name":"stdout","time":10019.547256951,"data":"Validation loss:  priority_loss=0.672  choose_target_loss=0.308  choose_use_loss=0.055  value_loss=0.056  avg_total_loss=1.092  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.547261758,"data":"Test priority_accuracy=0.677  non-pass=0.559 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.547266032,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.547273928,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.547278258,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547282296,"data":"   0 |10635  104  182  194  227  230  184  298  103    8   45    0   99   45   54   78   40    1\n"}
+,{"stream_name":"stdout","time":10019.547286938,"data":"   1 | 1904 2577  128    7  135    7   56  149   35    1    0    0   64    0    0    7    0    0\n"}
+,{"stream_name":"stdout","time":10019.54729117,"data":"   2 |  222    2 1026    0  129    0   27    0    8    0    0    0   20    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547295342,"data":"   3 |  775    7   17  516   48    5    2    0    2    0    0    0   13   19    0    8    0    2\n"}
+,{"stream_name":"stdout","time":10019.547299632,"data":"   4 |   69    0   18    0 1242    0   40    0    8    0    0    0   13    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547304431,"data":"   5 |  511    7   11   64   12  697   21    3    2    0    4    0    5    5    0   23    0    0\n"}
+,{"stream_name":"stdout","time":10019.547308429,"data":"   6 |   63    1    9    0    4    0  889    0    3    0    0    0    0    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547312847,"data":"   7 |  230   12   19    0   14    0   16  621    1    0    0    0   14    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547317568,"data":"   8 |   73    6   15    2   30    1   47   47  586    0    0    0   15    0    0    3    0    0\n"}
+,{"stream_name":"stdout","time":10019.547321984,"data":"   9 |  672    4    2   26    7   27   15    1    1   15    1    0    0    3    1   21    0    1\n"}
+,{"stream_name":"stdout","time":10019.547326388,"data":"  10 |  343    0    0    1    0    0    0    0    0    0  327    0    0  112    0    0    0    4\n"}
+,{"stream_name":"stdout","time":10019.547332655,"data":"  11 |  691    0    0    7    2   29    1    1    3    0    6    0    1    2    1    6    0    0\n"}
+,{"stream_name":"stdout","time":10019.547337164,"data":"  12 |   42    0   25    0   35    0    4    0    1    0    0    0  509    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547341909,"data":"  13 |  154    0    0    0    0    0    0    0    0    0    0    0    0  327    0    0    0    1\n"}
+,{"stream_name":"stdout","time":10019.547346435,"data":"  14 |   42    0    0    0    0    0    0    0    0    0    0    0    0    0  361    0    4    0\n"}
+,{"stream_name":"stdout","time":10019.547350861,"data":"  15 |  110    1    0    9    2    3   22    0    1    0    0    0    1    1    0  179    0    0\n"}
+,{"stream_name":"stdout","time":10019.547355058,"data":"  16 |   41    0    0    0    0    0    0    0    0    0    0    0    0    0   15    0  255    0\n"}
+,{"stream_name":"stdout","time":10019.54735945,"data":"  17 |  269    0    0    0    0    0    0    0    0    0    0    0    0    1    0    0    0   14\n"}
+,{"stream_name":"stdout","time":10019.547363918,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547368861,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.547372798,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.547387319,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.547390769,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.547394529,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.547398085,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.547405016,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.547408667,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.547412092,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.547415603,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.547419082,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.547422452,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.547425873,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.547429436,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.547433084,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.547436369,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.547439625,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.547443078,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.547446567,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547450058,"data":"Test choose_target_accuracy=0.701\n"}
+,{"stream_name":"stdout","time":10019.547453665,"data":"Test choose_use_accuracy=0.886\n"}
+,{"stream_name":"stdout","time":10019.54745714,"data":"Epoch 6  priority_loss=0.367  choose_target_loss=0.332  choose_use_loss=0.083  value_loss=0.060  decision_states=420483  steps=6573  time=1516s\n"}
+,{"stream_name":"stdout","time":10019.547461593,"data":"Validation loss:  priority_loss=0.682  choose_target_loss=0.303  choose_use_loss=0.058  value_loss=0.059  avg_total_loss=1.102  decision_states=63518\n"}
+,{"stream_name":"stdout","time":10019.54746532,"data":"Test priority_accuracy=0.667  non-pass=0.554 (18157 of 30684 states)\n"}
+,{"stream_name":"stdout","time":10019.547468972,"data":"--- Priority Confusion Matrix (True \\ Predicted) ---\n"}
+,{"stream_name":"stdout","time":10019.547472587,"data":"True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17\n"}
+,{"stream_name":"stdout","time":10019.547476877,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547480353,"data":"   0 |10400   38  260  249  238  312  147  199  109  128   59    0  115   55   62   94   54    8\n"}
+,{"stream_name":"stdout","time":10019.547484389,"data":"   1 | 2652 1807  132    7  155    3   56  129   49    4    0    0   70    0    0    6    0    0\n"}
+,{"stream_name":"stdout","time":10019.547488327,"data":"   2 |   61    0 1167    0  155    0   13    0    6    0    0    0   32    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547492046,"data":"   3 |  629    1   21  650   48   17    3    0    2    0    0    0   13   20    0    9    0    1\n"}
+,{"stream_name":"stdout","time":10019.547496103,"data":"   4 |   37    0    4    0 1307    0   14    0    7    0    0    0   21    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547499694,"data":"   5 |  397    0   16   36   14  840   18    3    3    4    1    0    6    5    0   22    0    0\n"}
+,{"stream_name":"stdout","time":10019.547502846,"data":"   6 |   56    1   30    0   39    0  831    0    1    0    0    0    5    0    0    6    0    0\n"}
+,{"stream_name":"stdout","time":10019.54750709,"data":"   7 |  358    0   23    0   15    1    9  500    6    0    0    0   14    0    0    1    0    0\n"}
+,{"stream_name":"stdout","time":10019.547511353,"data":"   8 |   39    0   33    1   32    0   35   17  648    0    0    0   17    0    0    3    0    0\n"}
+,{"stream_name":"stdout","time":10019.547514926,"data":"   9 |  462    0    4   31   15   67    9    2    0  185    1    0    0    3    1   17    0    0\n"}
+,{"stream_name":"stdout","time":10019.54752171,"data":"  10 |  261    0    0    3    0    4    0    0    0    1  393    0    0  124    0    0    0    1\n"}
+,{"stream_name":"stdout","time":10019.547525859,"data":"  11 |  675    0    0   12    3   36    1    1    3    3    4    0    1    4    1    6    0    0\n"}
+,{"stream_name":"stdout","time":10019.547529925,"data":"  12 |   20    0   19    0   24    0    3    0    2    0    0    0  548    0    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.5475334,"data":"  13 |  136    0    0    0    0    0    0    0    0    0    4    0    0  342    0    0    0    0\n"}
+,{"stream_name":"stdout","time":10019.547537103,"data":"  14 |   46    0    0    0    0    0    0    0    0    0    0    0    0    0  347    0   14    0\n"}
+,{"stream_name":"stdout","time":10019.547540812,"data":"  15 |   73    0    5    9    3    6   15    0    2    0    0    0    1    1    0  214    0    0\n"}
+,{"stream_name":"stdout","time":10019.5475452,"data":"  16 |   32    0    0    0    0    0    0    0    0    0    0    0    0    0    9    0  270    0\n"}
+,{"stream_name":"stdout","time":10019.547549164,"data":"  17 |  264    0    0    0    0    0    0    0    0    0    0    0    0    2    0    0    0   18\n"}
+,{"stream_name":"stdout","time":10019.547553172,"data":"------------------------------------------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547557079,"data":"   0 = Pass\n"}
+,{"stream_name":"stdout","time":10019.547560367,"data":"   1 = idx=1254598873\n"}
+,{"stream_name":"stdout","time":10019.547563812,"data":"   2 = idx=2082092948\n"}
+,{"stream_name":"stdout","time":10019.547567171,"data":"   3 = idx=1758931328\n"}
+,{"stream_name":"stdout","time":10019.547570582,"data":"   4 = idx=1775296276\n"}
+,{"stream_name":"stdout","time":10019.54757434,"data":"   5 = idx=913115100\n"}
+,{"stream_name":"stdout","time":10019.547577782,"data":"   6 = idx=1211918040\n"}
+,{"stream_name":"stdout","time":10019.547581898,"data":"   7 = idx=1370559227\n"}
+,{"stream_name":"stdout","time":10019.547585439,"data":"   8 = idx=235080923\n"}
+,{"stream_name":"stdout","time":10019.547588913,"data":"   9 = idx=10181138\n"}
+,{"stream_name":"stdout","time":10019.547592524,"data":"  10 = idx=653878615\n"}
+,{"stream_name":"stdout","time":10019.547595988,"data":"  11 = idx=691519731\n"}
+,{"stream_name":"stdout","time":10019.547599725,"data":"  12 = idx=437330601\n"}
+,{"stream_name":"stdout","time":10019.547603679,"data":"  13 = idx=612652355\n"}
+,{"stream_name":"stdout","time":10019.547607075,"data":"  14 = idx=1222181873\n"}
+,{"stream_name":"stdout","time":10019.547610399,"data":"  15 = idx=1564034202\n"}
+,{"stream_name":"stdout","time":10019.54761406,"data":"  16 = idx=758602737\n"}
+,{"stream_name":"stdout","time":10019.54761723,"data":"  17 = idx=356170266\n"}
+,{"stream_name":"stdout","time":10019.547621085,"data":"------------------------------------------------------------\n"}
+,{"stream_name":"stdout","time":10019.547624975,"data":"Test choose_target_accuracy=0.696\n"}
+,{"stream_name":"stdout","time":10019.547628347,"data":"Test choose_use_accuracy=0.886\n"}
+,{"stream_name":"stdout","time":10019.547632286,"data":"arch: {'d_model': 512, 'n_heads': 4, 'd_ff': 1024, 'dropout': 0.25, 'n_passes': 2, 'global_layers': 4, 'local': 'sequential', 'global_tokens': 'internal'}\n"}
+,{"stream_name":"stdout","time":10019.547635706,"data":"bench batch=1  18.9 ms  53 states/s  0.22 GB\n"}
+,{"stream_name":"stdout","time":10019.547639213,"data":"bench batch=8  21.6 ms  371 states/s  0.24 GB\n"}
+,{"stream_name":"stdout","time":10019.547643744,"data":"bench batch=32  26.0 ms  1229 states/s  0.29 GB\n"}
+,{"stream_name":"stdout","time":10019.54765023,"data":"bench batch=128  89.4 ms  1431 states/s  0.53 GB\n"}
+,{"stream_name":"stdout","time":10019.547653983,"data":"bench batch=512  366.1 ms  1399 states/s  1.51 GB\n"}
+,{"stream_name":"stdout","time":10019.547657691,"data":"\n"}
+,{"stream_name":"stderr","time":10022.30774733,"data":"/usr/local/lib/python3.13/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":10022.307774419,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":10022.785633759,"data":"/usr/local/lib/python3.13/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":10022.785672424,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":10023.868915555,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":10025.234025869,"data":"[NbConvertApp] Writing 320712 bytes to __results__.html\n"}
+]
