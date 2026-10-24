@@ -77,7 +77,7 @@ def main():
             code[ref] = base64.b64encode(buf.getvalue()).decode()
         else:
             tar = subprocess.run(["git", "archive", "--format=tar.gz", f"{ref}:src/magezero"],
-                                 cwd=SRC, capture_output=True, check=True).stdout
+                                 cwd=SRC.parents[1], capture_output=True, check=True).stdout
             code[ref] = base64.b64encode(tar).decode()
 
     with tempfile.TemporaryDirectory() as d:
