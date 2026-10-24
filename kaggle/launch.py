@@ -28,7 +28,7 @@ CODE = {code!r}
 RUNS = {runs!r}
 VERSION = {version}
 
-tarfile.open(fileobj=io.BytesIO(base64.b64decode(CODE))).extractall("/kaggle/src")
+tarfile.open(fileobj=io.BytesIO(base64.b64decode(CODE))).extractall("/tmp/mz", filter="data")
 data = Path(glob.glob("/kaggle/input/**/training", recursive=True)[0]).parent
 os.chdir("/kaggle/working")
 procs = []
@@ -36,7 +36,7 @@ for gpu, run in enumerate(RUNS):
     Path(f"data/{{run['name']}}").mkdir(parents=True, exist_ok=True)
     os.symlink(data, f"data/{{run['name']}}/ver{{VERSION}}")
     deck = f"--deck {{run['name']}} --version {{VERSION}}"
-    cmd = (f"python -u /kaggle/src/train.py {{deck}} {{run['args']}} && python -u /kaggle/src/bench.py {{deck}}; "
+    cmd = (f"python -u /tmp/mz/train.py {{deck}} {{run['args']}} && python -u /tmp/mz/bench.py {{deck}}; "
            f"rm -rf models/{{run['name']}}/ver{{VERSION}}/best.pt.gz")
     log = open(f"{{run['name']}}.log", "w")
     procs.append(subprocess.Popen(cmd, shell=True, stdout=log, stderr=subprocess.STDOUT,
