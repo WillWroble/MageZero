@@ -5,6 +5,27 @@ Training: 421K states (gen0, both seats, 8 matchups). Testing: 63.5K states (gen
 GPU: Kaggle T4, one run per GPU. Timings compare runs with each other, not with the RTX 4070.
 Logs: `results/kaggle/<kernel>/<run>.log`. Kernel: `kaggle/launch.py`.
 
+## Summary so far (after mz-s8)
+
+Seed noise on the val total is about 0.04 (d256: 1.103 vs 1.063), so only differences well above that count.
+
+1. **Dropout is the lever.** 0.25 → 0.1 → 0 gives val total 1.10 → 0.98 → 0.905 at d256 (6 epochs), and 1.116 → 1.025
+   at d512. With dropout 0 the val loss still falls at epoch 12 (0.862). The data is not small enough to need it.
+2. **Size doesn't matter at dropout 0.25** (d128 1.134, d256 1.06–1.10, d512 1.116, 4 global layers 1.10), so the
+   cheaper model wins. d256 has a quarter of d512's parameters and 2.3× its throughput (≈3.9k vs 1.7k states/s on a T4).
+3. **Passes:** 1 sequential pass is close to 2 at dropout 0.25, but ≈0.1 worse at dropout 0. `joint` (one shared layer)
+   is worse than per-type layers. Bag-of-tokens is degenerate: without edges, nodes of a type are indistinguishable.
+4. **Inference:** batch-1 latency is 11–18 ms for every graph model on a T4 and barely moves with size, so small
+   batches are overhead-bound. Throughput at large batches scales with size: d128 ≈6.7k, d256 ≈3.9k, d512 ≈1.7k states/s.
+
+**Candidate default:** `d_model 256, d_ff 512, dropout 0`, 2 sequential passes, 2 global layers.
+
+**Open:** with less dropout the priority loss improves but non-pass recall (top-1 by ability name) does not
+(0.35–0.45 vs 0.52–0.60 for base). Recall moves ±0.08 between epochs, so it needs a better metric or more seeds
+before reading anything into it. The tie-counting in policy accuracy also inflates degenerate models.
+
+## Runs
+
 | kernel | run | arch | epochs | conclusion |
 |---|---|---|---|---|
 | mz-pilot | base | default | 300 steps | 0.18 s/step (≈20 min/epoch); inference 17 ms at batch 1, ≈1.9k states/s from batch 128 |
@@ -23,3 +44,5 @@ Logs: `results/kaggle/<kernel>/<run>.log`. Kernel: `kaggle/launch.py`.
 | mz-s6-d256-drop | d256-drop0 | `d_model: 256, d_ff: 512, dropout: 0` (9.0M) | 6 | val total **0.905**, falling every epoch (prio 0.542, tgt 0.275, value 0.039); tgt acc **0.740**, non-pass 0.42–0.49. Best so far. Train/val priority gap (0.38 vs 0.54) is the mirror shift, not overfitting. Bench ≈3.9k states/s @512 |
 | mz-s7-noise | d256-seed1 | d256 again, `--seed 1` | 6 | val total 1.063 vs 1.103 for seed 0: **seed noise ≈0.04**. Size differences (1.06–1.13) are within noise; the dropout gains (0.09–0.2) are not |
 | mz-s7-noise | d128-drop01 | `d_model: 128, d_ff: 256, dropout: 0.1` (2.4M) | 6 | val total 1.022 (vs 1.134 at dropout 0.25); non-pass 0.537, tgt acc 0.703, value 0.040. Bench ≈6.6k states/s @512 |
+| mz-s8-drop0 | d256-drop0-e12 | `d_model: 256, d_ff: 512, dropout: 0`, 12 epochs | 12 | val total **0.862** at epoch 12 (0.911 at 6, matching s6's 0.905), still slowly improving; prio 0.529, tgt 0.247, value 0.039; tgt acc **0.755**, non-pass 0.35–0.45 |
+| mz-s8-drop0 | d256-seq1-drop0 | `d_model: 256, d_ff: 512, n_passes: 1, dropout: 0` (5.3M) | 6 | val total 1.006 vs 0.905 with 2 passes: without dropout the second pass is worth ≈0.1. Bench: 11.7 ms @1, ≈6.0k states/s @512 |
