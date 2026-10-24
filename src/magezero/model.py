@@ -15,7 +15,7 @@ MageZero graph network for AlphaZero style MCTS. Input: StateEncoder's state gra
   embeddings: typed node = type embedding; leaf = leaf vocab row + numeric value bucket
   local layers: 2 bottom-up passes (separate weights), each one LocalLayer per type, run in order
       ABILITY -> CARD -> PERMANENT -> STACK_OBJECT -> ZONE -> PLAYER -> ROOT
-      every node attends over [itself, children + edge label embedding] (d=512, nhead=4, ff=1024)
+      every node attends over [itself, children + edge label embedding] (d=256, nhead=4, ff=512)
   global layers: 2-layer TransformerEncoder over [CLS, the state's internal nodes]
       ├── MLP(512 -> 256 -> 1)  per node  priority       (read at ABILITY nodes)
       ├── MLP(512 -> 256 -> 1)  per node  target         (read at CARD/PERMANENT/STACK_OBJECT/PLAYER nodes)
@@ -26,13 +26,15 @@ MageZero graph network for AlphaZero style MCTS. Input: StateEncoder's state gra
 
 GLOBAL_MAX = 2**31-1
 
-D_MODEL = 512
+D_MODEL = 256
 N_HEADS = 4
-D_FF = 1024
-DROPOUT = 0.25
+D_FF = 512
+DROPOUT = 0.0
 N_PASSES = 2
 GLOBAL_LAYERS = 2
 HIDDEN_MLP = 256
+# checkpoints saved before the arch was stored in them
+LEGACY_ARCH = dict(d_model=512, d_ff=1024, dropout=0.25)
 
 # numeric value buckets: exact -5..20 (P/T, counters, mana, costs, small counts), then 21-25, 26-30,
 # 31-40, 41-60, 61+ (life totals, library and zone sizes); everything below -5 is one bucket
@@ -366,6 +368,6 @@ def load_checkpoint(path):
     edge_vocab = FeatureVocab.from_state_dict(checkpoint["edge_vocab"])
     vocab.require_encoding(GLOBAL_MAX)
     edge_vocab.require_encoding(GLOBAL_MAX)
-    model = NetGraph(len(vocab), len(edge_vocab), **checkpoint.get("arch", {}))
+    model = NetGraph(len(vocab), len(edge_vocab), **checkpoint.get("arch", LEGACY_ARCH))
     model.load_state_dict(checkpoint["model_state_dict"])
     return model, vocab, edge_vocab
