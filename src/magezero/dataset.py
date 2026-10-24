@@ -93,7 +93,7 @@ class H5Graphs(Dataset):
 
     def __init__(self, dir_path: str, vocab=None, edge_vocab=None):
         p = Path(dir_path)
-        self.files = [str(pp) for pp in sorted(list(p.glob("*.h5")) + list(p.glob("*.hdf5")))]
+        self.files = [str(pp) for pp in sorted(list(p.rglob("*.h5")) + list(p.rglob("*.hdf5")))]
 
         shards = []
         for path in self.files:

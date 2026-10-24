@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+/experiment_data/ filter=lfs diff=lfs merge=lfs -text
+experiment_data/** filter=lfs diff=lfs merge=lfs -text
