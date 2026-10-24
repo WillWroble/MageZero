@@ -18,7 +18,11 @@ Seed noise on the val total is about 0.04 (d256: 1.103 vs 1.063), so only differ
 4. **Inference:** batch-1 latency is 11–18 ms for every graph model on a T4 and barely moves with size, so small
    batches are overhead-bound. Throughput at large batches scales with size: d128 ≈6.7k, d256 ≈3.9k, d512 ≈1.7k states/s.
 
-**Candidate default:** `d_model 256, d_ff 512, dropout 0`, 2 sequential passes, 2 global layers.
+**Default (chosen):** `d_model 256, d_ff 512, dropout 0`, 2 sequential passes, 2 global layers. Val total 0.905 on
+both seeds. d128 at dropout 0 is within noise (0.920) with 1.75× the throughput.
+
+5. **Graph structure matters.** Flat objects (each node keeps its own leaves, no hierarchy or object links): 1.472.
+   Parallel passes (no bottom-up chaining within a pass): 1.143. Both lose most on priority and value.
 
 **Open:** with less dropout the priority loss improves but non-pass recall (top-1 by ability name) does not
 (0.35–0.45 vs 0.52–0.60 for base). Recall moves ±0.08 between epochs, so it needs a better metric or more seeds
@@ -48,3 +52,5 @@ before reading anything into it. The tie-counting in policy accuracy also inflat
 | mz-s8-drop0 | d256-seq1-drop0 | `d_model: 256, d_ff: 512, n_passes: 1, dropout: 0` (5.3M) | 6 | val total 1.006 vs 0.905 with 2 passes: without dropout the second pass is worth ≈0.1. Bench: 11.7 ms @1, ≈6.0k states/s @512 |
 | mz-s9-flat | flat | `local: flat, d_model: 256, d_ff: 512, dropout: 0` (1.6M) | 6 | val total **1.472** vs 0.905 for the full graph (prio 0.913 vs 0.542, tgt 0.399 vs 0.275, value 0.102 vs 0.039); non-pass ≈0.2. Fair bag-of-objects ablation: each node keeps its own leaves, but without the hierarchy it also loses zone and owner, which likely explains value. Graph structure matters. Bench: 6.0 ms @1, ≈9.9k states/s @512 |
 | mz-s9-flat | d128-drop0 | `d_model: 128, d_ff: 256, dropout: 0` (2.4M) | 6 | val total 0.920, within noise of d256-drop0 (0.905); tgt acc 0.727, value 0.037. Bench ≈6.8k states/s @512 (1.75× d256) |
+| mz-s10-parallel | parallel | `local: parallel` at the default (d256, FF 512, dropout 0) | 6 | val total **1.143** vs 0.905 sequential (prio 0.745 vs 0.548, value 0.060 vs 0.039, non-pass 0.28 vs 0.38–0.42). Sequential carries information up the whole hierarchy in one pass; parallel moves it one level per pass. Not worth fusing for speed |
+| mz-s10-parallel | seq-seed1 | default, `--seed 1` | 6 | val total 0.905, identical to seed 0 (0.905): the default is stable across seeds |
