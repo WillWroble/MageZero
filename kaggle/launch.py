@@ -42,7 +42,7 @@ def command(run):
     src = f"/tmp/mz/{{run.get('ref', 'HEAD')}}"
     deck = f"--deck {{run['name']}} --version {{VERSION}}"
     arch = f"--arch {{shlex.quote(json.dumps(run['arch']))}}" if "arch" in run else ""
-    post = f"SRC={{src}} DECK={{shlex.quote(deck)}}; {{run['post']}}" if "post" in run else "true"
+    post = f"(SRC={{src}}; DECK={{shlex.quote(deck)}}; {{run['post']}})" if "post" in run else "true"
     return (f"{{run.get('setup', 'true')}} && python -u {{src}}/train.py {{deck}} {{arch}} {{run['args']}} && {{post}} && "
             f"(test ! -f {{src}}/bench.py || python -u {{src}}/bench.py {{deck}}); "
             f"rm -rf models/{{run['name']}}/ver{{VERSION}}/best.pt.gz")
