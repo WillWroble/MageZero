@@ -75,3 +75,10 @@ earliest session per matchup (370–401, assumed gen0), but engine, sim budget a
 value is not comparable. Targeting favours the GNN (≈0.66 vs ≈0.33), but v0.1 picks from 128 hashed slots
 while the GNN picks the object, so the metrics differ too. At the v0.2 settings the GNN's priority was unstable
 on this out-of-distribution opponent; the new default fixes that.
+
+## v0.2 vs v0.3 (Pauper-Faeries, `willwroble/mz-faeries-v02-v03`)
+
+Same model (the default), same opponents, gen0 only, both seats, mirror held out. v0.2 = `ver3` gen0 (1,238 games,
+245K states; test: gen0 mirror, 96 games). v0.3 = `ver4` gen0 non-mirror shards cut to their first 100 games with
+`util/first_games.py` (1,400 games, 113K states; test: gen0 mirror PlayerA, 400 games). v0.2 records about twice
+as many states per game. Kernel: mz-fae-v02-v03.
