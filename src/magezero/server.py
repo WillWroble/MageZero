@@ -17,7 +17,7 @@ TORCH_THREADS = 1 #max(1, os.cpu_count() // 2)
 torch.set_num_threads(TORCH_THREADS)
 
 # Batching config
-MAX_BATCH = 64
+MAX_BATCH = 128
 
 #module state
 server_model = None
@@ -40,7 +40,7 @@ def init(deck: str, version: int, port: int):
 
     print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE} "
           f"leaf_rows={len(VOCAB)} edge_rows={len(EDGE_VOCAB)}")
-    waitress.serve(app, host="127.0.0.1", port=port, threads=32)
+    waitress.serve(app, host="127.0.0.1", port=port, threads=8)
 
 
 def request_states(data):
