@@ -159,6 +159,7 @@ Conclusion (one seed):
   make known-opponent predictions worse, and the decisions came out slightly more robust.
 - Value is where narrow data breaks: narrow-B's value on unseen Mono decks is 0.35–0.39 MSE vs 0.04–0.09 for
   every arm that saw two or more decks.
-- 2 decks is the best arm overall (best or near-best on every test set). 4 decks has the best decisions on
-  unseen opponents' targets but poorly calibrated priority there (loss 1.0–1.1 with middling accuracy), and is
-  the least converged.
+- 2 vs 4 decks on unseen opponents is mixed: 2 decks has the better priority head (loss 0.68–0.79 vs 1.0–1.1,
+  top-1 0.01–0.08 better), 4 decks the better mirror targets (0.714 vs 0.593 legal accuracy) and mirror value.
+  4 decks' priority is poorly calibrated rather than much less accurate, it is the least converged arm, and it
+  also changes composition (adds MonoR, MonoU). One seed: no clear winner between the two.
