@@ -163,3 +163,25 @@ Conclusion (one seed):
   top-1 0.01–0.08 better), 4 decks the better mirror targets (0.714 vs 0.593 legal accuracy) and mirror value.
   4 decks' priority is poorly calibrated rather than much less accurate, it is the least converged arm, and it
   also changes composition (adds MonoR, MonoU). One seed: no clear winner between the two.
+
+### Diversity, second seed (mz-div-seed1)
+
+Same arms, `--seed 1`, 12 epochs straight (no restart), all four arms at once (two per GPU), 0.93 GPU hours.
+Priority loss / non-pass recall / priority legal accuracy / target legal accuracy / value MSE:
+
+| arm | MonoB held-out | MonoG held-out | MonoW | Pauper mirror |
+|---|---|---|---|---|
+| narrow-B | **0.404 / 0.59 / 0.736 / 0.800 / 0.042** | 0.461 / 0.58 / 0.739 / 0.698 / 0.205 | 0.770 / 0.51 / 0.687 / 0.712 / 0.259 | 0.961 / 0.36 / 0.599 / 0.583 / 0.723 |
+| narrow-G | 0.646 / 0.55 / 0.712 / 0.714 / 0.371 | **0.394 / 0.58 / 0.745 / 0.787 / 0.033** | 0.980 / 0.55 / 0.698 / 0.752 / 0.271 | 0.852 / 0.42 / 0.629 / 0.714 / 0.894 |
+| 2 decks | **0.411 / 0.56 / 0.724 / 0.788 / 0.044** | **0.394 / 0.54 / 0.732 / 0.790 / 0.035** | 1.349 / 0.39 / 0.620 / 0.752 / 0.100 | 2.499 / 0.25 / 0.550 / 0.693 / 0.690 |
+| 4 decks | **0.403 / 0.57 / 0.716 / 0.753 / 0.048** | **0.390 / 0.55 / 0.730 / 0.756 / 0.036** | 0.693 / 0.54 / 0.686 / 0.727 / 0.074 | 0.952 / 0.30 / 0.578 / 0.707 / 0.510 |
+
+Conclusion across both seeds:
+- **Value needs several training opponents (clean).** Single-opponent arms: 0.21–0.39 value MSE on unseen Mono decks
+  in 4 of 4 cases on seed 1 and 2 of 4 on seed 0. Multi-deck arms: 0.07–0.10 on both seeds.
+- **No in-distribution cost and no in-distribution gain (clean null).** At 12 epochs, 2 and 4 decks match the narrow
+  arm's priority loss on its own opponent (within 0.01–0.03) with a half or a quarter of its games. The top-1
+  differences flip sign between seeds.
+- **Priority on unseen opponents is dominated by seed noise.** Rankings flip between seeds (MonoW: deck4 1.098 →
+  0.693, deck2 0.789 → 1.349; mirror: deck2 0.679 → 2.499). The priority head's out-of-distribution calibration is
+  unstable; diversity's effect on it can't be measured at this noise level.
