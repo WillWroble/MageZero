@@ -1,0 +1,64 @@
+Building feature vocab from dataset (ignore-list rule over observed ids)
+feature vocab: 13593 kept ids in this dataset, 0 rows from checkpoint, 13593 added -> 13593 embedding rows
+[opponent filter] scanned 113081 samples  kept 113081 (removed 0 opponent states).
+[opponent filter] scanned 9311 samples  kept 9311 (removed 0 opponent states).
+Epoch 1  priority_A_loss=0.131  priority_B_loss=0.000 choose_target_loss=0.415 choose_use_loss=0.190 value_loss=0.115 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.111  priority_B_loss=0.000 choose_target_loss=0.433 choose_use_loss=0.163 value_loss=0.072 avg_total_loss=0.784 decision_states=9311
+Test priority_A_accuracy=0.754
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.190
+Test choose_use_accuracy=0.770
+Epoch 2  priority_A_loss=0.106  priority_B_loss=0.000 choose_target_loss=0.367 choose_use_loss=0.163 value_loss=0.075 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.085  priority_B_loss=0.000 choose_target_loss=0.370 choose_use_loss=0.164 value_loss=0.074 avg_total_loss=0.697 decision_states=9311
+Test priority_A_accuracy=0.796
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.246
+Test choose_use_accuracy=0.785
+Epoch 3  priority_A_loss=0.087  priority_B_loss=0.000 choose_target_loss=0.328 choose_use_loss=0.143 value_loss=0.065 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.069  priority_B_loss=0.000 choose_target_loss=0.360 choose_use_loss=0.159 value_loss=0.071 avg_total_loss=0.659 decision_states=9311
+Test priority_A_accuracy=0.792
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.251
+Test choose_use_accuracy=0.794
+Epoch 4  priority_A_loss=0.077  priority_B_loss=0.000 choose_target_loss=0.313 choose_use_loss=0.137 value_loss=0.059 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.063  priority_B_loss=0.000 choose_target_loss=0.363 choose_use_loss=0.153 value_loss=0.074 avg_total_loss=0.655 decision_states=9311
+Test priority_A_accuracy=0.781
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.275
+Test choose_use_accuracy=0.798
+Epoch 5  priority_A_loss=0.072  priority_B_loss=0.000 choose_target_loss=0.300 choose_use_loss=0.132 value_loss=0.055 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.058  priority_B_loss=0.000 choose_target_loss=0.356 choose_use_loss=0.152 value_loss=0.070 avg_total_loss=0.641 decision_states=9311
+Test priority_A_accuracy=0.808
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.296
+Test choose_use_accuracy=0.805
+Epoch 6  priority_A_loss=0.067  priority_B_loss=0.000 choose_target_loss=0.286 choose_use_loss=0.130 value_loss=0.051 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.054  priority_B_loss=0.000 choose_target_loss=0.340 choose_use_loss=0.152 value_loss=0.069 avg_total_loss=0.616 decision_states=9311
+Test priority_A_accuracy=0.814
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.312
+Test choose_use_accuracy=0.815
+Epoch 7  priority_A_loss=0.064  priority_B_loss=0.000 choose_target_loss=0.273 choose_use_loss=0.127 value_loss=0.048 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.051  priority_B_loss=0.000 choose_target_loss=0.346 choose_use_loss=0.135 value_loss=0.074 avg_total_loss=0.609 decision_states=9311
+Test priority_A_accuracy=0.819
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.309
+Test choose_use_accuracy=0.832
+Epoch 8  priority_A_loss=0.059  priority_B_loss=0.000 choose_target_loss=0.261 choose_use_loss=0.124 value_loss=0.046 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.046  priority_B_loss=0.000 choose_target_loss=0.344 choose_use_loss=0.140 value_loss=0.074 avg_total_loss=0.607 decision_states=9311
+Test priority_A_accuracy=0.820
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.289
+Test choose_use_accuracy=0.796
+Epoch 9  priority_A_loss=0.056  priority_B_loss=0.000 choose_target_loss=0.249 choose_use_loss=0.122 value_loss=0.045 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.041  priority_B_loss=0.000 choose_target_loss=0.359 choose_use_loss=0.136 value_loss=0.095 avg_total_loss=0.635 decision_states=9311
+Test priority_A_accuracy=0.833
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.316
+Test choose_use_accuracy=0.810
+Epoch 10  priority_A_loss=0.053  priority_B_loss=0.000 choose_target_loss=0.234 choose_use_loss=0.118 value_loss=0.043 l1_dense=0.0 l1_sparse=0.0 decision_states=113081
+Validation loss:  priority_A_loss=0.040  priority_B_loss=0.000 choose_target_loss=0.345 choose_use_loss=0.133 value_loss=0.083 avg_total_loss=0.603 decision_states=9311
+Test priority_A_accuracy=0.832
+No priority B samples in test set to calculate accuracy.
+Test choose_target_accuracy=0.348
+Test choose_use_accuracy=0.829

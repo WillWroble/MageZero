@@ -54,3 +54,21 @@ before reading anything into it. The tie-counting in policy accuracy also inflat
 | mz-s9-flat | d128-drop0 | `d_model: 128, d_ff: 256, dropout: 0` (2.4M) | 6 | val total 0.920, within noise of d256-drop0 (0.905); tgt acc 0.727, value 0.037. Bench ≈6.8k states/s @512 (1.75× d256) |
 | mz-s10-parallel | parallel | `local: parallel` at the default (d256, FF 512, dropout 0) | 6 | val total **1.143** vs 0.905 sequential (prio 0.745 vs 0.548, value 0.060 vs 0.039, non-pass 0.28 vs 0.38–0.42). Sequential carries information up the whole hierarchy in one pass; parallel moves it one level per pass. Not worth fusing for speed |
 | mz-s10-parallel | seq-seed1 | default, `--seed 1` | 6 | val total 0.905, identical to seed 0 (0.905): the default is stable across seeds |
+
+## v0.1 vs v0.2 (UWTempo, `willwroble/mz-uwtempo-v01-v02`)
+
+Matched opponents: train on one ≈100-game shard per Standard16 matchup (11 decks), test on MonoW (≈100 games).
+v0.1 = `main`'s flat transformer and training code, unchanged (`ver30`, 114K states). v0.2 = GNN on `ver31` (144K
+states), at its v0.2 settings (d512, dropout 0.25) and at the new default. 10 epochs, batch 64, Adam 1e-4 for all.
+Policy losses are not comparable (128 action slots vs a softmax over nodes); value MSE and top-1 accuracies are.
+Always-pass priority baseline: 0.79 on the v0.1 test set, 0.76 on the v0.2 one.
+
+| run | value MSE (epochs 6–10) | priority acc (vs always-pass) | target acc | choose_use acc |
+|---|---|---|---|---|
+| mz-uw-v01 v01 (flat, v0.1) | 0.069–0.095, final 0.083 | 0.83 (+0.04) | 0.29–0.35 | 0.80–0.83 |
+| mz-uw-v01-v02 v02 (GNN, d512 dropout 0.25) | 0.092–0.109, final 0.092 | 0.35–0.69, final 0.65 (below baseline; unstable) | ≈0.60 | ≈0.90 |
+| mz-uw-v01 v02-default (GNN, d256 dropout 0) | 0.072–0.084, final 0.080 | 0.79–0.80 (+0.04) | 0.66–0.67 | ≈0.89–0.90 |
+
+Conclusion: the GNN's clear win is targeting (≈0.66 vs ≈0.33 top-1), where it can point at the object itself.
+Value and priority (relative to always-pass) come out about even. At the v0.2 settings the GNN's priority was
+unstable on this out-of-distribution opponent; the new default fixes that.
