@@ -355,8 +355,8 @@ def decision_states(stats: dict) -> int:
 def load_model(path):
     if path.endswith('.gz'):
         with gzip.open(path, 'rb') as f:
-            return torch.load(f)
-    return torch.load(path)
+            return torch.load(f, map_location=DEVICE)
+    return torch.load(path, map_location=DEVICE)
 
 
 def load_checkpoint(path):

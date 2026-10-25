@@ -121,3 +121,19 @@ Conclusion (one seed, 6 epochs):
   arm (highest training loss), so the likeliest reading is that four opponents at this budget need more epochs.
 - Value on the mirror is poor for every arm (0.59–0.70): models trained only on lopsided Mono games carry a
   "losing" prior into an even matchup. Target accuracy on the mirror is the one place 4 decks helps (0.64 vs 0.54).
+
+## Combat: v0.2 vs v0.3 (target head per step, `util/step_accuracy.py`)
+
+Checkpoints from mz-fae-v02-v03 on their own gen0 mirror. Attacks and blocks are CHOOSE_TARGET decisions in
+DECLARE_ATTACKERS / DECLARE_BLOCKERS. "Random" = expected top-1 accuracy of picking uniformly among the legal
+candidates; the model column restricts its argmax to the legal candidates too.
+
+| version | step | candidates/state | random | model | gain |
+|---|---|---|---|---|---|
+| v0.2 | attacks | 1.2 | 0.883 | 0.932 | +0.05 |
+| v0.2 | blocks | 1.6 | 0.772 | 0.788 | +0.02 |
+| v0.3 | attacks | 1.9 | 0.528 | 0.779 | **+0.25** |
+| v0.3 | blocks | 2.2 | 0.580 | 0.641 | +0.06 |
+
+Conclusion: most v0.2 combat decisions were not real choices (≈1 legal option). v0.3 makes attacking a real
+decision and the model learns it well; blocking is still close to random.
