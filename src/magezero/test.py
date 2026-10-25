@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from dataset import H5Graphs, collate_batch, BATCH_SIZE
 from model import (Graphs, Targets, ActionType, NodeType, load_checkpoint, losses, accumulate, averages,
-                   decision_states, AMP, DEVICE)
+                   decision_states, graph_index, segment_logsumexp, PRIORITY_TYPES, TARGET_TYPES, AMP, DEVICE)
 from vocab import feature_id
 
 SHOW_CONFUSION_MATRIX = True
@@ -41,6 +41,28 @@ def priority_pairs(priority, g: Graphs, t: Targets, name_label: int):
     return pairs
 
 
+def legal_stats(scores, g: Graphs, t: Targets, action: ActionType, types) -> torch.Tensor:
+    """[states, legal hits, legal mass] for one policy head over the states of its decision type that
+    have visits. Legal hit: the top-scored candidate (MCTS's root children, i.e. the legal actions) is one
+    of the most visited. Legal mass: the probability the head's softmax (over every node of its types, as
+    in training) puts on the candidates."""
+    B = t.value.shape[0]
+    node_graph = graph_index(g.node_offsets)
+    visits = torch.zeros(B, device=scores.device).index_add(0, t.cand_graph, t.cand_visits)
+    states = (t.action_type == action.value) & (visits > 0)
+    domain = torch.isin(g.node_type, torch.tensor(types, device=scores.device))
+    domain[t.cand_node] = True
+    idx = (domain & states[node_graph]).nonzero().squeeze(1)
+    lse = segment_logsumexp(scores[idx].float(), node_graph[idx], B)
+    keep = states[t.cand_graph]
+    s, v, b = scores[t.cand_node[keep]].float(), t.cand_visits[keep], t.cand_graph[keep]
+    best_s = torch.full((B,), float("-inf"), device=s.device).scatter_reduce(0, b, s, "amax")
+    best_v = torch.zeros(B, device=s.device).scatter_reduce(0, b, v, "amax")
+    hit = torch.zeros(B, device=s.device).index_add(0, b, ((s == best_s[b]) & (v == best_v[b])).float()) > 0
+    mass = torch.zeros(B, device=s.device).index_add(0, b, (s - lse[b]).exp())
+    return torch.stack([states.sum(), hit[states].sum(), mass[states].sum()]).float().cpu()
+
+
 def print_matrix(pairs, vocab):
     """Priority confusion matrix (True \\ Predicted) over ability names, most frequent true action
     first, with a legend from row index to the name's feature id (look it up in FeatureTable.txt)."""
@@ -71,11 +93,13 @@ def print_matrix(pairs, vocab):
 def validate(model, dl, vocab, edge_vocab):
     """Prints per-head validation loss and accuracy, and the priority confusion matrix. Accuracy:
     the network's top-scored node among all nodes of the head's types (no legality mask) is one of
-    MCTS's most visited; for priority, compared by ability name. Returns the summed per-head losses."""
+    MCTS's most visited; for priority, compared by ability name. Legal accuracy and mass: see
+    legal_stats. Returns the summed per-head losses."""
     row = int(edge_vocab.lookup([NAME_LABEL])[0])
     name_label = row + 1 if row >= 0 else -1   # edge rows are vocab row + 1
     stats = {}
     pairs = []
+    legal = {name: torch.zeros(3) for name in ("priority", "choose_target")}
     model.eval()
     with torch.no_grad():
         for graphs, targets in dl:
@@ -83,6 +107,8 @@ def validate(model, dl, vocab, edge_vocab):
             with torch.amp.autocast(DEVICE.type, enabled=AMP):
                 out = model(g)
                 accumulate(stats, losses(out, g, t))
+            legal["priority"] += legal_stats(out[0], g, t, ActionType.PRIORITY, PRIORITY_TYPES)
+            legal["choose_target"] += legal_stats(out[1], g, t, ActionType.CHOOSE_TARGET, TARGET_TYPES)
             pairs += priority_pairs(out[0].float().cpu().numpy(), Graphs(*(np.asarray(x) for x in graphs)),
                                     Targets(*(np.asarray(x) for x in targets)), name_label)
 
@@ -108,6 +134,9 @@ def validate(model, dl, vocab, edge_vocab):
             print(f"Test {name}_accuracy={correct / n:.3f}")
         else:
             print(f"No {name} samples in test set to calculate accuracy.")
+    for name, (n, hits, mass) in legal.items():
+        if n > 0:
+            print(f"Test {name}_legal_accuracy={hits / n:.3f}  {name}_legal_mass={mass / n:.3f}")
 
     return avg_combined_loss
 
