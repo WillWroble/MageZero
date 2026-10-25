@@ -1,0 +1,222 @@
+Building vocabs from dataset (ids seen in more than 10 states)
+leaf vocab: 308 kept ids in this dataset, 0 rows from checkpoint -> 308 rows
+edge vocab: 13 kept labels in this dataset, 0 rows from checkpoint -> 13 rows
+arch: {'d_model': 256, 'n_heads': 4, 'd_ff': 512, 'dropout': 0.0, 'n_passes': 2, 'global_layers': 2, 'local': 'sequential', 'global_tokens': 'internal'}  parameters: 8,791,557
+/tmp/mz/HEAD/model.py:333: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)
+  s[0] += float(loss) * n
+Epoch 1  priority_loss=0.815  choose_target_loss=0.401  choose_use_loss=0.061  value_loss=0.082  decision_states=93085  steps=1456  time=128s
+Epoch 2  priority_loss=0.646  choose_target_loss=0.270  choose_use_loss=0.054  value_loss=0.051  decision_states=93085  steps=1456  time=126s
+Epoch 3  priority_loss=0.595  choose_target_loss=0.256  choose_use_loss=0.052  value_loss=0.042  decision_states=93085  steps=1456  time=127s
+Epoch 4  priority_loss=0.462  choose_target_loss=0.246  choose_use_loss=0.050  value_loss=0.036  decision_states=93085  steps=1456  time=127s
+Epoch 5  priority_loss=0.419  choose_target_loss=0.239  choose_use_loss=0.047  value_loss=0.032  decision_states=93085  steps=1456  time=126s
+Epoch 6  priority_loss=0.400  choose_target_loss=0.234  choose_use_loss=0.049  value_loss=0.029  decision_states=93085  steps=1456  time=126s
+Loaded checkpoint from models/narrowG/ver4/model.pt.gz: 308 leaf rows, 13 edge label rows
+Testing on /kaggle/input/datasets/willwroble/mz-faeries-diversity/tests/mirror/testing
+Validation loss:  priority_loss=0.753  choose_target_loss=0.502  choose_use_loss=0.095  value_loss=0.701  avg_total_loss=2.052  decision_states=31284
+Test priority_accuracy=0.600  non-pass=0.456 (8974 of 15251 states)
+--- Priority Confusion Matrix (True \ Predicted) ---
+True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17
+------------------------------------------------------------------------------------------------
+   0 | 5055   21   92  137  217  102   79   60   32   13  103   99   61   33   38   94   40    1
+   1 | 1199  920   73    6   10  107   63   15    0    0   75    0   50    0    0   10    0    0
+   2 |  163    4  459    2    5   36   16    0    0    0   12    0    6    0    0    4    0    0
+   3 |  336    1   16  268   33   14    4    0    0    0    5    0    3    0    1   14    0    0
+   4 |  289    0    4   22  313    4    8    0    0    0    5    1    3    0    0   33    0    0
+   5 |   11    0    9    7    1  621   17    0    0    0    9    0    3    0    0    0    0    0
+   6 |   64    1    9    0    8   23  334    3    0    0    9    0    6    0    0    8    0    0
+   7 |  272    0    8    0    3    5    5  129    0    0   21    1    9    0    0    6    0    0
+   8 |  357    0    0    3    0    0    0    0   29    0    0    0    0    9    0    0    0    0
+   9 |  278    0    2   19   27    6    3    0    0   12    1    7    0    0    1   35    1    0
+  10 |   76    0    5    0    7   17   25    0    0    0  246    0    6    0    0    6    0    0
+  11 |  264    0    0    3   16    3    0    0    0    0    3   70    0    0    0    3    0    0
+  12 |   10    0   22    6    0   14    2    0    0    0    5    0  265    0    0    2    0    0
+  13 |  198    0    0    5    0    0    0    0    0    0    0    0    0   41    0    0    0    0
+  14 |   35    0    0    0    0    0    0    0    0    0    0    0    0    0  151    0    2    0
+  15 |   48    0    1    3    5    0    2    0    0    0    1    1    0    0    1  107    0    0
+  16 |   19    0    0    0    0    0    0    0    0    0    0    0    0    0    8    0  127    0
+  17 |  128    0    0    0    0    0    0    0    8    0    0    0    0    2    0    0    0    1
+------------------------------------------------------------------------------------------------
+   0 = Pass
+   1 = idx=1254598873
+   2 = idx=2082092948
+   3 = idx=1758931328
+   4 = idx=913115100
+   5 = idx=1775296276
+   6 = idx=1211918040
+   7 = idx=1370559227
+   8 = idx=653878615
+   9 = idx=10181138
+  10 = idx=235080923
+  11 = idx=691519731
+  12 = idx=437330601
+  13 = idx=612652355
+  14 = idx=1222181873
+  15 = idx=1564034202
+  16 = idx=758602737
+  17 = idx=356170266
+------------------------------------------------------------
+Test choose_target_accuracy=0.659
+Test choose_use_accuracy=0.885
+Loaded checkpoint from models/narrowG/ver4/model.pt.gz: 308 leaf rows, 13 edge label rows
+Testing on /kaggle/input/datasets/willwroble/mz-faeries-diversity/tests/monoB/testing
+Validation loss:  priority_loss=0.544  choose_target_loss=0.350  choose_use_loss=0.042  value_loss=0.092  avg_total_loss=1.028  decision_states=24129
+Test priority_accuracy=0.677  non-pass=0.536 (6460 of 11529 states)
+--- Priority Confusion Matrix (True \ Predicted) ---
+True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18
+-----------------------------------------------------------------------------------------------------
+   0 | 4339   29   82   48  101   73   13  104   17   39    1    7   16   17   18    5   37    0  123
+   1 |  917  848   63   44    1    0   36    4    8   36    0    0    0    0    0    1    0    0   18
+   2 |  151    3  365   33    1    0    0    1    5    6    0    0    0    0    0    0    1    0    2
+   3 |   67    1   16  445    7    1    0    1    2    1    0    0    0    0    0    0    0    0    0
+   4 |  192    1   11    3  225    2    0    6    0    2    0    0    3    0    0    0    4    0   15
+   5 |  168    0    0    2    5  180    0   19    1    0    0    2    1    0    0    1    6    0   40
+   6 |  250    0   11    8    0    0   73    2    0    5    0    0    0    0    0    2    0    0   15
+   7 |   25    0    0    0    1    4    0  253    0    0    0    0    0    0    0    0    7    0   14
+   8 |   50    0    5   12    0    6    0    7  198    4    0    0    0    0    0    0    1    0    0
+   9 |   16    0   21   14    7    0    0    1    1  205    0    0    0    0    0    1    1    0    2
+  10 |  205    0    0    0    0    1    0    6    0    0    4    1    0    0    0    2    1    0   17
+  11 |  109    0    0    0    0    2    0    0    0    0    0   82    9    0    0    0    0    0    0
+  12 |   75    0    0    0    0    0    0    0    0    0    0    1   92    0    0    0    0    0    0
+  13 |   12    0    0    0    0    0    0    0    0    0    0    0    0  149    1    0    0    0    0
+  14 |    9    0    0    0    0    0    0    0    0    0    0    0    0    8  141    0    0    0    0
+  15 |   21    0    2    9    0    0    0    1    7    1    0    0    0    0    0   94    0    0   18
+  16 |   27    0    1    0    0    0    0    5    0    1    0    0    0    0    0    0  109    0    2
+  17 |   30    0    0    0    2    0    0    0    0    0    0    2    4    0    0    0    0    1    0
+  18 |    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0
+-----------------------------------------------------------------------------------------------------
+   0 = Pass
+   1 = idx=1254598873
+   2 = idx=2082092948
+   3 = idx=1775296276
+   4 = idx=1758931328
+   5 = idx=913115100
+   6 = idx=1370559227
+   7 = idx=10181138
+   8 = idx=1211918040
+   9 = idx=437330601
+  10 = idx=691519731
+  11 = idx=653878615
+  12 = idx=612652355
+  13 = idx=1222181873
+  14 = idx=758602737
+  15 = idx=235080923
+  16 = idx=1564034202
+  17 = idx=356170266
+  18 = no name edge / name outside vocab
+------------------------------------------------------------
+Test choose_target_accuracy=0.667
+Test choose_use_accuracy=0.923
+Loaded checkpoint from models/narrowG/ver4/model.pt.gz: 308 leaf rows, 13 edge label rows
+Testing on /kaggle/input/datasets/willwroble/mz-faeries-diversity/tests/monoG/testing
+Validation loss:  priority_loss=0.400  choose_target_loss=0.246  choose_use_loss=0.047  value_loss=0.032  avg_total_loss=0.726  decision_states=23889
+Test priority_accuracy=0.727  non-pass=0.571 (6409 of 12108 states)
+--- Priority Confusion Matrix (True \ Predicted) ---
+True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17
+------------------------------------------------------------------------------------------------
+   0 | 5142   24   53   61   62   66    6   72   41   25   30   20   10   16   38   32    1    0
+   1 |  977  823   55   32    0    0   24    1   23   15    0    0    2    0    0    0    0    0
+   2 |  111    0  409   12   13    0    0    0    9    6    0    0    0    0    0    0    0    0
+   3 |  141    1   26  327    0    0    0    0    3    4    0    0    1    0    0    1    0    0
+   4 |  214    0    9   12  220    0    0    5    0    0    0    0    0    0    1    3    0    0
+   5 |  226    0    3    3    2  170    0   13    1    3   10    0    0    0    0   12    0    0
+   6 |  262    0   11    8    0    0   65    0   11    3    0    0    2    0    0    0    2    0
+   7 |   28    0    0    0    0    3    0  286    1    0    0    0    0    0    0    4    0    0
+   8 |   24    0    6   18    6    0    0    0  223    1    0    0    1    0    0    0    0    0
+   9 |   53    0    4    5    0    0    0    1    2  192    0    0    0    0    0    2    0    0
+  10 |   34    0    0    0    0    0    0    0    0    0  222    0    0    0    2    0    0    0
+  11 |    8    0    0    0    0    0    0    0    0    0    0  174    0    8    0    0    0    0
+  12 |   24    0   14    3    0    0    2    0    2   16    0    0  124    0    0    0    0    0
+  13 |    8    0    0    0    0    0    0    1    0    0    0    5    0  169    0    0    0    0
+  14 |   14    0    0    0    2    0    0    0    0    0    3    0    0    0  140    1    0    0
+  15 |   23    0    1    0    0    1    0   10    0    2    0    0    0    0    0  115    0    0
+  16 |  130    0    0    0    0    0    0    2    0    0    0    0    0    0    0    1    0    0
+  17 |    1    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0
+------------------------------------------------------------------------------------------------
+   0 = Pass
+   1 = idx=1254598873
+   2 = idx=1775296276
+   3 = idx=2082092948
+   4 = idx=1758931328
+   5 = idx=913115100
+   6 = idx=1370559227
+   7 = idx=10181138
+   8 = idx=437330601
+   9 = idx=1211918040
+  10 = idx=653878615
+  11 = idx=758602737
+  12 = idx=235080923
+  13 = idx=1222181873
+  14 = idx=612652355
+  15 = idx=1564034202
+  16 = idx=691519731
+  17 = idx=356170266
+------------------------------------------------------------
+Test choose_target_accuracy=0.737
+Test choose_use_accuracy=0.946
+Loaded checkpoint from models/narrowG/ver4/model.pt.gz: 308 leaf rows, 13 edge label rows
+Testing on /kaggle/input/datasets/willwroble/mz-faeries-diversity/tests/monoW/testing
+Validation loss:  priority_loss=0.784  choose_target_loss=0.314  choose_use_loss=0.070  value_loss=0.081  avg_total_loss=1.249  decision_states=24300
+Test priority_accuracy=0.650  non-pass=0.530 (6708 of 11062 states)
+--- Priority Confusion Matrix (True \ Predicted) ---
+True |    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19
+----------------------------------------------------------------------------------------------------------
+   0 | 3627   17   51   28   85   77   27    2   12  106   27    5   15   29   17   26   36    0    0  167
+   1 | 1007  851   34   53    1    0   43    0    9    0   21    3    0    0    0    0    0    0    0   39
+   2 |  119    2  407   29    1    0    0    0    3    2    5    0    0    0    0    0    0    0    0    8
+   3 |   53    1   19  439    4    0    0    0    1    1    3    0    0    0    0    0    0    0    0    1
+   4 |  199    0   11    3  249    3    0    0    0    8    0    0    0    0    0    0    6    0    0   25
+   5 |  185    0    2    3    3  188    0    0    3   31    0    0    0    5    0    2   13    0    0   56
+   6 |  193    0    4    2    0    0   77    0    0    6    6    0    0    0    0    0    1    0    0   32
+   7 |  234    0    0    0    2    0    0    0    0    7    0    0    0    1    0    0    5    0    0   46
+   8 |   40    0    8   15    0    3    0    0  209    5    4    0    0    0    0    0    1    0    0    3
+   9 |   26    0    0    0    0    0    0    0    0  206    0    0    0    0    0    0    4    0    0   45
+  10 |    8    0   21   13    9    0    0    0    1    0  209    0    0    0    0    0    0    0    0    2
+  11 |   24    0    4    5    0    0    2    0    7    0    2  132    0    0    0    0    0    0    0   25
+  12 |    9    0    0    0    0    0    0    0    0    5    0    0  171    0    3    0    0    0    0    0
+  13 |   83    0    0    0    0    1    0    0    0    0    0    0    0  101    0    3    0    0    0    0
+  14 |   12    0    0    0    0    0    0    0    0    0    0    0    2    0  140    0    0    0    0    0
+  15 |   50    0    0    0    0    0    0    0    0    0    0    0    0    6    0   79    0    0    0    0
+  16 |   18    0    0    0    0    0    0    0    0   11    0    0    1    0    0    0  100    0    0    5
+  17 |   86    0    2    0    0    0    2    0    0    1    1    0    0    0    0    0    0    0    0    0
+  18 |   10    0    0    0    0    0    0    0    0    0    0    0    0    1    0    1    0    0    0    1
+  19 |    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0
+----------------------------------------------------------------------------------------------------------
+   0 = Pass
+   1 = idx=1254598873
+   2 = idx=2082092948
+   3 = idx=1775296276
+   4 = idx=1758931328
+   5 = idx=913115100
+   6 = idx=1370559227
+   7 = idx=691519731
+   8 = idx=1211918040
+   9 = idx=10181138
+  10 = idx=437330601
+  11 = idx=235080923
+  12 = idx=1222181873
+  13 = idx=653878615
+  14 = idx=758602737
+  15 = idx=612652355
+  16 = idx=1564034202
+  17 = idx=621177566
+  18 = idx=356170266
+  19 = no name edge / name outside vocab
+------------------------------------------------------------
+Test choose_target_accuracy=0.698
+Test choose_use_accuracy=0.905
+arch: {'d_model': 256, 'n_heads': 4, 'd_ff': 512, 'dropout': 0.0, 'n_passes': 2, 'global_layers': 2, 'local': 'sequential', 'global_tokens': 'internal'}
+Traceback (most recent call last):
+  File "/tmp/mz/HEAD/bench.py", line 40, in <module>
+    bench(args.deck, args.version)
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/mz/HEAD/bench.py", line 20, in bench
+    g = collate_graphs(*zip(*(ds[k][:6] for k in range(b)))).to(DEVICE)
+                        ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/mz/HEAD/bench.py", line 20, in <genexpr>
+    g = collate_graphs(*zip(*(ds[k][:6] for k in range(b)))).to(DEVICE)
+                              ~~^^^
+  File "/tmp/mz/HEAD/dataset.py", line 162, in __getitem__
+    n = slice(self.offsets[k], self.offsets[k + 1])
+                               ~~~~~~~~~~~~^^^^^^^
+IndexError: index 1 is out of bounds for axis 0 with size 1

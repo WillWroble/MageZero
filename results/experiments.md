@@ -92,3 +92,32 @@ Conclusion: no evidence that v0.3 learns policy better at matched game counts. v
 priority task (59% non-pass vs 22%); it gains more over always-pass, but its non-pass recall is lower, and it trained
 on half as many states. Losses and target accuracy aren't comparable across encodings (different candidate sets).
 With all of `ver4` (421K states) v0.3 reaches non-pass 0.42–0.52, so data volume matters more than the version here.
+
+## Data diversity vs volume (Faeries vs Standard Mono, gen0, `willwroble/mz-faeries-diversity`)
+
+Every arm: Faeries seat only, ≈1,600 games (≈95K states), default model, 6 epochs, seed 0. In-distribution tests are
+games 1,600–2,000 of the MonoB and MonoG shards, which no arm trained on. MonoW (400 games) and the Pauper mirror
+(Faeries seat, 400 games) are unseen opponents. Always-pass baselines: MonoB 0.44, MonoG 0.47, MonoW 0.39, mirror 0.41.
+Kernels mz-div-narrow, mz-div-wide. (bench.py failed afterwards because the arms have no per-arm testing folder;
+evaluations are unaffected.)
+
+Priority loss / non-pass recall / target loss / value MSE (bold: in distribution for that arm):
+
+| arm | MonoB held-out | MonoG held-out | MonoW | Pauper mirror |
+|---|---|---|---|---|
+| narrow-B (B × 1,600) | **0.416 / 0.49 / 0.217 / 0.045** | 0.519 / 0.44 / 0.461 / 0.146 | 0.775 / 0.37 / 0.307 / 0.167 | 0.743 / 0.30 / 0.674 / 0.676 |
+| narrow-G (G × 1,600) | 0.544 / 0.54 / 0.350 / 0.092 | **0.400 / 0.57 / 0.246 / 0.032** | 0.784 / 0.53 / 0.314 / 0.081 | 0.753 / 0.46 / 0.502 / 0.701 |
+| 2 decks (B, G × 800) | **0.443 / 0.54 / 0.231 / 0.046** | **0.433 / 0.49 / 0.252 / 0.036** | 0.760 / 0.45 / 0.366 / 0.083 | 0.794 / 0.33 / 0.586 / 0.668 |
+| 4 decks (B, G, R, U × 400) | **0.531 / 0.42 / 0.245 / 0.051** | **0.510 / 0.40 / 0.270 / 0.039** | 1.073 / 0.30 / 0.316 / 0.087 | 1.219 / 0.21 / 0.437 / 0.594 |
+
+Training priority loss at epoch 6: narrow-B 0.430, narrow-G 0.400, deck2 0.417, deck4 0.489, all still falling.
+
+Conclusion (one seed, 6 epochs):
+- In distribution, more games of the same matchup wins on loss, as expected. Halving them (2 decks) costs little
+  (≈0.03 priority loss); quartering them (4 decks) costs ≈0.11. No sign that diversity makes known-opponent
+  predictions more robust.
+- Out of distribution, 2 decks matches the better single deck; 4 decks is worst on priority for both unseen
+  opponents. That is the opposite of the expected generalization gain, and 4 decks is also the least converged
+  arm (highest training loss), so the likeliest reading is that four opponents at this budget need more epochs.
+- Value on the mirror is poor for every arm (0.59–0.70): models trained only on lopsided Mono games carry a
+  "losing" prior into an even matchup. Target accuracy on the mirror is the one place 4 decks helps (0.64 vs 0.54).
