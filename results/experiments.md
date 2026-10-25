@@ -80,7 +80,7 @@ on this out-of-distribution opponent; the new default fixes that.
 
 Same model (the default), same opponents, gen0 only, both seats, mirror held out. v0.2 = `ver3` gen0 (1,238 games,
 245K states; test: gen0 mirror, 96 games). v0.3 = `ver4` gen0 non-mirror shards cut to their first 100 games with
-`util/first_games.py` (1,400 games, 113K states; test: gen0 mirror PlayerA, 400 games). v0.2 records about twice
+`util/cut_games.py` (1,400 games, 113K states; test: gen0 mirror PlayerA, 400 games). v0.2 records about twice
 as many states per game. Kernel: mz-fae-v02-v03.
 
 | run | always-pass baseline | priority acc (epoch 6) | non-pass recall (epochs 4–6) | target acc | value MSE |

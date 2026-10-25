@@ -116,13 +116,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--deck", required=True)
     parser.add_argument("--version", type=int, required=True)
+    parser.add_argument("--testing", help="test shard directory (default: data/<deck>/ver<version>/testing)")
     args = parser.parse_args()
 
     checkpoint_path = f"models/{args.deck}/ver{args.version}/model.pt.gz"
     model, vocab, edge_vocab = load_checkpoint(checkpoint_path)
     print(f"Loaded checkpoint from {checkpoint_path}: {len(vocab)} leaf rows, {len(edge_vocab)} edge label rows")
 
-    ds = H5Graphs(f"data/{args.deck}/ver{args.version}/testing", vocab, edge_vocab)
+    testing = args.testing or f"data/{args.deck}/ver{args.version}/testing"
+    print(f"Testing on {testing}")
+    ds = H5Graphs(testing, vocab, edge_vocab)
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0,
                     collate_fn=collate_batch, pin_memory=AMP, persistent_workers=False)
 

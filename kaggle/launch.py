@@ -6,7 +6,8 @@ Logs land in the kernel's output as <run>.log.
   python kaggle/launch.py --name passes --runs '[{"name": "seq1", "args": "--epochs 6", "arch": {"n_passes": 1}}]'
 Optional run keys: "ref" trains with src/magezero from a git ref instead of the working tree; "data" picks a
 subdirectory of the dataset (the one holding training/ and testing/); "setup" is a shell command run first
-(it turns on the kernel's internet access, e.g. for pip).
+(it turns on the kernel's internet access, e.g. for pip); "post" is a shell command run after training, with
+$SRC (the code) and $DECK (train.py's --deck/--version) set.
   kaggle kernels status willwroble/mz-baseline
   kaggle kernels output willwroble/mz-baseline -p results/kaggle/baseline
 """
@@ -44,7 +45,8 @@ for gpu, run in enumerate(RUNS):
     src = f"/tmp/mz/{{run.get('ref', 'HEAD')}}"
     deck = f"--deck {{run['name']}} --version {{VERSION}}"
     arch = f"--arch {{shlex.quote(json.dumps(run['arch']))}}" if "arch" in run else ""
-    cmd = (f"{{run.get('setup', 'true')}} && python -u {{src}}/train.py {{deck}} {{arch}} {{run['args']}} && "
+    post = f"SRC={{src}} DECK={{shlex.quote(deck)}}; {{run['post']}}" if "post" in run else "true"
+    cmd = (f"{{run.get('setup', 'true')}} && python -u {{src}}/train.py {{deck}} {{arch}} {{run['args']}} && {{post}} && "
            f"(test ! -f {{src}}/bench.py || python -u {{src}}/bench.py {{deck}}); "
            f"rm -rf models/{{run['name']}}/ver{{VERSION}}/best.pt.gz")
     log = open(f"{{run['name']}}.log", "w")
