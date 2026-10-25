@@ -1,4 +1,4 @@
-****# MageZero: A Deck-Local AI Framework for Magic: The Gathering
+# MageZero: A Deck-Local AI Framework for Magic: The Gathering
 
 ### 1. High-Level Philosophy
 
@@ -42,6 +42,7 @@ mz train
 ```
 
 That's the whole flow — one command drives data generation, dataset analysis, model evaluation, replay buffer management, and training across every generation in the curriculum. See the [setup guide](https://github.com/WillWroble/MageZero/blob/main/setup_guide.md) for details.
+
 ---
 
 ### 3. Self-Play Results (as of December 2025)
