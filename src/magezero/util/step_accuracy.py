@@ -1,5 +1,5 @@
 """Target-head top-1 accuracy per game step, against picking a random legal candidate:
-  python util/step_accuracy.py checkpoint test_dir   (run from src/magezero)"""
+  PYTHONPATH=. python util/step_accuracy.py checkpoint test_dir   (run from src/magezero)"""
 import sys
 import numpy as np
 import torch
