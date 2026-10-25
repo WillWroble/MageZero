@@ -69,6 +69,9 @@ Always-pass priority baseline: 0.79 on the v0.1 test set, 0.76 on the v0.2 one.
 | mz-uw-v01-v02 v02 (GNN, d512 dropout 0.25) | 0.092–0.109, final 0.092 | 0.35–0.69, final 0.65 (below baseline; unstable) | ≈0.60 | ≈0.90 |
 | mz-uw-v01 v02-default (GNN, d256 dropout 0) | 0.072–0.084, final 0.080 | 0.79–0.80 (+0.04) | 0.66–0.67 | ≈0.89–0.90 |
 
-Conclusion: the GNN's clear win is targeting (≈0.66 vs ≈0.33 top-1), where it can point at the object itself.
-Value and priority (relative to always-pass) come out about even. At the v0.2 settings the GNN's priority was
-unstable on this out-of-distribution opponent; the new default fixes that.
+Conclusion: priority is the fairest comparison and comes out even (both ≈4 points above always-pass). Value and
+choose_use labels come from search (TD targets), and `ver30` spans several generations; the subset here is the
+earliest session per matchup (370–401, assumed gen0), but engine, sim budget and TD discount still differ, so
+value is not comparable. Targeting favours the GNN (≈0.66 vs ≈0.33), but v0.1 picks from 128 hashed slots
+while the GNN picks the object, so the metrics differ too. At the v0.2 settings the GNN's priority was unstable
+on this out-of-distribution opponent; the new default fixes that.
