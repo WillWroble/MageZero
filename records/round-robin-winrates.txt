@@ -1,7 +1,0 @@
-OPPONENT POOL: MTGA_MonoU, MTGA_MonoB, MTGA_MonoG, MTGA_MonoW, MTGA_MonoR
-
-UWTempo:
-Gen0: 35%
-Gen1: 36.5%
-Gen2: 37.7%
-gen3: 36.8%

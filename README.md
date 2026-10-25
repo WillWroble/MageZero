@@ -1,4 +1,4 @@
-# MageZero: A Deck-Local AI Framework for Magic: The Gathering
+****# MageZero: A Deck-Local AI Framework for Magic: The Gathering
 
 ### 1. High-Level Philosophy
 
@@ -8,9 +8,9 @@ This approach reframes the challenge of MTG AI from universal mastery to local o
 
 ---
 
-### 2. Current Status (September 2026): **Second public alpha released**
+### 2. Current Status (October 2026): **Third public alpha released**
 
-MageZero v0.2.0-alpha is available on the [releases page](https://github.com/WillWroble/MageZero/releases/latest). This includes a precompiled XMage distribution and the `mz` CLI for running full training curricula end-to-end, as well as an included 16 opponent pool to train your constructed decks against.
+MageZero v0.3.0-alpha is available on the [releases page](https://github.com/WillWroble/MageZero/releases/latest). This includes a precompiled XMage distribution and the `mz` CLI for running full training curricula end-to-end, as well as an included 16 opponent pool to train your constructed decks against.
 Right now these 16 decks are being used to simulate the 2022-2025 standard metagame, if you are interested in lending your compute to this experiment with your own standard-ish deck contact me or join the discord.  
 
 The project uses [XMage](https://github.com/magefree/mage), an Open Source complete MTG rules engine, as a gym environment. See this project's [XMage fork](https://github.com/WillWroble/mage) for the state vectorization and MCTS logic (relevant modules: `Player.AI.RL`, `Player.AI.MCTS`, `Mage.MageZero`).
@@ -80,10 +80,9 @@ See results/roundrobin-trainlog.txt for raw data
 
 **Current Simulation Metrics**
 
-* Games/hour (local, 13 CPU threads, 300-sim MCTS budget): \~250 games/hour
-* Single-thread MCTS sims/sec: \~150 (4ghz)
-* 8-thread MCTS sims/sec: \~75 (limited by heavy heap usage)
-* network single batched inferences/sec: (~100)
+* Games/hour (local, 16 CPU threads, 300-sim MCTS budget): \~800 games/hour
+* Single-thread MCTS sims/sec: \~300 (4ghz)
+* 8-thread MCTS sims/sec: \~200 
 
 
 ---
@@ -93,35 +92,97 @@ See results/roundrobin-trainlog.txt for raw data
 By far the most interesting emergent behavior to come from MageZero so far, came from the card [Cecil Death Knight](https://scryfall.com/card/fin/380/cecil-dark-knight-cecil-redeemed-paladin). While playing against the [Standard-MonoB](https://moxfield.com/decks/R3zCVSK78kWyOwzAUyHUJg) deck agent i've been training, I noticed from the logs it wasn't playing its one-drop, Cecil, despite having nothing else to do on the first 2 turns. I initially assumed this was a glitch as I was on the play and was curving out (playing the same deck myself). By the time it played it, (on turn 3 with 12 life), I realized what it was doing actually made perfect sense. If it had played Cecil, (a 2/3 deathtoucher) it would have stopped my attacks and it would have probably just sat there as a 2/3 the whole game. By letting me lower it's life total before playing it, Cecil immediatly becomes a threat, since on the next turn they can remove any blockers and flip it by attacking, which is exactly what it did. this is starting to feel like signs of life of a true AlphaZero agent. ie. completely weird, 'creative' play patterns that only come from pure, unbiased RL. an LLM bot (or a bot trained on human games) would never do this in a million years. I've played with Cecil on MTG arena and never thought of playing it this way. But next time I play standard I'll try this strategy, since it makes sense to me for many situations.
 
 ---
-### 4. Core Components & Pipeline
+### 4. Game Engine & Feature Encoding
 
-MageZero's architecture is an end-to-end self-improvement cycle.
+Within the XMage fork, Game state is captured via a custom `StateEncoder.java`, which converts each decision point into a graph-based representation
 
-#### **Game Engine & Feature Encoding**
+#### The state graph
 
-Within the XMage fork, Game state is captured via a custom `StateEncoder.java`, which converts each decision point into a high-dimensional binary feature vector.
+<p align="center">
+  <img src="results/MageZeroGNN.png" width="80%" />
+  <br/>
+</p>
 
-* **Dynamic Feature Hashing**: This system supports a sparse, open-ended state representation to handle all the discrete artifacts and tokens MTG games can produce. This is done by use of a massive sparse Embedding Table with Weinberger style feature hashing. A typical 60card deck matchup utilizes a \~5,000 feature slice of this space. With usually around ~200 active features per state (after filtering redundant features) making chance of collision <0.01%. Since all decks share the same massive input space, overlapping deck feature slices allow for potential cross-deck learning.
-* **Hierarchical & Abstracted Features**: The hashing captures not just card presence but also sub-features (like abilities on a card) and game metadata (life totals, turn phase). Numeric features are discretized, and cardinality is represented through thresholds. Sub-features pool up to parent features, creating additional layers of abstraction (e.g., a "green" sub-feature on a creature contributes to a "green permanents on the battlefield" count), providing a richer, more redundant signal for the model.
+The game decomposes top-down into namespaces (the root, each player, each zone), the objects inside them, and the abilities on those objects. Everything at the bottom is a leaf-attribute: a name, a keyword, Tapped, Power, an ability's effect.
 
-#### **Neural Network Architecture**
+Pointers link one entity to another across the tree, like a spell to its target or a stack object to its owner.
 
-The model uses a double-layer Transformer encoder over sparse token embeddings, with 4 policy heads and 1 value head.
+#### Legend
 
-* **Structure**: 
-  * **Sparse Embedding**: N_active × 512D; `nn.Embedding(sparse=False)`  Each active feature index maps to a 512D learned embedding. A typical state has ~1000 active tokens.
-  * **Input Token Dropout**: 30% of tokens are randomly dropped before attention during training, acting as a regularizer on the feature set.
-  * **Transformer Encoder**: Double  `TransformerEncoderLayer` (d_model=512, nhead=4, dim_feedforward=1024). Self-attention computes pairwise interactions between all active tokens, allowing each feature's representation to be context-dependent. This replaced an earlier EmbeddingBag(sum) architecture which destroyed co-occurrence information and caused systematic misattribution (see Skrelv problem below).
-  * **Mean Pooling**: Context-aware token embeddings are mean-pooled over real (non-padded, non-dropped) tokens to produce a single 512D state representation, which is reused for all MLP-heads.
-  * **Policy Heads**: all deck local or matchup local
-    * **Player Priority**: 128D; deck local; each logit corresponds to a priority action the Agent (PlayerA) can take (eg. activated abilities, casting spells). usually around ~20 logits are used per deck
-    * **Opponent Priority**: 128D; opponent deck local; each logit corresponds to a priority action the opponent (PlayerB could take). when running MCTS vs MCTS games. both Agents share one network. and use each head.
-    * **Targets**: 128D; matchup local; shared target space across both decks for all micro decisions involving targets. (this is used for selecting which attacking creature to use a blocker on). usually ~60 logits used per matchup
-    * **Binary decisions** 2D: matchup local; shared binary space for all binary decisions made by either player. (this is used to select attackers sequentially)
-  * **Value Head**: Estimates the probability of winning (trained with Mean Squared Error). The value target uses a MuZero style TD-blend over MCTS roots scores for richer, more stable value predictions.
-* **Training**: all training samples are flagged with their decision type (player priority, opponent priority, target decision, binary decision). all sample types are trained together in mixed batches but policy gradients are gated to each sample's corresponding policy head.
+| Node        | Meaning                                      |
+|-------------|----------------------------------------------|
+| Diamond     | Namespace                                    |
+| Box         | Object, scored by the target prior           |
+| Rounded box | Ability, scored by the priority policy prior |
+| Circle      | Singleton leaf-attribute                     |
 
-### 5. MCTS
+| Edge         | Meaning                                 |
+|--------------|-----------------------------------------|
+| Blue arrow   | Default edge                            |
+| Red arrow    | Name                                    |
+| Dotted arrow | Pointer (targeting, attached-to, owner) |
+
+#### Node types
+
+| TYPE         | Diagram     |                                                                                                                                                                                                                                  |
+|--------------|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ROOT         | Diamond     | Top of the graph. Holds both players, the Stack, exile, and the game-level leaves: step, decision type, decision text.                                                                                                           |
+| PLAYER       | Diamond     | Arguably a namespace, but kept as an entity so the encoding can be adopted to multiplayer without a complete rework. Holds its zones, life, counters, microdecisions, attachments, and Pass.                                     |
+| ZONE         | Diamond     | Less an entity than a namespace. Kept as a node because special exile zones want object identity. Holds its cards and its size.                                                                                                  |
+| STACK_OBJECT | Box         | One of the two dynamic types, strictly higher than permanents since it points to them. Holds its source, targets, position, modes, and abilities.                                                                                |
+| PERMANENT    | Box         | The other dynamic type, higher than abilities. Holds its abilities, types, counters, state, and attachments.                                                                                                                     |
+| CARD         | Box         | Used like more like an interface rather than a class: a PERMANENT and a STACK_OBJECT are both CARDs, but neither contains the other. Cards in hand, graveyard, and exile are CARD nodes, with name, types, mana cost, and color. |
+| ABILITY      | Rounded box | Sits below permanents. What the priority policy prior scores: a card's cast ability, an activated ability, or Pass. Activated abilities are only encoded when playable.                                                          |
+| LEAF         | Circle      | Singleton leaf-attribute. A new type of counter, new ability, or new dynamic attribute gets minted on the fly as a leaf token.                                                                                                   |
+
+#### Features:
+* **Entity based encoding**: MTG is fundamentally a set of objects with static and dynamic attributes. This decomposition allows the network to generalize to an unseen entity (Grizzly Bears) if it has attributes that it has already learned (power=2, toughness=2, type=creature, color=green etc.)
+* **Open vocabulary**: Instead of trying to predefine the entire vocabulary of MTG, the encoder uses a hash table to tokenize new leaf nodes on the fly. This means as MTG evolves and more cards are added to the game, the network will naturally grow to include them without retraining.
+
+
+### 5. Neural Network Architecture
+
+
+#### GNN Architecture
+
+MageZero's model is a graph neural network over a typed entity graph of the game state. The priority policy and target policy are baked into the graph: an action is the node it acts through, so the network scores nodes instead of a fixed table of action slots.
+
+#### Network
+
+| | |
+|---|---|
+| Width | 256 |
+| Attention heads | 4 |
+| FF size | 512 |
+| Dropout | 0 |
+| Bottom-up passes | 2 |
+| Local-layers per node type | 2 (one per pass) |
+| Global-layers | 2 |
+
+**Embeddings.** Node types are ROOT, PLAYER, ZONE, STACK_OBJECT, PERMANENT, CARD, ABILITY, and LEAF. Each typed node starts from its type embedding. A leaf's embedding is its vocab row plus a numeric value bucket: exact values from -5 to 20, then 21-25, 26-30, 31-40, 41-60, and 61+. Every edge carries a label from a second vocab, and the label's embedding is added to the child's token as its parent reads it. Both vocabs are append-only, so a new card, counter, or ability mints a new row on the fly.
+
+**Local-layers.** Each pass runs one local-layer per node type, bottom-up in this order:
+
+```
+ABILITY → CARD → PERMANENT → STACK_OBJECT → ZONE → PLAYER → ROOT
+```
+
+Every node attends over itself and its children (pre-norm transformer layer, GELU), and only the node's own output is kept. Children of an earlier type arrive already updated in the current pass. Children of the same type or a later one, which are the pointers (attachments, targets, linked exile), arrive from the previous pass. The two passes have separate weights.
+
+**Global-layers.** A 2-layer transformer encoder over a CLS token plus every internal (non-leaf) node in the state, so any two entities can interact no matter where they sit in the tree.
+
+**Heads.** Each head is its own MLP (256 → 256 → out).
+- **Priority** scores every ABILITY node. Passing priority is itself an ability on the player.
+- **Target** scores every CARD, PERMANENT, STACK_OBJECT, and PLAYER node.
+- **Choose-use** is a 2-way yes/no read from CLS.
+- **Value** is read from CLS, with tanh to [-1, 1].
+
+**Training.** The policy heads train with KL divergence from the normalized MCTS visit counts to a softmax over every node of the head's types in the state. There is no legality mask: illegal nodes train toward zero along with legal ones the search didn't visit, because the prior's job is to say which moves are worth expanding, and the search already prunes illegal ones. Choose-use trains with the same KL over its two options, and value trains with MSE.
+
+### Results
+
+<!-- methodology and results -->
+### 6. MCTS
 
 MageZero uses the same combination of MCTS with Deep learning that Deep Mind's AlphaZero, Muzero and other variants have used to play Go, Chess, Shogi, and other strategy games at a superhuman level. Specifically we use the PUCT formula as was originally outlined in the AlphaZero paper. 
 
@@ -157,7 +218,7 @@ $$
 
 
 
-### 6. Challenges
+### 7. Challenges
 
 MageZero faces several research challenges that shape future development:
 
@@ -171,7 +232,7 @@ MageZero faces several research challenges that shape future development:
 
 ---
 
-### 7. Future Goals
+### 8. Future Goals
 
 1. **LLM-Based Bootstrap Agent**: Replace the minimax bootstrap with a stronger LLM-based agent to provide higher-quality priors and value signals.
 2. **AI vs AI Simulation Framework**: Build a general framework within XMage for fast AI vs AI simulations, enabling MageZero and other MTG AI projects to scale evaluation and training.
@@ -182,7 +243,7 @@ MageZero faces several research challenges that shape future development:
 
 ---
 
-### 8. Sources and Inspirations
+### 9. Sources and Inspirations
 
 MageZero draws from a range of research traditions in reinforcement learning and game theory.
 
@@ -198,4 +259,4 @@ MageZero draws from a range of research traditions in reinforcement learning and
   * Weinberger, K., Dasgupta, A., Langford, J., Smola, A., & Attenberg, J. (2009). *Feature Hashing for Large Scale Multitask Learning*. Proceedings of the 26th Annual International Conference on Machine Learning.
 * **Curriculum Learning**: Though currently on the backburner, the initial concept for a "minideck curriculum" is based on the principle of gradually increasing task complexity to guide the learning process.
 
-  * Bengio, Y., Louradour, J., Collobert, R., & Weston, J. (2009). *Curriculum learning*. Proceedings of the 26th Annual International Conference on Machine Learning.
+  * Bengio, Y., Louradour, J., Collobert, R., & Weston, J. (2009). *Curriculum learning*. Proceedings of the 26th Annual International Conference on Machine Learning.****
