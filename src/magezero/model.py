@@ -26,10 +26,10 @@ MageZero graph network for AlphaZero style MCTS. Input: StateEncoder's state gra
 
 GLOBAL_MAX = 2**31-1
 
-D_MODEL = 512
+D_MODEL = 256
 N_HEADS = 4
 D_FF = 1024
-DROPOUT = 0.25
+DROPOUT = 0.0
 N_PASSES = 2
 GLOBAL_LAYERS = 2
 HIDDEN_MLP = 256
