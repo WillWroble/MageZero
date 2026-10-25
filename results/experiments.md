@@ -137,3 +137,28 @@ candidates; the model column restricts its argmax to the legal candidates too.
 
 Conclusion: most v0.2 combat decisions were not real choices (≈1 legal option). v0.3 makes attacking a real
 decision and the model learns it well; blocking is still close to random.
+
+### Diversity at 12 epochs (mz-div-e12)
+
+Each arm continued from its 6-epoch checkpoint for 6 more epochs (Adam state restarts at epoch 7, the same for all
+arms). 0.65 GPU hours. Training priority loss at epoch 12: narrow-B 0.396, narrow-G 0.366, deck2 0.384, deck4 0.417
+(deck4 still falling fastest). Priority loss / non-pass recall / priority legal accuracy / target legal accuracy /
+value MSE (bold: in distribution):
+
+| arm | MonoB held-out | MonoG held-out | MonoW | Pauper mirror |
+|---|---|---|---|---|
+| narrow-B | **0.400 / 0.50 / 0.700 / 0.803 / 0.048** | 0.481 / 0.45 / 0.694 / 0.677 / 0.352 | 0.820 / 0.40 / 0.637 / 0.683 / 0.385 | 0.706 / 0.30 / 0.579 / 0.622 / 0.806 |
+| narrow-G | 0.637 / 0.39 / 0.646 / 0.722 / 0.112 | **0.382 / 0.48 / 0.706 / 0.784 / 0.030** | 0.959 / 0.40 / 0.626 / 0.748 / 0.084 | 0.788 / 0.33 / 0.583 / 0.670 / 0.660 |
+| 2 decks | **0.407 / 0.54 / 0.719 / 0.797 / 0.050** | **0.388 / 0.53 / 0.726 / 0.792 / 0.036** | 0.789 / 0.47 / 0.662 / 0.756 / 0.068 | 0.679 / 0.35 / 0.602 / 0.593 / 0.610 |
+| 4 decks | **0.432 / 0.54 / 0.710 / 0.777 / 0.051** | **0.412 / 0.53 / 0.724 / 0.778 / 0.037** | 1.098 / 0.44 / 0.649 / 0.722 / 0.085 | 1.035 / 0.27 / 0.569 / 0.714 / 0.501 |
+
+Conclusion (one seed):
+- In distribution, the loss gap closed to ≈0.01 (2 decks) and ≈0.03 (4 decks) behind the narrow arm, with a half
+  and a quarter of its games. On top-1 decisions the diverse arms are level or better: non-pass recall 0.54 vs
+  0.50 (MonoB) and 0.53 vs 0.48 (MonoG), priority legal accuracy 0.71–0.73 vs 0.70–0.71. Diverse data did not
+  make known-opponent predictions worse, and the decisions came out slightly more robust.
+- Value is where narrow data breaks: narrow-B's value on unseen Mono decks is 0.35–0.39 MSE vs 0.04–0.09 for
+  every arm that saw two or more decks.
+- 2 decks is the best arm overall (best or near-best on every test set). 4 decks has the best decisions on
+  unseen opponents' targets but poorly calibrated priority there (loss 1.0–1.1 with middling accuracy), and is
+  the least converged.
