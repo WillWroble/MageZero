@@ -1,7 +1,7 @@
 """
 Push an experiment to Kaggle as a GPU script kernel (T4 x2). The kernel unpacks src/magezero, mounts the
 dataset as data/<run>/ver<version>, and runs the training runs alternately on the two GPUs (one after another
-on each), each followed by bench.py. Logs land in the kernel's output as <run>.log.
+on each, or all at once with --parallel), each followed by bench.py. Logs land in the kernel's output as <run>.log.
 
   python kaggle/launch.py --name passes --runs '[{"name": "seq1", "args": "--epochs 6", "arch": {"n_passes": 1}}]'
   kaggle kernels status willwroble/mz-passes
@@ -31,6 +31,7 @@ from pathlib import Path
 CODE = {code!r}
 RUNS = {runs!r}
 VERSION = {version}
+PARALLEL = {parallel}
 
 for ref, code in CODE.items():
     tarfile.open(fileobj=io.BytesIO(base64.b64decode(code))).extractall(f"/tmp/mz/{{ref}}", filter="data")
@@ -48,18 +49,18 @@ def command(run):
             f"rm -rf models/{{run['name']}}/ver{{VERSION}}/best.pt.gz")
 
 
-# runs alternate between the two GPUs; each GPU runs its share one after another
+# runs alternate between the two GPUs; each GPU runs its share one after another, or all at once with PARALLEL
+chains = [[run] for run in RUNS] if PARALLEL else [RUNS[0::2], RUNS[1::2]]
 procs = []
-for gpu in range(2):
-    chain = RUNS[gpu::2]
+for i, chain in enumerate(chains):
     if not chain:
         continue
-    first = Path(f"{{RUNS[0]['name']}}.log")
+    previous = Path(f"{{chains[i - 1][0]['name']}}.log")
     # one run loads the dataset at a time: loading peaks at about twice the resident size
-    while procs and procs[-1].poll() is None and not (first.exists() and "arch:" in first.read_text()):
+    while procs and procs[-1].poll() is None and not (previous.exists() and "arch:" in previous.read_text()):
         time.sleep(10)
     cmd = "; ".join(f"({{command(run)}}) > {{run['name']}}.log 2>&1" for run in chain)
-    procs.append(subprocess.Popen(cmd, shell=True, env={{**os.environ, "CUDA_VISIBLE_DEVICES": str(gpu)}}))
+    procs.append(subprocess.Popen(cmd, shell=True, env={{**os.environ, "CUDA_VISIBLE_DEVICES": str(i % 2)}}))
 for p in procs:
     p.wait()
 for run in RUNS:
@@ -77,6 +78,7 @@ def main():
     parser.add_argument("--sources", nargs="*", default=[], help="earlier kernels whose output to mount (mz-<name>)")
     parser.add_argument("--internet", action="store_true", help="e.g. for pip in a run's setup")
     parser.add_argument("--timeout", type=int, help="stop the kernel after this many seconds")
+    parser.add_argument("--parallel", action="store_true", help="start every run at once (several per GPU)")
     args = parser.parse_args()
 
     code = {}
@@ -93,7 +95,7 @@ def main():
             code[ref] = base64.b64encode(tar).decode()
 
     with tempfile.TemporaryDirectory() as d:
-        (Path(d) / "run.py").write_text(KERNEL.format(code=code, runs=args.runs, version=args.version))
+        (Path(d) / "run.py").write_text(KERNEL.format(code=code, runs=args.runs, version=args.version, parallel=args.parallel))
         (Path(d) / "kernel-metadata.json").write_text(json.dumps({
             "id": f"{USER}/mz-{args.name}", "title": f"mz-{args.name}", "code_file": "run.py",
             "language": "python", "kernel_type": "script", "is_private": True, "enable_gpu": True,
