@@ -82,3 +82,13 @@ Same model (the default), same opponents, gen0 only, both seats, mirror held out
 245K states; test: gen0 mirror, 96 games). v0.3 = `ver4` gen0 non-mirror shards cut to their first 100 games with
 `util/first_games.py` (1,400 games, 113K states; test: gen0 mirror PlayerA, 400 games). v0.2 records about twice
 as many states per game. Kernel: mz-fae-v02-v03.
+
+| run | always-pass baseline | priority acc (epoch 6) | non-pass recall (epochs 4–6) | target acc | value MSE |
+|---|---|---|---|---|---|
+| v02 (`ver3`) | 0.778 (3,150 of 14,180 non-pass) | 0.833 (+0.055) | 0.32–0.38 | 0.74–0.77 | 0.064 |
+| v03 (`ver4`, first 100 games) | 0.412 (8,974 of 15,251 non-pass) | 0.539 (+0.127) | 0.17–0.28 | 0.64–0.66 | 0.056 |
+
+Conclusion: no evidence that v0.3 learns policy better at matched game counts. v0.3's test set is a much harder
+priority task (59% non-pass vs 22%); it gains more over always-pass, but its non-pass recall is lower, and it trained
+on half as many states. Losses and target accuracy aren't comparable across encodings (different candidate sets).
+With all of `ver4` (421K states) v0.3 reaches non-pass 0.42–0.52, so data volume matters more than the version here.
