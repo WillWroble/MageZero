@@ -109,3 +109,16 @@ gets more passing, fewer threats (Ninja 0.85–0.94 → 0.28–0.46) and unchang
 against all five. Flash plays move to the opponent's turn against MonoB, G and R. The Miscreant preference appears
 in every matchup. Since this is value-only search, a likely cause is a value head that rates cards held in hand
 higher than the gen0 heuristic did; not checked.
+
+### Opponent-specific adaptation (gen0 → gen1)
+
+Across abilities, gen1's per-matchup chosen rates correlate with gen0's (median correlation of matchup deviations
++0.74), and the median spread across matchups (std / mean) rises only from 0.09 to 0.14. The largest
+matchup differences already existed in gen0 and mostly reflect what is legal or useful (Dispel ≈0 vs MonoG, Snap
+rare vs MonoU, Counterspell lowest vs MonoU). After removing each ability's average gen0 → gen1 change, the largest
+matchup-specific shifts are: Ninja −0.10 vs MonoB; ninjutsu +0.08/+0.09 vs MonoG and −0.07/−0.10 vs MonoU; Snap
++0.16 vs MonoU and −0.11 vs MonoG; Dispel −0.11 vs MonoB; Strix loot −0.09 vs MonoU. Each gen1 cell rests on
+≈70–500 states, so these are about two standard errors: suggestive only.
+
+Conclusion: one generation of value-only search learned a general style (patient, reactive), not per-opponent
+plans; the few matchup-specific shifts are suggestive.
