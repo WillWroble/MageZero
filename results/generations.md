@@ -59,11 +59,7 @@ guiding search. gen1's samples are small.
 gen1 is far more patient: every threat is cast less often when available (Ninja 0.88 → 0.28, ninjutsu 0.6 → 0.3),
 while land drops and Counterspell are unchanged. The flash and instant plays it does make shift toward the
 opponent's turn (Spellstutter own-turn 0.84 → 0.68, Strix loot 0.80 → 0.49). It wins four times as often.
-EOF
-cd /home/user/MageZero && git add src/magezero/util/behaviour.py && git add -f results/generations.md && git commit -q -m "util/behaviour.py and gen0 vs gen1 behaviour against MonoB
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01L2xxgZSAQNvWem2yZsXCsZ" && git pull -q --no-rebase origin graph-encoder-test 2>&1|tail -1; git push -q origin graph-encoder-test 2>&1|tail -1; git log --oneline -1
 ## gen0 → gen1, all five Standard Mono matchups
 
 | opponent | gen0 win | gen1 win | gen1 games | states/game gen0 → gen1 |
