@@ -71,7 +71,9 @@ for s in range(n):
     if "Seer" in names and "Miscreant" in names:
         both[misc > 0][top] += 1
 
-print(f"== {sys.argv[1].split('ver4/training/')[1]}  states {n}")
+games = len(d["game_offsets"]) - 1
+print(f"== {sys.argv[1].split('/training/')[-1]}  games {games}  states/game {n / games:.1f}  "
+      f"win {np.mean(row[d['game_offsets'][1:] - 1, 0] > 0):.3f}")
 print("Seer vs Miscreant, priority states where both are castable (share of states each is the top move):")
 for k, label in ((False, "no Miscreant on Faeries' battlefield"), (True, "a Miscreant already out")):
     t = sum(both[k].values())
