@@ -122,3 +122,29 @@ matchup-specific shifts are: Ninja −0.10 vs MonoB; ninjutsu +0.08/+0.09 vs Mon
 
 Conclusion: one generation of value-only search learned a general style (patient, reactive), not per-opponent
 plans; the few matchup-specific shifts are suggestive.
+
+## gen0 model on gen1 data (the classic test)
+
+The gen0 model that generated gen1 (`experiment_models/Pauper-Faeries/ver4/model.pt.gz`, epoch 4, trained on all of
+`ver4` gen0) scored with `test.py --testing` on each gen1 Mono matchup and seat, CPU. Reference: the same model on
+the gen0 mirror test set. Always-pass = share of priority states whose MCTS top move is Pass.
+
+| test set | states | always-pass | priority acc | gain | non-pass recall | prio loss | target legal acc | use acc | value MSE |
+|---|---|---|---|---|---|---|---|---|---|
+| gen0 mirror (reference) | 63,518 | 0.41 | 0.638 | +0.23 | 0.43 | 0.524 | 0.790 | 0.886 | 0.035 |
+| gen1 Faeries vs MonoB | 14,388 | 0.65 | 0.659 | +0.01 | 0.38 | 0.496 | 0.726 | 0.793 | 0.065 |
+| gen1 Faeries vs MonoG | 21,817 | 0.68 | 0.707 | +0.02 | 0.35 | 0.453 | 0.729 | 0.891 | 0.041 |
+| gen1 Faeries vs MonoR | 16,317 | 0.70 | 0.696 | 0.00 | 0.38 | 0.461 | 0.732 | 0.814 | 0.065 |
+| gen1 Faeries vs MonoU | 17,474 | 0.59 | 0.631 | +0.04 | 0.40 | 0.486 | 0.783 | 0.746 | 0.049 |
+| gen1 Faeries vs MonoW | 20,449 | 0.60 | 0.635 | +0.03 | 0.36 | 0.531 | 0.677 | 0.755 | 0.040 |
+| gen1 MonoB (opponent seat) | 8,067 | 0.33 | 0.633 | +0.30 | 0.50 | 0.501 | 0.812 | 0.961 | 0.077 |
+| gen1 MonoG (opponent seat) | 12,187 | 0.27 | 0.586 | +0.31 | 0.46 | 0.594 | 0.832 | 0.728 | 0.034 |
+| gen1 MonoR (opponent seat) | 10,509 | 0.50 | 0.669 | +0.17 | 0.45 | 0.409 | 0.861 | 0.956 | 0.051 |
+| gen1 MonoU (opponent seat) | 11,213 | 0.41 | 0.701 | +0.30 | 0.34 | 0.405 | 0.767 | 0.854 | 0.052 |
+| gen1 MonoW (opponent seat) | 23,546 | 0.43 | 0.631 | +0.20 | 0.44 | 0.373 | 0.767 | 0.733 | 0.047 |
+
+Conclusion: on gen1 Faeries decisions the gen0 model's priority top-1 is barely above always-pass (+0.00 to +0.04,
+vs +0.23 on gen0 data), while the opponent seats stay well predicted. Its errors are actions where gen1's search
+passes (vs MonoB: predicts an action in 19% of gen1's pass states, vs 6% on the gen0 mirror). Priority loss stays
+level because the soft visit distributions still overlap. Value is worst where gen1 outperformed gen0 most (MonoB,
+MonoR: 0.065), despite gen1's labels being largely this model's own evaluations.
