@@ -2,3 +2,4 @@
 * text=auto
 /experiment_data/ filter=lfs diff=lfs merge=lfs -text
 experiment_data/** filter=lfs diff=lfs merge=lfs -text
+experiment_models/** filter=lfs diff=lfs merge=lfs -text
