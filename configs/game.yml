@@ -36,7 +36,7 @@ player_a:
     mulligans_enabled: false
     manual_tapping: false
 
-  hidden_info:
+  hiddenInfo:
     see_opponent_hand: true
 
 player_b:
@@ -69,7 +69,7 @@ player_b:
     mulligans_enabled: false
     manual_tapping: false
 
-  hidden_info:
+  hiddenInfo:
     see_opponent_hand: true
 
 training:
