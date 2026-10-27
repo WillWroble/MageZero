@@ -216,3 +216,35 @@ information (PlayerB). Compared with the perfect-info MonoB shards (win rate fro
 
 Conclusion: these states are exactly what a hidden-info model sees at play time, so the `_pimc` shards can be
 trained on directly. Their win rate halves against a perfect-info opponent with the same budget.
+
+### PIMC play vs perfect-info play (Faeries vs MonoB, gen1)
+
+How PIMC runs in XMage (`graph-encoder`): with `pimc: true`, `MCTSPlayer.priority` calls `shuffleUnknowns` at every
+priority point inside the search. That re-deals the opponent's hand from their library each time. With
+`see_opponent_hand: false`, Faeries' encoder hides the opponent's hand in every state, including those inside the
+search. So the network only ever sees hidden-hand states, which the v4 network was never trained on.
+
+Faeries' play (priority states with a choice; "top move" = most visited):
+
+| | ver4 perfect info | ver5 perfect info | ver5 PIMC hidden |
+|---|---|---|---|
+| WR | 31.6% | 26.5% | **12.5%** |
+| priority choices per game, own / opponent's turn | 27.0 / 6.3 | 28.9 / 6.8 | 32.8 / **3.7** |
+| flash creature or Strix loot castable on opponent's turn, states per game | 4.5 | 4.9 | **1.9** |
+| Spellstutter per game: own turn / onto a spell / opponent's turn, empty stack | 0.80 / 0.15 / 0.22 | 0.93 / 0.10 / 0.21 | **1.19 / 0.02** / 0.10 |
+| counterspells per game; used when castable on opponent's turn | 1.11; 52% | 1.29; 64% | 1.00; 58% |
+| top move's visit share (own / opponent's turn) | 0.64 / 0.65 | 0.64 / 0.65 | 0.63 / 0.65 |
+| search root value vs result, first third of the game | −0.08 vs −0.33 | −0.13 vs −0.47 | **−0.14 vs −0.71** |
+
+- **PIMC Faeries taps out on its own turn.** It reaches the opponent's turn with instant-speed plays available
+  less than half as often. Spellstutter becomes a sorcery-speed creature: 0.02 counters per game against 0.10–0.15.
+  When it does hold a counterspell up it uses it about as often, but it holds one up less.
+- **Search is as decisive, but much more optimistic.** Its root value overstates the result by 0.57 early on,
+  against 0.25–0.34 with perfect info.
+- **Not the network's preferences.** v4 on 4,000 perfect-info Faeries states, recorded vs opponent's hand masked
+  (`results/pimc_mask_effect.py`; play stats: `results/pimc_play.py`): the value rises by 0.087 on average (in 84% of states), which is part of the optimism. Move
+  probabilities barely move: pass, flash, Spellstutter and counter probabilities each shift by ≤ 0.015, and agreement
+  with MCTS's top move is 59.3% vs 59.9%. So the change in play comes from the search, most likely from re-dealing
+  the opponent's hand at every priority point (a hypothesis, not tested).
+
+Caveat: the perfect-info baselines may come from different models than the PIMC games.
