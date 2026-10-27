@@ -26,6 +26,9 @@ This repo holds the Python side: dataset, model, training and the inference serv
   2-layer global TransformerEncoder over [CLS, internal nodes], padded to the batch's largest state.
   Heads: per-node priority and target, CLS choose_use and value.
 - `src/magezero/dataset.py`: `H5Graphs` and `collate_graphs`. `train.py` / `test.py`: training and evaluation.
+  `train.py --train DIR --test DIR --out DIR`, `test.py --data DIR --model DIR`; each appends its output to
+  `train.log` / `test.log` in the model directory. `--hide-opponent-hand` is saved in the checkpoint and
+  `test.py` applies it.
 - `src/magezero/server.py`: Flask on waitress, with one worker thread that batches queued requests (msgpack).
 - `src/magezero/cache.py`: `NodeCache`, the server's persistent cache of local-layer outputs keyed by XMage's
   subtree hashes (`node_hash` in requests). Results: `results/experiments.md`.

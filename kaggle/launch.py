@@ -9,8 +9,9 @@ on each, or all at once with --parallel), each followed by bench.py. Logs land i
 
 Optional run keys: "ref" trains with src/magezero from a git ref instead of the working tree; "data" picks a
 subdirectory of the dataset (the one holding training/ and testing/); "setup" is a shell command run first
-(see --internet for pip); "post" is a shell command run after training, with $SRC (the code) and $DECK
-(train.py's --deck/--version) set; "train": false skips training (e.g. to bench a checkpoint copied in by setup).
+(see --internet for pip); "post" is a shell command run after training, with $SRC (the code), $DATA (the
+directory holding training/ and testing/) and $MODEL (the model directory) set; "train": false skips training (e.g.
+to bench a checkpoint copied in by setup). A "ref" needs the path-based train.py/bench.py (--train/--test/--out).
 """
 import argparse
 import base64
@@ -41,13 +42,14 @@ def command(run):
     data = glob.glob(f"/kaggle/input/**/{{run.get('data', '')}}/training".replace("//", "/"), recursive=True)[0]
     os.symlink(Path(data).parent, f"data/{{run['name']}}/ver{{VERSION}}")
     src = f"/tmp/mz/{{run.get('ref', 'HEAD')}}"
-    deck = f"--deck {{run['name']}} --version {{VERSION}}"
+    data, model = f"data/{{run['name']}}/ver{{VERSION}}", f"models/{{run['name']}}/ver{{VERSION}}"
     arch = f"--arch {{shlex.quote(json.dumps(run['arch']))}}" if "arch" in run else ""
-    post = f"(SRC={{src}}; DECK={{shlex.quote(deck)}}; {{run['post']}})" if "post" in run else "true"
-    train = f"python -u {{src}}/train.py {{deck}} {{arch}} {{run['args']}}" if run.get("train", True) else "true"
+    post = f"(SRC={{src}}; DATA={{data}}; MODEL={{model}}; {{run['post']}})" if "post" in run else "true"
+    train = (f"python -u {{src}}/train.py --train {{data}}/training --test {{data}}/testing --out {{model}} {{arch}} "
+             f"{{run['args']}}" if run.get("train", True) else "true")
     return (f"{{run.get('setup', 'true')}} && {{train}} && {{post}} && "
-            f"(test ! -f {{src}}/bench.py || python -u {{src}}/bench.py {{deck}}); "
-            f"rm -rf models/{{run['name']}}/ver{{VERSION}}/best.pt.gz")
+            f"(test ! -f {{src}}/bench.py || python -u {{src}}/bench.py --model {{model}} --data {{data}}/testing); "
+            f"rm -rf {{model}}/best.pt.gz")
 
 
 def log_text(run):

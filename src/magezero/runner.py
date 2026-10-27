@@ -321,9 +321,9 @@ def launch_jvm(game_yml_path: str, log_path: Optional[Path] = None) -> None:
 
 def run_train(deck: str, version: int, epochs: int, use_checkpoint: bool,
               run_dir: Path, gen: int) -> None:
-    cmd = [PYTHON, f"{SRC}/train.py",
-           "--deck", deck, "--version", str(version),
-           "--epochs", str(epochs)]
+    data = Path("data") / deck / f"ver{version}"
+    cmd = [PYTHON, f"{SRC}/train.py", "--train", str(data / "training"), "--test", str(data / "testing"),
+           "--out", str(Path("models") / deck / f"ver{version}"), "--epochs", str(epochs)]
     if use_checkpoint:
         cmd.append("--checkpoint")
     log_path = run_dir / "train.log"
@@ -339,7 +339,8 @@ def run_test(deck: str, version: int, run_dir: Path, gen: int) -> None:
         f.write(f"\n=== GEN {gen} TEST {datetime.now().isoformat()} ===\n")
         f.flush()
         subprocess.run(
-            [PYTHON, f"{SRC}/test.py", "--deck", deck, "--version", str(version)],
+            [PYTHON, f"{SRC}/test.py", "--data", str(Path("data") / deck / f"ver{version}" / "testing"),
+             "--model", str(Path("models") / deck / f"ver{version}")],
             check=True, stdout=f, stderr=subprocess.STDOUT,
         )
 

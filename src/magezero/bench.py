@@ -13,12 +13,12 @@ STREAM_SIZES = (1, 8, 32, 128, 512)
 STREAM_STEPS = 40
 
 
-def bench(deck: str, version: int):
+def bench(model_dir: str, data_dir: str):
     """Inference time and peak memory per batch size, on real test states (fp16 autocast, as the server runs).
     Each pass goes as in the server: a CPU batch moved to the GPU, the forward pass, the outputs copied back.
     'gpu plan' builds the forward pass's index work on the GPU (forward computes it), 'cpu plan' builds it on
     the CPU first (as the server does). Each size is warmed up, then timed as the mean of REPEATS passes."""
-    model, vocab, edge_vocab = load_checkpoint(f"models/{deck}/ver{version}/model.pt.gz")
+    model, vocab, edge_vocab = load_checkpoint(f"{model_dir}/model.pt.gz")
     model = model.to(DEVICE).eval()
     ds = H5Graphs(f"data/{deck}/ver{version}/testing", vocab, edge_vocab)
     print(f"arch: {model.arch}")
@@ -98,7 +98,7 @@ def bench_cache(model, ds):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--deck", required=True)
-    parser.add_argument("--version", type=int, required=True)
+    parser.add_argument("--model", required=True, help="model directory (model.pt.gz)")
+    parser.add_argument("--data", required=True, help="test shard directory")
     args = parser.parse_args()
-    bench(args.deck, args.version)
+    bench(args.model, args.data)

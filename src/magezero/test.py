@@ -1,11 +1,13 @@
+import sys
 from collections import Counter
+from datetime import datetime
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
 from dataset import H5Graphs, collate_batch, BATCH_SIZE
-from model import (Graphs, Targets, ActionType, NodeType, load_checkpoint, losses, accumulate, averages,
+from model import (Graphs, Targets, ActionType, NodeType, load_checkpoint, load_model, losses, accumulate, averages,
                    decision_states, graph_index, segment_logsumexp, PRIORITY_TYPES, TARGET_TYPES, AMP, DEVICE)
 from vocab import feature_id
 
@@ -13,6 +15,28 @@ SHOW_CONFUSION_MATRIX = True
 
 PASS_ID = feature_id("PassAbility")
 NAME_LABEL = feature_id("name")   # edge label from a typed node to its name leaf
+
+
+class Tee:
+    """A stream that writes to several streams."""
+
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, s):
+        for stream in self.streams:
+            stream.write(s)
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
+
+def log_to(path: str) -> None:
+    """Copies everything printed from here on (stdout and stderr) to the end of `path`, after a header line."""
+    f = open(path, "a", buffering=1)
+    f.write(f"\n=== {datetime.now().isoformat(timespec='seconds')}  {' '.join(sys.argv)} ===\n")
+    sys.stdout, sys.stderr = Tee(sys.stdout, f), Tee(sys.stderr, f)
 
 
 def priority_pairs(priority, g: Graphs, t: Targets, name_label: int):
@@ -143,20 +167,19 @@ def validate(model, dl, vocab, edge_vocab):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--deck", required=True)
-    parser.add_argument("--version", type=int, required=True)
-    parser.add_argument("--testing", help="test shard directory (default: data/<deck>/ver<version>/testing)")
-    parser.add_argument("--hide-opponent-hand", action="store_true",
-                        help="test on states without the non-deciding player's hand (H5Graphs.hide_opponent_hand)")
+    parser.add_argument("--data", required=True, help="test shard directory")
+    parser.add_argument("--model", required=True, help="model directory (model.pt.gz); the log goes to its test.log")
     args = parser.parse_args()
+    log_to(f"{args.model}/test.log")
 
-    checkpoint_path = f"models/{args.deck}/ver{args.version}/model.pt.gz"
+    checkpoint_path = f"{args.model}/model.pt.gz"
     model, vocab, edge_vocab = load_checkpoint(checkpoint_path)
-    print(f"Loaded checkpoint from {checkpoint_path}: {len(vocab)} leaf rows, {len(edge_vocab)} edge label rows")
+    hide_opponent_hand = load_model(checkpoint_path).get("hide_opponent_hand", False)
+    print(f"Loaded checkpoint from {checkpoint_path}: {len(vocab)} leaf rows, {len(edge_vocab)} edge label rows, "
+          f"hide_opponent_hand={hide_opponent_hand}")
 
-    testing = args.testing or f"data/{args.deck}/ver{args.version}/testing"
-    print(f"Testing on {testing}")
-    ds = H5Graphs(testing, vocab, edge_vocab, args.hide_opponent_hand)
+    print(f"Testing on {args.data}")
+    ds = H5Graphs(args.data, vocab, edge_vocab, hide_opponent_hand)
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0,
                     collate_fn=collate_batch, pin_memory=AMP, persistent_workers=False)
 
