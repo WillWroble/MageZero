@@ -11,7 +11,6 @@ from flask import Flask, request, Response
 
 from cache import NodeCache
 from dataset import map_ids, node_types
-from graphed import GraphedNet
 from model import Graphs, load_checkpoint, AMP, DEVICE, NodeType
 
 # Threading config
@@ -22,15 +21,12 @@ torch.set_num_threads(TORCH_THREADS)
 MAX_BATCH = 128
 CPU_PLAN_MAX = 32  # states per batch up to which NetGraph.plan is built on the CPU (T4: faster below, slower above)
 WORKERS = 1  # batching threads; must stay 1 while the node cache is used (see NodeCache)
-CUDA_GRAPHS = True  # replay small cached batches as CUDA graphs (see graphed.py); False always runs the plain forward
-GRAPH_MAX_STATES = 32  # largest batch replayed as a graph
 
 #module state
 server_model = None
 VOCAB = None
 EDGE_VOCAB = None
 CACHE = None
-graphed = None
 
 app = Flask(__name__)
 
@@ -38,20 +34,18 @@ req_counter = 0
 req_counter_lock = threading.Lock()
 
 def init(deck: str, version: int, port: int):
-    global server_model, VOCAB, EDGE_VOCAB, CACHE, graphed
+    global server_model, VOCAB, EDGE_VOCAB, CACHE
 
     model_path = f"models/{deck}/ver{version}/model.pt.gz"
     model, VOCAB, EDGE_VOCAB = load_checkpoint(model_path)
     server_model = model.to(DEVICE).eval()
     CACHE = NodeCache(server_model, DEVICE)
-    if CUDA_GRAPHS and DEVICE.type == "cuda" and GraphedNet.supports(server_model):
-        graphed = GraphedNet(server_model, CACHE, DEVICE)
 
     for _ in range(WORKERS):
         threading.Thread(target=worker_loop, daemon=True).start()
 
     print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE} "
-          f"cuda_graphs={graphed is not None} leaf_rows={len(VOCAB)} edge_rows={len(EDGE_VOCAB)}")
+          f"leaf_rows={len(VOCAB)} edge_rows={len(EDGE_VOCAB)}")
     waitress.serve(app, host="127.0.0.1", port=port, threads=8)
 
 
@@ -142,21 +136,12 @@ def worker_loop():
             graphs, node_hash = collate_requests(batch)
             cached = None if node_hash is None else CACHE.lookup(graphs.node_type.numpy(), node_hash)
             t_collated = time.perf_counter()
-            out = None
-            if graphed is not None and cached is not None and states <= GRAPH_MAX_STATES:
-                try:
-                    out = graphed(graphs, server_model.plan(graphs, cached))
-                except Exception:  # a graph that can't be captured or replayed: fall back to the plain forward
-                    traceback.print_exc()
-                    print("[CUDA GRAPHS] disabled after the error above; running the plain forward pass")
-                    globals()["graphed"] = None
-            if out is None:
-                with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
-                    # small batches: the index work runs on the CPU, so the GPU runs the forward pass without stalls;
-                    # large ones: the CPU work costs more than the stalls (bench.py compares both)
-                    g = graphs.to(DEVICE)
-                    plan = server_model.plan(graphs if states <= CPU_PLAN_MAX else g, cached).to(DEVICE)
-                    out = server_model(g, plan, None if cached is None else CACHE.table)
+            with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
+                # small batches: the index work runs on the CPU, so the GPU runs the forward pass without stalls;
+                # large ones: the CPU work costs more than the stalls (bench.py compares both)
+                g = graphs.to(DEVICE)
+                plan = server_model.plan(graphs if states <= CPU_PLAN_MAX else g, cached).to(DEVICE)
+                out = server_model(g, plan, None if cached is None else CACHE.table)
             if cached is not None:
                 computed = f"{int(cached[1].sum())}/{int((cached[0] >= 0).sum())}"
             priority, target, use, value = (t.float().cpu().numpy() for t in out)

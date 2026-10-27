@@ -246,6 +246,9 @@ path, or fusing the stages that have only a few misses).
 
 ## Inference: CUDA graphs on the cached path (`graphed.py`, mz-bench-cache-graphs)
 
+Removed from the codebase afterwards: it only helps batches of 32 states or fewer, not the large batches that
+set throughput. The code is in commit `bad6136`.
+
 The cached forward pass computes about 5% of internal nodes but still launches every stage's kernels.
 `GraphedNet` (rebuilt from the parked `cuda-graphs` branch) pads each cached batch to a size class and replays
 one captured CUDA graph per class. The size class is (node class, states, global width, computed class C). Every
