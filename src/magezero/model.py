@@ -285,7 +285,10 @@ class NetGraph(nn.Module):
 
         # local layers, bottom-up passes. sequential: children earlier in the order arrive updated in this
         # pass, children of the same type or later in the order (attachments, targets, linked exile) from the last one
-        # cached nodes are read from the cache at their own stage, so later stages see them as if computed
+        # cached nodes are read from the cache at their own stage, so later stages see them as if computed.
+        # Inference writes rows in place (sequential only: parallel stages read the pass's starting embeddings);
+        # an out-of-place copy rewrites every node, leaves included, at each stage
+        inplace = self.arch["local"] == "sequential" and not torch.is_grad_enabled()
         for p, layers in enumerate(self.local_layers):
             src = h
             for name, nodes, c, lbl, seg, *fill in plan.stages:
@@ -293,11 +296,11 @@ class NetGraph(nn.Module):
                     src = h
                 if len(nodes):
                     out = layers[name](src[nodes], src[c] + self.edge_embedding(lbl), seg)
-                    h = h.index_copy(0, nodes, out)
+                    h = h.index_copy_(0, nodes, out) if inplace else h.index_copy(0, nodes, out)
                     if fill:
                         cache[p].index_copy_(0, fill[0], out)
                 if fill and len(fill[1]):
-                    h = h.index_copy(0, fill[1], cache[p][fill[2]])
+                    h = h.index_copy_(0, fill[1], cache[p][fill[2]]) if inplace else h.index_copy(0, fill[1], cache[p][fill[2]])
 
         # global layers: self-attention over [CLS, tokens], one padded sequence per state
         internal, gi, pos = plan.internal, plan.gi, plan.pos
