@@ -173,3 +173,26 @@ Conclusion: the patience shift does not need the Pauper games (same pass rate, t
 between gen0 and v4, much closer to v4: it casts threats ≈0.1 more often and moves flash plays less, each about
 two standard errors but all in the same direction. The Pauper games made gen1 slightly more patient and possibly
 slightly stronger against MonoB; the win-rate gap is within noise and confounded by the timeout.
+
+### v5 gen1 vs MonoW
+
+| | gen0 | v4 gen1 (Pauper + Mono) | v5 gen1 (Mono only) |
+|---|---|---|---|
+| Faeries win rate | 21.0% (1,996) | 57.5% (186) | 40.6% (192) |
+| states/game Faeries / MonoW | 61.6 / – | 110.0 / 127.4 | 104.5 / 133.1 |
+| decisions with < 300 visits (Faeries) | – | 0.62 | 0.60 |
+
+The 17-point gap is ≈3.3 SE, and v5's longer timeout favours Faeries, so v5 is clearly weaker against MonoW
+although both models trained on gen0 MonoW games.
+
+Chosen when available, gen0 / v4 / v5: Pass 0.28 / 0.46 / 0.43; Ninja 0.94 / 0.46 / 0.58; ninjutsu A 0.68 / 0.35 /
+0.39, B 0.67 / 0.45 / 0.55; Seer 0.64 / 0.41 / 0.52; Miscreant 0.62 / 0.51 / 0.61; Elder 0.54 / 0.31 / 0.42;
+Spellstutter 0.54 / 0.36 / 0.40; Saiba 0.63 / 0.42 / 0.48; Force Spike 0.36 / 0.26 / 0.33; Island 0.71 / 0.61 / 0.56.
+Own-turn share: Spellstutter 0.90 / 0.80 / 0.86, Elder 0.76 / 0.71 / 0.82.
+Seer / Miscreant (no Miscreant out): gen0 0.46 / 0.29, v4 0.30 / 0.37, v5 0.45 / 0.32 (74 states): v5 kept gen0's
+Seer preference against MonoW but flipped against MonoB. v5 median value labels: Seer only −0.44, one Miscreant
+−0.27, 2+ Miscreants −0.15.
+
+Conclusion: dropping the ≈1,600 Pauper-pool games costs a lot against MonoW (57.5% → 40.6%) and little or nothing
+significant against MonoB, with both opponents in training. Behaviour sits between gen0 and v4 in both matchups.
+Diverse opponent data made gen1's play against known opponents stronger, not just its predictions.
