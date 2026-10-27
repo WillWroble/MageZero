@@ -105,7 +105,8 @@ class Plan(NamedTuple):
     parent: torch.Tensor
     label: torch.Tensor
     leaf_edges: torch.Tensor  # kept edges whose child is a leaf
-    stages: list              # (layer name, nodes, children, edge labels, each child's parent position)
+    stages: list              # (layer name, nodes, children, edge labels, each child's parent position), plus
+                              # with a node cache (cache slots of the nodes, nodes read from the cache, their slots)
     internal: torch.Tensor    # global tokens
     gi: torch.Tensor          # state of each global token
     pos: torch.Tensor         # position of each global token in its state's sequence
@@ -224,9 +225,11 @@ class NetGraph(nn.Module):
                     init_rows, dtype=new.weight.dtype, device=new.weight.device)[:added]
         setattr(self, name, new)
 
-    def plan(self, g: Graphs) -> "Plan":
+    def plan(self, g: Graphs, cached=None) -> "Plan":
         """The forward pass's index work, which depends only on the graphs' structure. Built where `g` lives;
-        the server builds it on the CPU, where its nonzero() and max() calls don't stall the GPU."""
+        the server builds it on the CPU, where its nonzero() and max() calls don't stall the GPU.
+        cached: (slot, compute) per node from NodeCache.lookup. The local layers then run only on the nodes
+        to compute, store them at their slots, and read every other internal node from its slot."""
         B, N = g.node_offsets.numel() - 1, g.node_type.numel()
         leaves = (g.node_row >= 0).nonzero().squeeze(1)
 
@@ -236,14 +239,19 @@ class NetGraph(nn.Module):
         leaf_edges = (g.node_type[child] == NodeType.LEAF).nonzero().squeeze(1)
 
         # one stage per group of types: its nodes, their children, and each child's parent position
-        parent_type = g.node_type[parent]
+        if cached is not None:
+            slot, compute = (t.to(g.node_type.device) for t in cached)
         stages = []
         for name, types in self.groups.items():
-            types = torch.tensor(types, device=g.node_type.device)
-            nodes = torch.isin(g.node_type, types).nonzero().squeeze(1)
-            if len(nodes):
-                edges = torch.isin(parent_type, types).nonzero().squeeze(1)
-                stages.append((name, nodes, child[edges], label[edges], torch.searchsorted(nodes, parent[edges])))
+            run = torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device))
+            if cached is not None:
+                fill = (run & ~compute).nonzero().squeeze(1)
+                run &= compute
+            nodes = run.nonzero().squeeze(1)
+            if len(nodes) or cached is not None and len(fill):
+                edges = run[parent].nonzero().squeeze(1)
+                stage = (name, nodes, child[edges], label[edges], torch.searchsorted(nodes, parent[edges]))
+                stages.append(stage if cached is None else stage + (slot[nodes], fill, slot[fill]))
 
         # global tokens: [CLS, tokens] per state
         internal = g.node_type != NodeType.LEAF
@@ -255,9 +263,10 @@ class NetGraph(nn.Module):
         pos = torch.arange(len(internal), device=gi.device) - (counts.cumsum(0) - counts)[gi] + 1
         return Plan(leaves, child, parent, label, leaf_edges, stages, internal, gi, pos, counts, int(counts.max()) + 1)
 
-    def forward(self, g: Graphs, plan: "Plan" = None):
+    def forward(self, g: Graphs, plan: "Plan" = None, cache: torch.Tensor = None):
         """Returns per-node priority and target scores [N] (-inf at leaves), choose_use logits
-        [B, 2] (false, true) and value [B]. `plan`: self.plan(g), built ahead (see plan); computed here if omitted."""
+        [B, 2] (false, true) and value [B]. `plan`: self.plan(g), built ahead (see plan); computed here if omitted.
+        `cache`: NodeCache.table [passes, slots, d], with a plan built from its lookup."""
         if plan is None:
             plan = self.plan(g)
         B, N = g.node_offsets.numel() - 1, g.node_type.numel()
@@ -276,12 +285,19 @@ class NetGraph(nn.Module):
 
         # local layers, bottom-up passes. sequential: children earlier in the order arrive updated in this
         # pass, children of the same type or later in the order (attachments, targets, linked exile) from the last one
-        for layers in self.local_layers:
+        # cached nodes are read from the cache at their own stage, so later stages see them as if computed
+        for p, layers in enumerate(self.local_layers):
             src = h
-            for name, nodes, c, lbl, seg in plan.stages:
+            for name, nodes, c, lbl, seg, *fill in plan.stages:
                 if self.arch["local"] == "sequential":
                     src = h
-                h = h.index_copy(0, nodes, layers[name](src[nodes], src[c] + self.edge_embedding(lbl), seg))
+                if len(nodes):
+                    out = layers[name](src[nodes], src[c] + self.edge_embedding(lbl), seg)
+                    h = h.index_copy(0, nodes, out)
+                    if fill:
+                        cache[p].index_copy_(0, fill[0], out)
+                if fill and len(fill[1]):
+                    h = h.index_copy(0, fill[1], cache[p][fill[2]])
 
         # global layers: self-attention over [CLS, tokens], one padded sequence per state
         internal, gi, pos = plan.internal, plan.gi, plan.pos

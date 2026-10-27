@@ -202,3 +202,44 @@ states, server path (CPU batch → GPU → outputs back), mean of 20:
 
 Conclusion: removing the syncs saves ≈5 ms at small batches; at large batches the CPU index work (on Kaggle's slow
 CPU, not overlapped) costs more than the syncs did. The server uses the CPU plan up to `CPU_PLAN_MAX = 32` states.
+
+## Inference: subtree cache of local-layer outputs (`cache.py`, mz-bench-cache)
+
+A node's local-layer outputs depend only on the subgraph below it, and XMage already hashes every node's subtree
+(`FeatureGraph.Node.hash`, 16 WL rounds in `getStateHash`). `RemoteModelEvaluator` now sends those hashes
+(`node_hash`, raw int64). The server keeps a persistent LRU cache, shared by all games: a GPU table [passes, 2^19
+slots, d] in fp32, about 1 GiB. Per batch, each hash the cache doesn't hold is computed once (its first node). Every
+other internal node reads every pass's output from its slot, at its own stage, so the sequential semantics hold.
+Stages with nothing to compute are skipped. Requests without hashes (old clients) take the old path, and their
+responses are byte-identical to before.
+
+Correctness (CPU, fp32, ver4 checkpoint, 50 gen1 MonoB games; recorded states don't store hashes, so
+`cache.subtree_hashes` recomputes them):
+- 1,280 states as a stream of 8 games × 4 consecutive states per batch, cached vs plain forward: max |diff| 2e-5,
+  0 top-1 changes (12 argmax swaps, all exact float ties, gap ≤ 4e-7). The same holds with a 800-slot cache that
+  evicts constantly.
+- Server end to end: old-format list responses byte-identical to the original server; hashed binary requests within
+  1.3e-5 of unhashed ones.
+- Java round trip (`RemoteModelEvaluator` against a stub `FeatureGraph` carrying the hashes, 200 states, one at a time
+  and batched): all 86,898 returned numbers within 1.9e-5 of the uncached reference, 0 top-1 changes.
+
+Speed (T4, `bench.py` `bench_cache`). Server path: lookup + plan + forward + copy back, fp16 autocast. Each batch
+takes 4 consecutive states from each of batch/4 games (1 state at batch 1). Times in ms, means after 2 warm-up
+steps:
+
+| batch | plain | cached | lookup | forward plain → cached | internal nodes computed |
+|---|---|---|---|---|---|
+| 1 | 20.5 | 13.2 (−36%) | 0.2 | 19.3 → 11.4 | 9.7% |
+| 8 | 24.4 | 21.1 (−14%) | 0.3 | 22.2 → 18.4 | 5.6% |
+| 32 | 28.4 | 25.2 (−11%) | 0.6 | 24.1 → 20.1 | 4.7% |
+| 128 | 35.8 | 31.4 (−12%) | 1.6 | 32.0 → 25.1 | 4.6% |
+| 512 | 134.3 | 87.1 (−35%) | 5.6 | 128.9 → 74.6 | 4.6% |
+
+Under fp16, cached vs plain differ by up to 0.023 (fp16 noise). Top-1 changed in 2 of about 1,400 states, where
+the plain top led by between 1e-3 and the noise level.
+
+Conclusion: the hit rate is as predicted (about 95% of internal nodes reused), but the time saved is not. Up to
+batch 128 the local layers are launch-bound, not compute-bound: cached stages still launch the same kernels for a
+handful of nodes (ROOT and PLAYER always miss). The cache pays off at large batches (−42% forward at 512), where the
+rest is the global layers and the embeddings. Next lever for small batches: fewer launches (CUDA graphs on the cached
+path, or fusing the stages that have only a few misses).

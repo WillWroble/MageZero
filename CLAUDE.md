@@ -27,6 +27,8 @@ This repo holds the Python side: dataset, model, training and the inference serv
   Heads: per-node priority and target, CLS choose_use and value.
 - `src/magezero/dataset.py`: `H5Graphs` and `collate_graphs`. `train.py` / `test.py`: training and evaluation.
 - `src/magezero/server.py`: Flask on waitress, with one worker thread that batches queued requests (msgpack).
+- `src/magezero/cache.py`: `NodeCache`, the server's persistent cache of local-layer outputs keyed by XMage's
+  subtree hashes (`node_hash` in requests). Results: `results/experiments.md`.
 - The flat embedding-bag (EB) model from v0.1 is not on this branch; flat-only code was removed in `42afeab`.
 
 ## Data
