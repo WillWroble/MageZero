@@ -46,33 +46,41 @@ def init(deck: str, version: int, port: int):
     waitress.serve(app, host="127.0.0.1", port=port, threads=8)
 
 
-def request_states(data):
-    """Split an /evaluate request into per-state arrays in the form collate_graphs takes, with ids
-    mapped to embedding rows the same way the training data is. RemoteModelEvaluator sends every
-    state's nodes and edges concatenated:
+def as_array(x, dtype=np.int32):
+    """One request array: raw little-endian int32 bytes (binary requests) or a list of ints."""
+    return np.frombuffer(x, dtype="<i4").astype(dtype) if isinstance(x, bytes) else np.asarray(x, dtype=dtype)
+
+
+def request_arrays(data):
+    """An /evaluate request as whole-request arrays, with ids mapped to embedding rows the same way the training
+    data is. RemoteModelEvaluator sends every state's nodes and edges concatenated, each array either as a list
+    or (binary requests) as raw int32 bytes:
       indices, values                       per node
       offsets                               per state, its first node
       edge_child, edge_parent, edge_label   per edge; child and parent are local to the state
-      edge_offsets                          per state, its first edge"""
-    ids = np.asarray(data["indices"], dtype=np.int32)
-    values = np.asarray(data["values"], dtype=np.int32)
-    edge_child = np.asarray(data["edge_child"], dtype=np.int32)
-    edge_parent = np.asarray(data["edge_parent"], dtype=np.int32)
+      edge_offsets                          per state, its first edge
+    Returns node_type, node_row, values, edge_child, edge_parent, edge_row (edges local to the request) and each
+    state's first node plus the node count."""
+    ids, values = as_array(data["indices"]), as_array(data["values"])
+    edge_child, edge_parent = as_array(data["edge_child"]), as_array(data["edge_parent"])
     node_type = node_types(ids)
-    node_row, edge_row = map_ids(ids, node_type, np.asarray(data["edge_label"], dtype=np.int32), VOCAB, EDGE_VOCAB)
+    node_row, edge_row = map_ids(ids, node_type, as_array(data["edge_label"]), VOCAB, EDGE_VOCAB)
+    starts = np.append(as_array(data["offsets"], np.int64), len(ids))
+    edge_starts = np.append(as_array(data["edge_offsets"], np.int64), len(edge_child))
+    state_start = np.repeat(starts[:-1], np.diff(edge_starts))
+    return node_type, node_row, values, edge_child + state_start, edge_parent + state_start, edge_row, starts
 
-    node_start = np.append(np.asarray(data["offsets"], dtype=np.int64), len(ids))
-    edge_start = np.append(np.asarray(data["edge_offsets"], dtype=np.int64), len(edge_child))
-    states = []
-    for i in range(len(node_start) - 1):
-        n = slice(node_start[i], node_start[i + 1])
-        e = slice(edge_start[i], edge_start[i + 1])
-        states.append((node_type[n], node_row[n], values[n], edge_child[e], edge_parent[e], edge_row[e]))
-    return states
+
+def collate_requests(batch):
+    """One batch of graphs from whole requests: collate_graphs over the requests, with node offsets per state."""
+    graphs = collate_graphs(*zip(*(p.arrays[:6] for p in batch)))
+    bases = np.asarray(graphs.node_offsets)
+    offsets = np.concatenate([p.arrays[6][:-1] + base for p, base in zip(batch, bases)] + [bases[-1:]])
+    return graphs._replace(node_offsets=torch.from_numpy(offsets.astype(np.int64)))
 
 
 class Pending:
-    __slots__ = ("req_id", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
+    __slots__ = ("req_id", "arrays", "binary", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
 
     def __init__(self, req_id, data):
         self.req_id = req_id
@@ -82,10 +90,12 @@ class Pending:
         self.error = None
         self.t_done = 0.0
 
-        self.states = request_states(data)
-        self.nodes = sum(len(s[0]) for s in self.states)
+        self.arrays = request_arrays(data)
+        self.binary = bool(data.get("binary"))  # reply with raw float32 arrays instead of per-state maps
+        self.states = len(self.arrays[6]) - 1
+        self.nodes = len(self.arrays[0])
         # nodes the network uses: typed nodes, and leaves with a vocab row
-        self.kept = sum(int(((s[0] != NodeType.LEAF) | (s[1] >= 0)).sum()) for s in self.states)
+        self.kept = int(((self.arrays[0] != NodeType.LEAF) | (self.arrays[1] >= 0)).sum())
 
 
 Q: "Queue[Pending]" = Queue(maxsize=4096)
@@ -103,17 +113,17 @@ def worker_loop():
             except Empty:
                 break
 
-        states = [s for p in batch for s in p.states]
+        states = sum(p.states for p in batch)
         t_start = time.perf_counter()
         t_collated = t_forward = t_start
         try:
             # Single forward pass over every state of every request
-            graphs = collate_graphs(*zip(*states))
+            graphs = collate_requests(batch)
             t_collated = time.perf_counter()
             with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
                 # small batches: the index work runs on the CPU, so the GPU runs the forward pass without stalls;
                 # large ones: the CPU work costs more than the stalls (bench.py compares both)
-                plan = server_model.plan(graphs).to(DEVICE) if len(states) <= CPU_PLAN_MAX else None
+                plan = server_model.plan(graphs).to(DEVICE) if states <= CPU_PLAN_MAX else None
                 out = server_model(graphs.to(DEVICE), plan)
             priority, target, use, value = (t.float().cpu().numpy() for t in out)
             t_forward = time.perf_counter()
@@ -122,16 +132,24 @@ def worker_loop():
             starts = np.asarray(graphs.node_offsets)
             row = 0
             for p in batch:
-                p.out = []
-                for _ in p.states:
-                    nodes = slice(starts[row], starts[row + 1])
-                    p.out.append({
-                        "policy_priority": priority[nodes].tolist(),
-                        "policy_target": target[nodes].tolist(),
-                        "policy_binary": use[row].tolist(),
-                        "value": float(value[row]),
-                    })
-                    row += 1
+                rows = slice(row, row + p.states)
+                if p.binary:
+                    nodes = slice(starts[row], starts[row + p.states])
+                    p.out = {"priority": priority[nodes].astype("<f4").tobytes(),
+                             "target": target[nodes].astype("<f4").tobytes(),
+                             "use": use[rows].astype("<f4").tobytes(),
+                             "value": value[rows].astype("<f4").tobytes()}
+                else:
+                    p.out = []
+                    for r in range(rows.start, rows.stop):
+                        nodes = slice(starts[r], starts[r + 1])
+                        p.out.append({
+                            "policy_priority": priority[nodes].tolist(),
+                            "policy_target": target[nodes].tolist(),
+                            "policy_binary": use[r].tolist(),
+                            "value": float(value[r]),
+                        })
+                row += p.states
         except Exception as e:
             # fail these requests instead of the worker, so later requests still get served
             traceback.print_exc()
@@ -143,7 +161,7 @@ def worker_loop():
             p.evt.set()
 
         t_end = time.perf_counter()
-        print(f"[BATCH] size={len(batch)}, total_states={len(states)}, "
+        print(f"[BATCH] size={len(batch)}, total_states={states}, "
               f"queued={(t_start - min(p.t_recv for p in batch)) * 1000:.1f}ms "
               f"collate={(t_collated - t_start) * 1000:.1f}ms forward={(t_forward - t_collated) * 1000:.1f}ms "
               f"split={(t_end - t_forward) * 1000:.1f}ms")
@@ -160,7 +178,7 @@ def evaluate():
 
     pending = Pending(req_id, data)
 
-    print(f"[REQ {req_id}] nodes={pending.nodes}, kept={pending.kept}, states={len(pending.states)}")
+    print(f"[REQ {req_id}] nodes={pending.nodes}, kept={pending.kept}, states={pending.states}")
 
     Q.put(pending)
     pending.evt.wait()
@@ -172,7 +190,8 @@ def evaluate():
     total_ms = (pending.t_done - pending.t_recv) * 1000.0
     print(f"[REQ {req_id}] done: {total_ms:.1f}ms")
 
-    # always an array with one result map per state, as RemoteModelEvaluator reads it
+    # binary requests: one map of raw float32 arrays (priority/target per node in the order sent, use as
+    # [false, true] per state, value per state); otherwise an array with one result map per state
     return Response(msgpack.packb(pending.out, use_bin_type=True), mimetype="application/x-msgpack")
 
 
