@@ -276,3 +276,34 @@ graphs cached batches of at most `GRAPH_MAX_STATES = 32` states and runs bigger 
 Peak throughput is still at large batches (cached eager: about 5,750 states/s at 512 vs 3,760 plain). Not tested
 yet: an end-to-end load test through the server with graphs on. The parked attempt lost there to GIL contention
 from per-request plans; this version builds the plan in the worker, as the eager path does.
+
+## Inference: local-layer rows written in place (mz-prof-local)
+
+Every local stage did `h = h.index_copy(...)`, an out-of-place copy of the whole node table (all nodes, leaves
+included) to change a few rows. That costs 28 copies per forward pass with the cache, about 6.7 GB of traffic at 512
+states. Inference in sequential mode now writes in place (`index_copy_`). On CPU this is bit-identical to the
+previous commit, plain and cached. Training and the parallel mode keep the copies. T4 A/B, same stream bench, two
+GPUs at once (old code `bad6136` vs new):
+
+| batch | plain forward | cached forward | cached total |
+|---|---|---|---|
+| 1 | 19.3 → 18.4 | 11.6 → 10.8 | 13.4 → 12.4 |
+| 8 | 21.6 → 21.3 | 17.5 → 17.1 | 20.1 → 19.7 |
+| 32 | 25.4 → 22.8 | 21.2 → 18.6 | 27.2 → 23.4 |
+| 128 | 32.7 → 29.0 | 25.4 → 23.9 | 32.0 → 30.1 |
+| 512 | 129.6 → 117.1 | 74.3 → **52.8** (−29%) | 88.4 → **64.8** |
+
+At 512 states, cache plus in-place gives 64.8 ms against 135.7 ms plain before both changes: 2.1×, about 7,900
+states/s.
+
+CUDA profile of the new cached forward:
+- **512 states:** 48 ms of GPU time per pass against 52.8 ms wall, so the GPU is busy almost all the time. The top
+  kernels are layer norm, elementwise ops and casts, memory-efficient attention and fp16 GEMMs. Most of them belong to
+  the global layers.
+- **128 states:** 13 ms of GPU time per pass against 24 ms wall, so the GPU sits idle about half the time, waiting
+  on Python and launches.
+
+(The old-code run's profile imported the new model by mistake and is not used.)
+
+Conclusion: the leftover local-layer cost was the full-table copies. After the cache and in-place writes, large
+batches are bound by the global layers' compute, and mid-size batches by CPU-side overhead.

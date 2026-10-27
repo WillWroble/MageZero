@@ -1,0 +1,93 @@
+/usr/local/lib/python3.13/dist-packages/torch/profiler/profiler.py:224: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+== batch 128 plain: 3 forward passes
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+void at::native::(anonymous namespace)::vectorized_layer_...         0.00%       0.000us         0.00%       0.000us       0.000us      22.310ms        14.64%      22.310ms     158.225us           141  
+         turing_fp16_s1688gemm_fp16_128x128_ldg8_relu_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us      17.530ms        11.51%      17.530ms     236.888us            74  
+void at::native::vectorized_gather_kernel<16, long>(char*...         0.00%       0.000us         0.00%       0.000us       0.000us      13.433ms         8.82%      13.433ms      50.884us           264  
+void at::native::indexFuncLargeIndex<float, long, unsigne...         0.00%       0.000us         0.00%       0.000us       0.000us      10.061ms         6.60%      10.061ms     115.648us            87  
+void at::native::(anonymous namespace)::CatArrayBatchedCo...         0.00%       0.000us         0.00%       0.000us       0.000us       7.489ms         4.92%       7.489ms      89.152us            84  
+void at::native::vectorized_elementwise_kernel<4, at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us       6.877ms         4.51%       6.877ms      21.626us           318  
+void at::native::vectorized_elementwise_kernel<4, at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us       6.676ms         4.38%       6.676ms      39.043us           171  
+fmha_cutlassF_f16_aligned_64x64_rf_sm75(PyTorchMemEffAtte...         0.00%       0.000us         0.00%       0.000us       0.000us       6.544ms         4.30%       6.544ms       1.091ms             6  
+void at::native::reduce_kernel<512, 1, at::native::Reduce...         0.00%       0.000us         0.00%       0.000us       0.000us       6.480ms         4.25%       6.480ms     154.289us            42  
+void at::native::elementwise_kernel<128, 4, at::native::g...         0.00%       0.000us         0.00%       0.000us       0.000us       5.267ms         3.46%       5.267ms     159.607us            33  
+void at::native::unrolled_elementwise_kernel<at::native::...         0.00%       0.000us         0.00%       0.000us       0.000us       5.052ms         3.32%       5.052ms     105.244us            48  
+void at::native::unrolled_elementwise_kernel<at::native::...         0.00%       0.000us         0.00%       0.000us       0.000us       4.308ms         2.83%       4.308ms      47.863us            90  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 89.033ms
+Self CUDA time total: 152.354ms
+
+== batch 128 cached: 3 forward passes
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+void at::native::(anonymous namespace)::vectorized_layer_...         0.00%       0.000us         0.00%       0.000us       0.000us       4.852ms        10.99%       4.852ms      46.209us           105  
+         turing_fp16_s1688gemm_fp16_128x128_ldg8_relu_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us       3.608ms         8.17%       3.608ms     150.322us            24  
+void at::native::elementwise_kernel<128, 4, at::native::g...         0.00%       0.000us         0.00%       0.000us       0.000us       3.524ms         7.98%       3.524ms     106.800us            33  
+fmha_cutlassF_f16_aligned_64x64_rf_sm75(PyTorchMemEffAtte...         0.00%       0.000us         0.00%       0.000us       0.000us       3.313ms         7.50%       3.313ms     552.211us             6  
+void at::native::vectorized_gather_kernel<16, long>(char*...         0.00%       0.000us         0.00%       0.000us       0.000us       2.729ms         6.18%       2.729ms      11.969us           228  
+void at::native::vectorized_elementwise_kernel<4, at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us       2.679ms         6.06%       2.679ms      11.448us           234  
+void at::native::elementwise_kernel<128, 4, at::native::g...         0.00%       0.000us         0.00%       0.000us       0.000us       2.155ms         4.88%       2.155ms     359.213us             6  
+              turing_fp16_s1688gemm_fp16_128x128_ldg8_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us       1.806ms         4.09%       1.806ms     301.028us             6  
+void at::native::unrolled_elementwise_kernel<at::native::...         0.00%       0.000us         0.00%       0.000us       0.000us       1.755ms         3.97%       1.755ms      26.597us            66  
+void at::native::elementwise_kernel<128, 4, at::native::g...         0.00%       0.000us         0.00%       0.000us       0.000us       1.449ms         3.28%       1.449ms     241.435us             6  
+void at::native::_scatter_gather_elementwise_kernel<128, ...         0.00%       0.000us         0.00%       0.000us       0.000us       1.396ms         3.16%       1.396ms      46.518us            30  
+void at::native::indexFuncLargeIndex<float, long, unsigne...         0.00%       0.000us         0.00%       0.000us       0.000us       1.347ms         3.05%       1.347ms      21.383us            63  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 42.176ms
+Self CUDA time total: 44.168ms
+
+== batch 512 plain: 3 forward passes
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+void at::native::(anonymous namespace)::vectorized_layer_...         0.00%       0.000us         0.00%       0.000us       0.000us      43.558ms        12.26%      43.558ms     308.921us           141  
+void at::native::vectorized_gather_kernel<16, long>(char*...         0.00%       0.000us         0.00%       0.000us       0.000us      38.895ms        10.95%      38.895ms     147.329us           264  
+         turing_fp16_s1688gemm_fp16_128x128_ldg8_relu_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us      33.536ms         9.44%      33.536ms     274.882us           122  
+void at::native::vectorized_elementwise_kernel<4, at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us      23.677ms         6.66%      23.677ms      74.455us           318  
+void at::native::vectorized_elementwise_kernel<4, at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us      23.258ms         6.55%      23.258ms     136.011us           171  
+void at::native::(anonymous namespace)::CatArrayBatchedCo...         0.00%       0.000us         0.00%       0.000us       0.000us      23.160ms         6.52%      23.160ms     275.710us            84  
+void at::native::indexFuncLargeIndex<float, long, unsigne...         0.00%       0.000us         0.00%       0.000us       0.000us      21.925ms         6.17%      21.925ms     252.006us            87  
+void at::native::elementwise_kernel<128, 4, at::native::g...         0.00%       0.000us         0.00%       0.000us       0.000us      13.780ms         3.88%      13.780ms     417.579us            33  
+void at::native::unrolled_elementwise_kernel<at::native::...         0.00%       0.000us         0.00%       0.000us       0.000us      13.088ms         3.68%      13.088ms     272.676us            48  
+fmha_cutlassF_f16_aligned_64x64_rf_sm75(PyTorchMemEffAtte...         0.00%       0.000us         0.00%       0.000us       0.000us      12.786ms         3.60%      12.786ms       2.131ms             6  
+void at::native::unrolled_elementwise_kernel<at::native::...         0.00%       0.000us         0.00%       0.000us       0.000us      12.028ms         3.38%      12.028ms     133.641us            90  
+void at::native::reduce_kernel<512, 1, at::native::Reduce...         0.00%       0.000us         0.00%       0.000us       0.000us      11.933ms         3.36%      11.933ms     284.127us            42  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 295.859ms
+Self CUDA time total: 355.327ms
+
+== batch 512 cached: 3 forward passes
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+void at::native::(anonymous namespace)::vectorized_layer_...         0.00%       0.000us         0.00%       0.000us       0.000us      16.153ms        11.20%      16.153ms     119.652us           135  
+void at::native::elementwise_kernel<128, 4, at::native::g...         0.00%       0.000us         0.00%       0.000us       0.000us      13.041ms         9.04%      13.041ms     395.189us            33  
+fmha_cutlassF_f16_aligned_64x64_rf_sm75(PyTorchMemEffAtte...         0.00%       0.000us         0.00%       0.000us       0.000us      10.905ms         7.56%      10.905ms       1.818ms             6  
+void at::native::vectorized_elementwise_kernel<4, at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us       9.696ms         6.72%       9.696ms      31.893us           304  
+void at::native::vectorized_gather_kernel<16, long>(char*...         0.00%       0.000us         0.00%       0.000us       0.000us       9.536ms         6.61%       9.536ms      36.398us           262  
+         turing_fp16_s1688gemm_fp16_128x128_ldg8_relu_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us       9.148ms         6.34%       9.148ms     269.063us            34  
+void at::native::elementwise_kernel<128, 4, at::native::g...         0.00%       0.000us         0.00%       0.000us       0.000us       7.891ms         5.47%       7.891ms       1.315ms             6  
+              turing_fp16_s1688gemm_fp16_128x128_ldg8_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us       6.057ms         4.20%       6.057ms       1.010ms             6  
+void at::native::unrolled_elementwise_kernel<at::native::...         0.00%       0.000us         0.00%       0.000us       0.000us       6.027ms         4.18%       6.027ms      70.081us            86  
+void at::native::elementwise_kernel<128, 4, at::native::g...         0.00%       0.000us         0.00%       0.000us       0.000us       5.625ms         3.90%       5.625ms     937.578us             6  
+turing_fp16_s1688gemm_fp16_128x256_ldg8_relu_f2f_stages_3...         0.00%       0.000us         0.00%       0.000us       0.000us       4.953ms         3.43%       4.953ms     825.464us             6  
+void at::native::vectorized_elementwise_kernel<4, at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us       4.912ms         3.41%       4.912ms      30.135us           163  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 119.252ms
+Self CUDA time total: 144.226ms
+
+arch: {'d_model': 256, 'n_heads': 4, 'd_ff': 512, 'dropout': 0.0, 'n_passes': 2, 'global_layers': 2, 'local': 'sequential', 'global_tokens': 'internal'}
+bench batch=1  gpu plan 19.2 ms  cpu plan 17.4 ms  57 states/s  0.06 GB
+bench batch=8  gpu plan 23.4 ms  cpu plan 20.4 ms  392 states/s  0.07 GB
+bench batch=32  gpu plan 22.7 ms  cpu plan 26.1 ms  1226 states/s  0.09 GB
+bench batch=128  gpu plan 30.3 ms  cpu plan 40.0 ms  3200 states/s  0.20 GB
+bench batch=512  gpu plan 116.4 ms  cpu plan 152.6 ms  3356 states/s  0.64 GB
+cache batch=1 (40 steps, 9.7% of internal nodes computed)  plain 20.6 ms (lookup 0.0, plan 1.3, forward 19.3)  cached 13.4 ms (lookup 0.2, plan 1.6, forward 11.6) max |diff| 0.016 top-1 changes 0  graphed 8.0 ms (lookup 0.1, plan 0.9, forward 6.9) max |diff| 0.016 top-1 changes 0  4 captures, 360 ms in all
+cache batch=8 (40 steps, 5.6% of internal nodes computed)  plain 23.6 ms (lookup 0.0, plan 2.0, forward 21.6)  cached 20.1 ms (lookup 0.3, plan 2.3, forward 17.5) max |diff| 0.023 top-1 changes 0  graphed 9.7 ms (lookup 0.2, plan 1.6, forward 7.8) max |diff| 0.016 top-1 changes 0  5 captures, 484 ms in all
+cache batch=32 (40 steps, 4.7% of internal nodes computed)  plain 30.9 ms (lookup 0.0, plan 5.5, forward 25.4)  cached 27.2 ms (lookup 0.6, plan 5.5, forward 21.2) max |diff| 0.023 top-1 changes 1  graphed 19.0 ms (lookup 0.5, plan 4.1, forward 14.3) max |diff| 0.020 top-1 changes 1  4 captures, 434 ms in all
+cache batch=128 (24 steps, 4.6% of internal nodes computed)  plain 36.8 ms (lookup 0.0, plan 4.2, forward 32.7)  cached 32.0 ms (lookup 1.7, plan 4.9, forward 25.4) max |diff| 0.023 top-1 changes 1  graphed 60.6 ms (lookup 1.6, plan 11.5, forward 47.5) max |diff| 0.023 top-1 changes 0  4 captures, 858 ms in all
+cache batch=512 (6 steps, 4.6% of internal nodes computed)  plain 135.7 ms (lookup 0.0, plan 6.1, forward 129.6)  cached 88.4 ms (lookup 6.3, plan 7.7, forward 74.3) max |diff| 0.023 top-1 changes 0
