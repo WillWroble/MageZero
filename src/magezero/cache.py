@@ -13,7 +13,9 @@ class NodeCache:
     in lookup and written by the forward pass that follows, so lookups and forward passes must alternate (one worker)."""
 
     def __init__(self, model, device, size=CACHE_SIZE):
-        self.table = torch.empty(len(model.local_layers), size, model.arch["d_model"], device=device)
+        # one row per slot, plus a scratch row that padded entries write and read (graphed.py)
+        self.table = torch.empty(len(model.local_layers), size + 1, model.arch["d_model"], device=device)
+        self.scratch = size
         self.hash = np.zeros(size, np.int64)  # slot -> hash
         self.clear()
 

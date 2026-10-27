@@ -243,3 +243,33 @@ batch 128 the local layers are launch-bound, not compute-bound: cached stages st
 handful of nodes (ROOT and PLAYER always miss). The cache pays off at large batches (−42% forward at 512), where the
 rest is the global layers and the embeddings. Next lever for small batches: fewer launches (CUDA graphs on the cached
 path, or fusing the stages that have only a few misses).
+
+## Inference: CUDA graphs on the cached path (`graphed.py`, mz-bench-cache-graphs)
+
+The cached forward pass computes about 5% of internal nodes but still launches every stage's kernels.
+`GraphedNet` (rebuilt from the parked `cuda-graphs` branch) pads each cached batch to a size class and replays
+one captured CUDA graph per class. The size class is (node class, states, global width, computed class C). Every
+stage pads its computed nodes to C and its computed child edges to 16·C. Its nodes read from the cache are padded
+to a ratio of the node class. Padded entries go to a dummy node, a dummy state and a scratch row of the cache table.
+- On CPU, the padded cached pass is within 2.2e-5 of the unpadded one.
+- A stream needs 4–5 size classes per batch size, at 90–210 ms per capture.
+
+T4, same stream benchmark as above (each path has its own cache; times in ms, steps that captured left out):
+
+| batch | plain | cached | cached + graphs | captures |
+|---|---|---|---|---|
+| 1 | 21.8 | 13.8 | **8.0** (2.7× plain) | 4 (372 ms) |
+| 8 | 26.4 | 23.1 | **9.7** (2.7×) | 5 (440 ms) |
+| 32 | 29.9 | 26.5 | **17.5** (1.7×) | 4 (436 ms) |
+| 128 | 36.7 | **32.9** | 57.0 (padding: slower) | 4 (850 ms) |
+| 512 | 136.3 | **89.1** | – | – |
+
+Graphed outputs are within fp16 noise of plain (max 0.020). 1 top-1 change at batch 32, where the lead was below
+the noise.
+
+Conclusion: graphs and the cache stack up at small batches. Latency at batch 1–8 drops to 8–10 ms, about 2.7×
+faster than before the cache. Above about 32 states the padding costs more than the launches saved. The server
+graphs cached batches of at most `GRAPH_MAX_STATES = 32` states and runs bigger ones eagerly with the cache.
+Peak throughput is still at large batches (cached eager: about 5,750 states/s at 512 vs 3,760 plain). Not tested
+yet: an end-to-end load test through the server with graphs on. The parked attempt lost there to GIL contention
+from per-request plans; this version builds the plan in the worker, as the eager path does.

@@ -5,12 +5,14 @@ import torch
 
 from cache import NodeCache, subtree_hashes
 from dataset import H5Graphs, collate_graphs
+from graphed import GraphedNet
 from model import load_checkpoint, DEVICE
 
 BATCH_SIZES = (1, 8, 32, 128, 512)
 REPEATS = 20
 STREAM_SIZES = (1, 8, 32, 128, 512)
 STREAM_STEPS = 40
+GRAPH_SIZES = (1, 8, 32, 128)
 
 
 def bench(deck: str, version: int):
@@ -48,52 +50,72 @@ def bench(deck: str, version: int):
 def bench_cache(model, ds):
     """The node cache on a stream of batches, as the server runs it: each batch takes the next 4 consecutive states
     (1 at batch 1) of batch/4 games spread over the test set (fewer steps when the set is too small for them not
-    to overlap), and goes through the server's lookup, plan, forward and copy back, without and with the cache (one
-    cache per batch size). Times are means over the steps after the first 2.
-    Also the largest output difference, and the top-1 changes where the plain top led by more than 1e-3."""
+    to overlap), and goes through the server's lookup, plan, forward and copy back: plain, cached, and cached through
+    CUDA graphs (up to GRAPH_SIZES; each cached path has its own cache). Times are means over the steps after the
+    first 2; graphed steps that captured a graph are left out and reported apart.
+    Also the largest output difference from plain, and the top-1 changes where the plain top led by more than 1e-3."""
     hashes = np.concatenate([subtree_hashes(ds.ids[ds.offsets[k]:ds.offsets[k + 1]], ds.values[ds.offsets[k]:ds.offsets[k + 1]],
                                             *(x[ds.edge_offsets[k]:ds.edge_offsets[k + 1]] for x in (ds.edge_child, ds.edge_parent, ds.edge_label)))
                              for k in range(len(ds))])
     for b in STREAM_SIZES:
-        cache = NodeCache(model, DEVICE)
+        paths = ["plain", "cached"] + (["graphed"] if b in GRAPH_SIZES else [])
+        caches = {"cached": NodeCache(model, DEVICE), "graphed": NodeCache(model, DEVICE)}
+        graphed = GraphedNet(model, caches["graphed"], DEVICE)
         games = max(1, b // 4)
         per = b // games
         steps = min(STREAM_STEPS, len(ds) // b)
         starts = np.arange(games) * (len(ds) // games)
-        times, computed, internal, diff, flips = np.zeros((2, 3)), 0, 0, 0.0, 0
+        times = {p: np.zeros(3) for p in paths}
+        timed = {p: 0 for p in paths}
+        capture_ms, computed, internal, diff, flips = 0.0, 0, 0, {p: 0.0 for p in paths}, {p: 0 for p in paths}
         for step in range(steps):
             idx = [s + step * per + j for s in starts for j in range(per)]
             g = collate_graphs(*zip(*(ds[k][:6] for k in idx)))
             h = np.concatenate([hashes[ds.offsets[k]:ds.offsets[k + 1]] for k in idx])
-            outs = []
-            for i, cached in enumerate((False, True)):
+            outs = {}
+            for path in paths:
+                captures = graphed.captures
                 with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=DEVICE.type == "cuda"):
                     t = [time.perf_counter()]
-                    c = cache.lookup(g.node_type.numpy(), h) if cached else None
+                    c = None if path == "plain" else caches[path].lookup(g.node_type.numpy(), h)
                     t.append(time.perf_counter())
-                    gd = g.to(DEVICE)
-                    plan = model.plan(g if b <= 32 else gd, c).to(DEVICE)
-                    torch.cuda.synchronize()
+                    if path == "graphed":
+                        plan = model.plan(g, c)
+                        t.append(time.perf_counter())
+                        outs[path] = list(graphed(g, plan))
+                    else:
+                        gd = g.to(DEVICE)
+                        plan = model.plan(g if b <= 32 else gd, c).to(DEVICE)
+                        torch.cuda.synchronize()
+                        t.append(time.perf_counter())
+                        outs[path] = [x.float().cpu() for x in model(gd, plan, None if c is None else caches[path].table)]
                     t.append(time.perf_counter())
-                    outs.append([x.float().cpu() for x in model(gd, plan, cache.table if cached else None)])
-                    t.append(time.perf_counter())
-                if step >= 2:
-                    times[i] += np.diff(t) * 1000 / (steps - 2)
-            computed += int(c[1].sum())
-            internal += int((c[0] >= 0).sum())
-            for x, y in zip(*outs):
-                fin = torch.isfinite(x)
-                diff = max(diff, float((x[fin] - y[fin]).abs().max()))
-            for x, y in zip(outs[0][:2], outs[1][:2]):
-                for s in range(len(idx)):
-                    xs, ys = x[g.node_offsets[s]:g.node_offsets[s + 1]], y[g.node_offsets[s]:g.node_offsets[s + 1]]
-                    top = int(ys.argmax())
-                    flips += int((xs == xs.max()).sum() == 1 and xs.max() - xs[top] > 1e-3)
-        print(f"cache batch={b} ({steps} steps)  plain {times[0].sum():.1f} ms  cached {times[1].sum():.1f} ms "
-              f"(lookup {times[1, 0]:.1f}, plan {times[1, 1]:.1f} vs {times[0, 1]:.1f}, forward {times[1, 2]:.1f} vs "
-              f"{times[0, 2]:.1f})  computed {computed / internal:.1%} of internal nodes  max |diff| {diff:.3f}  "
-              f"top-1 changes {flips}")
-
+                if graphed.captures > captures:
+                    capture_ms += (t[-1] - t[0]) * 1000
+                elif step >= 2:
+                    times[path] += np.diff(t) * 1000
+                    timed[path] += 1
+                if path == "cached":
+                    computed += int(c[1].sum())
+                    internal += int((c[0] >= 0).sum())
+            for path in paths[1:]:
+                for x, y in zip(outs["plain"], outs[path]):
+                    fin = torch.isfinite(x)
+                    diff[path] = max(diff[path], float((x[fin] - y[fin]).abs().max()))
+                for x, y in zip(outs["plain"][:2], outs[path][:2]):
+                    for s in range(len(idx)):
+                        xs, ys = x[g.node_offsets[s]:g.node_offsets[s + 1]], y[g.node_offsets[s]:g.node_offsets[s + 1]]
+                        top = int(ys.argmax())
+                        flips[path] += int((xs == xs.max()).sum() == 1 and xs.max() - xs[top] > 1e-3)
+        line = f"cache batch={b} ({steps} steps, {computed / internal:.1%} of internal nodes computed)"
+        for path in paths:
+            m = times[path] / max(timed[path], 1)
+            line += f"  {path} {m.sum():.1f} ms (lookup {m[0]:.1f}, plan {m[1]:.1f}, forward {m[2]:.1f})"
+            if path != "plain":
+                line += f" max |diff| {diff[path]:.3f} top-1 changes {flips[path]}"
+        if "graphed" in paths:
+            line += f"  {graphed.captures} captures, {capture_ms:.0f} ms in all"
+        print(line)
 
 if __name__ == "__main__":
     import argparse
