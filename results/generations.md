@@ -219,12 +219,8 @@ trained on directly. Their win rate halves against a perfect-info opponent with 
 
 ### PIMC play vs perfect-info play (Faeries vs MonoB, gen1)
 
-How PIMC runs in XMage (`graph-encoder`): with `pimc: true`, `MCTSPlayer.priority` calls `shuffleUnknowns` at every
-priority point inside the search. That re-deals the opponent's hand from their library each time. With
-`see_opponent_hand: false`, Faeries' encoder hides the opponent's hand in every state, including those inside the
-search. So the network only ever sees hidden-hand states, which the v4 network was never trained on.
-
-Faeries' play (priority states with a choice; "top move" = most visited):
+From the h5s (`results/pimc_play.py`, `src/magezero/util/behaviour.py`). Faeries' priority states with a choice;
+"top move" = most visited.
 
 | | ver4 perfect info | ver5 perfect info | ver5 PIMC hidden |
 |---|---|---|---|
@@ -236,15 +232,10 @@ Faeries' play (priority states with a choice; "top move" = most visited):
 | top move's visit share (own / opponent's turn) | 0.64 / 0.65 | 0.64 / 0.65 | 0.63 / 0.65 |
 | search root value vs result, first third of the game | −0.08 vs −0.33 | −0.13 vs −0.47 | **−0.14 vs −0.71** |
 
-- **PIMC Faeries taps out on its own turn.** It reaches the opponent's turn with instant-speed plays available
-  less than half as often. Spellstutter becomes a sorcery-speed creature: 0.02 counters per game against 0.10–0.15.
-  When it does hold a counterspell up it uses it about as often, but it holds one up less.
-- **Search is as decisive, but much more optimistic.** Its root value overstates the result by 0.57 early on,
-  against 0.25–0.34 with perfect info.
-- **Not the network's preferences.** v4 on 4,000 perfect-info Faeries states, recorded vs opponent's hand masked
-  (`results/pimc_mask_effect.py`; play stats: `results/pimc_play.py`): the value rises by 0.087 on average (in 84% of states), which is part of the optimism. Move
-  probabilities barely move: pass, flash, Spellstutter and counter probabilities each shift by ≤ 0.015, and agreement
-  with MCTS's top move is 59.3% vs 59.9%. So the change in play comes from the search, most likely from re-dealing
-  the opponent's hand at every priority point (a hypothesis, not tested).
-
-Caveat: the perfect-info baselines may come from different models than the PIMC games.
+- **PIMC Faeries acts at sorcery speed.** It reaches the opponent's turn with instant-speed plays available less
+  than half as often. Spellstutter, Elder and Strix loot are chosen on its own turn 91%, 80% and 80% of the time,
+  against 49–75%.
+- **Spellstutter is cast as a creature, not a counter:** 0.02 times per game onto a spell, against 0.10–0.15.
+- **Counterspells are used at the same rate when castable,** but castable less often.
+- **Search confidence is unchanged, but root values overstate the result** by 0.57 early in the game, against
+  0.25–0.34.
