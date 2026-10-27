@@ -119,6 +119,32 @@ class Plan(NamedTuple):
                     *(move(x) for x in self[6:]))
 
 
+def cat_plans(plans, groups, node_counts, state_counts, edge_counts) -> Plan:
+    """The plan of a batch made of several graphs batched one after another, from each graph's own plan (all on the
+    CPU): the same tensors NetGraph.plan returns for the whole batch. `node_counts`, `state_counts`, `edge_counts`:
+    nodes, states and kept edges per graph."""
+    node_base, state_base, edge_base = (torch.tensor([0] + list(c)).cumsum(0) for c in (node_counts, state_counts, edge_counts))
+
+    def cat(parts, bases=None):
+        return torch.cat([p + b for p, b in zip(parts, bases)] if bases is not None else list(parts))
+
+    stages = []
+    for name in groups:
+        own = [{n: rest for n, *rest in p.stages}.get(name) for p in plans]
+        if not any(o is not None and len(o[0]) for o in own):
+            continue
+        empty = torch.zeros(0, dtype=torch.long)
+        own = [o if o is not None else (empty,) * 4 for o in own]
+        seg_base = torch.tensor([0] + [len(o[0]) for o in own]).cumsum(0)
+        stages.append((name, cat([o[0] for o in own], node_base), cat([o[1] for o in own], node_base),
+                       cat([o[2] for o in own]), cat([o[3] for o in own], seg_base)))
+    return Plan(cat([p.leaves for p in plans], node_base), cat([p.child for p in plans], node_base),
+                cat([p.parent for p in plans], node_base), cat([p.label for p in plans]),
+                cat([p.leaf_edges for p in plans], edge_base), stages, cat([p.internal for p in plans], node_base),
+                cat([p.gi for p in plans], state_base), cat([p.pos for p in plans]), cat([p.counts for p in plans]),
+                max(p.width for p in plans))
+
+
 def graph_index(offsets: torch.Tensor) -> torch.Tensor:
     """State of each node, from a batch's node offsets."""
     return torch.repeat_interleave(torch.arange(offsets.numel() - 1, device=offsets.device), offsets.diff())

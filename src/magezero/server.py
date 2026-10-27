@@ -10,7 +10,8 @@ import waitress
 from flask import Flask, request, Response
 
 from dataset import map_ids, node_types
-from model import Graphs, load_checkpoint, AMP, DEVICE, NodeType
+from graphed import GraphedNet
+from model import Graphs, cat_plans, load_checkpoint, AMP, DEVICE, NodeType
 
 # Threading config
 TORCH_THREADS = 1 #max(1, os.cpu_count() // 2)
@@ -18,11 +19,13 @@ torch.set_num_threads(TORCH_THREADS)
 
 # Batching config
 MAX_BATCH = 128
-CPU_PLAN_MAX = 32  # states per batch up to which NetGraph.plan is built on the CPU (T4: faster below, slower above)
+CUDA_GRAPHS = True  # replay small batches as CUDA graphs (see graphed.py); False always runs the plain forward
+GRAPH_MAX_STATES = 48  # largest batch replayed as a graph; bigger ones are compute-bound and run the plain forward
 WORKERS = 1  # batching threads; with 2, one batch's CPU work overlaps the other's forward pass
 
 #module state
 server_model = None
+graphed = None
 VOCAB = None
 EDGE_VOCAB = None
 
@@ -32,16 +35,18 @@ req_counter = 0
 req_counter_lock = threading.Lock()
 
 def init(deck: str, version: int, port: int):
-    global server_model, VOCAB, EDGE_VOCAB
+    global server_model, graphed, VOCAB, EDGE_VOCAB
 
     model_path = f"models/{deck}/ver{version}/model.pt.gz"
     model, VOCAB, EDGE_VOCAB = load_checkpoint(model_path)
     server_model = model.to(DEVICE).eval()
+    if CUDA_GRAPHS and DEVICE.type == "cuda" and GraphedNet.supports(server_model):
+        graphed = GraphedNet(server_model, DEVICE)
 
     for _ in range(WORKERS):
         threading.Thread(target=worker_loop, daemon=True).start()
 
-    print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE} "
+    print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE} cuda_graphs={graphed is not None} "
           f"leaf_rows={len(VOCAB)} edge_rows={len(EDGE_VOCAB)}")
     waitress.serve(app, host="127.0.0.1", port=port, threads=8)
 
@@ -86,7 +91,7 @@ def collate_requests(batch):
 
 
 class Pending:
-    __slots__ = ("req_id", "arrays", "binary", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
+    __slots__ = ("req_id", "arrays", "plan", "binary", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
 
     def __init__(self, req_id, data):
         self.req_id = req_id
@@ -97,6 +102,8 @@ class Pending:
         self.t_done = 0.0
 
         self.arrays = request_arrays(data)
+        # the forward pass's index work, built here in the request thread while the worker runs the GPU
+        self.plan = server_model.plan(collate_requests([self]))
         self.binary = bool(data.get("binary"))  # reply with raw float32 arrays instead of per-state maps
         self.states = len(self.arrays[6]) - 1
         self.nodes = len(self.arrays[0])
@@ -125,12 +132,20 @@ def worker_loop():
         try:
             # Single forward pass over every state of every request
             graphs = collate_requests(batch)
+            plan = cat_plans([p.plan for p in batch], server_model.groups, [len(p.arrays[0]) for p in batch],
+                             [p.states for p in batch], [len(p.plan.child) for p in batch])
             t_collated = time.perf_counter()
-            with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
-                # small batches: the index work runs on the CPU, so the GPU runs the forward pass without stalls;
-                # large ones: the CPU work costs more than the stalls (bench.py compares both)
-                plan = server_model.plan(graphs).to(DEVICE) if states <= CPU_PLAN_MAX else None
-                out = server_model(graphs.to(DEVICE), plan)
+            out = None
+            if graphed is not None and states <= GRAPH_MAX_STATES:
+                try:
+                    out = graphed(graphs, plan)
+                except Exception:  # a graph that can't be captured or replayed: fall back to the plain forward
+                    traceback.print_exc()
+                    print("[CUDA GRAPHS] disabled after the error above; running the plain forward pass")
+                    globals()["graphed"] = None
+            if out is None:
+                with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
+                    out = server_model(graphs.to(DEVICE), plan.to(DEVICE))
             priority, target, use, value = (t.float().cpu().numpy() for t in out)
             t_forward = time.perf_counter()
 
