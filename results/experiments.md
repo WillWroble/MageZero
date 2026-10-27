@@ -202,3 +202,108 @@ states, server path (CPU batch → GPU → outputs back), mean of 20:
 
 Conclusion: removing the syncs saves ≈5 ms at small batches; at large batches the CPU index work (on Kaggle's slow
 CPU, not overlapped) costs more than the syncs did. The server uses the CPU plan up to `CPU_PLAN_MAX = 32` states.
+
+## Inference: subtree cache of local-layer outputs (`cache.py`, mz-bench-cache)
+
+A node's local-layer outputs depend only on the subgraph below it, and XMage already hashes every node's subtree
+(`FeatureGraph.Node.hash`, 16 WL rounds in `getStateHash`). `RemoteModelEvaluator` now sends those hashes
+(`node_hash`, raw int64). The server keeps a persistent LRU cache, shared by all games: a GPU table [passes, 2^19
+slots, d] in fp32, about 1 GiB. Per batch, each hash the cache doesn't hold is computed once (its first node). Every
+other internal node reads every pass's output from its slot, at its own stage, so the sequential semantics hold.
+Stages with nothing to compute are skipped. Requests without hashes (old clients) take the old path, and their
+responses are byte-identical to before.
+
+Correctness (CPU, fp32, ver4 checkpoint, 50 gen1 MonoB games; recorded states don't store hashes, so
+`cache.subtree_hashes` recomputes them):
+- 1,280 states as a stream of 8 games × 4 consecutive states per batch, cached vs plain forward: max |diff| 2e-5,
+  0 top-1 changes (12 argmax swaps, all exact float ties, gap ≤ 4e-7). The same holds with a 800-slot cache that
+  evicts constantly.
+- Server end to end: old-format list responses byte-identical to the original server; hashed binary requests within
+  1.3e-5 of unhashed ones.
+- Java round trip (`RemoteModelEvaluator` against a stub `FeatureGraph` carrying the hashes, 200 states, one at a time
+  and batched): all 86,898 returned numbers within 1.9e-5 of the uncached reference, 0 top-1 changes.
+
+Speed (T4, `bench.py` `bench_cache`). Server path: lookup + plan + forward + copy back, fp16 autocast. Each batch
+takes 4 consecutive states from each of batch/4 games (1 state at batch 1). Times in ms, means after 2 warm-up
+steps:
+
+| batch | plain | cached | lookup | forward plain → cached | internal nodes computed |
+|---|---|---|---|---|---|
+| 1 | 20.5 | 13.2 (−36%) | 0.2 | 19.3 → 11.4 | 9.7% |
+| 8 | 24.4 | 21.1 (−14%) | 0.3 | 22.2 → 18.4 | 5.6% |
+| 32 | 28.4 | 25.2 (−11%) | 0.6 | 24.1 → 20.1 | 4.7% |
+| 128 | 35.8 | 31.4 (−12%) | 1.6 | 32.0 → 25.1 | 4.6% |
+| 512 | 134.3 | 87.1 (−35%) | 5.6 | 128.9 → 74.6 | 4.6% |
+
+Under fp16, cached vs plain differ by up to 0.023 (fp16 noise). Top-1 changed in 2 of about 1,400 states, where
+the plain top led by between 1e-3 and the noise level.
+
+Conclusion: the hit rate is as predicted (about 95% of internal nodes reused), but the time saved is not. Up to
+batch 128 the local layers are launch-bound, not compute-bound: cached stages still launch the same kernels for a
+handful of nodes (ROOT and PLAYER always miss). The cache pays off at large batches (−42% forward at 512), where the
+rest is the global layers and the embeddings. Next lever for small batches: fewer launches (CUDA graphs on the cached
+path, or fusing the stages that have only a few misses).
+
+## Inference: CUDA graphs on the cached path (`graphed.py`, mz-bench-cache-graphs)
+
+Removed from the codebase afterwards: it only helps batches of 32 states or fewer, not the large batches that
+set throughput. The code is in commit `bad6136`.
+
+The cached forward pass computes about 5% of internal nodes but still launches every stage's kernels.
+`GraphedNet` (rebuilt from the parked `cuda-graphs` branch) pads each cached batch to a size class and replays
+one captured CUDA graph per class. The size class is (node class, states, global width, computed class C). Every
+stage pads its computed nodes to C and its computed child edges to 16·C. Its nodes read from the cache are padded
+to a ratio of the node class. Padded entries go to a dummy node, a dummy state and a scratch row of the cache table.
+- On CPU, the padded cached pass is within 2.2e-5 of the unpadded one.
+- A stream needs 4–5 size classes per batch size, at 90–210 ms per capture.
+
+T4, same stream benchmark as above (each path has its own cache; times in ms, steps that captured left out):
+
+| batch | plain | cached | cached + graphs | captures |
+|---|---|---|---|---|
+| 1 | 21.8 | 13.8 | **8.0** (2.7× plain) | 4 (372 ms) |
+| 8 | 26.4 | 23.1 | **9.7** (2.7×) | 5 (440 ms) |
+| 32 | 29.9 | 26.5 | **17.5** (1.7×) | 4 (436 ms) |
+| 128 | 36.7 | **32.9** | 57.0 (padding: slower) | 4 (850 ms) |
+| 512 | 136.3 | **89.1** | – | – |
+
+Graphed outputs are within fp16 noise of plain (max 0.020). 1 top-1 change at batch 32, where the lead was below
+the noise.
+
+Conclusion: graphs and the cache stack up at small batches. Latency at batch 1–8 drops to 8–10 ms, about 2.7×
+faster than before the cache. Above about 32 states the padding costs more than the launches saved. The server
+graphs cached batches of at most `GRAPH_MAX_STATES = 32` states and runs bigger ones eagerly with the cache.
+Peak throughput is still at large batches (cached eager: about 5,750 states/s at 512 vs 3,760 plain). Not tested
+yet: an end-to-end load test through the server with graphs on. The parked attempt lost there to GIL contention
+from per-request plans; this version builds the plan in the worker, as the eager path does.
+
+## Inference: local-layer rows written in place (mz-prof-local)
+
+Every local stage did `h = h.index_copy(...)`, an out-of-place copy of the whole node table (all nodes, leaves
+included) to change a few rows. That costs 28 copies per forward pass with the cache, about 6.7 GB of traffic at 512
+states. Inference in sequential mode now writes in place (`index_copy_`). On CPU this is bit-identical to the
+previous commit, plain and cached. Training and the parallel mode keep the copies. T4 A/B, same stream bench, two
+GPUs at once (old code `bad6136` vs new):
+
+| batch | plain forward | cached forward | cached total |
+|---|---|---|---|
+| 1 | 19.3 → 18.4 | 11.6 → 10.8 | 13.4 → 12.4 |
+| 8 | 21.6 → 21.3 | 17.5 → 17.1 | 20.1 → 19.7 |
+| 32 | 25.4 → 22.8 | 21.2 → 18.6 | 27.2 → 23.4 |
+| 128 | 32.7 → 29.0 | 25.4 → 23.9 | 32.0 → 30.1 |
+| 512 | 129.6 → 117.1 | 74.3 → **52.8** (−29%) | 88.4 → **64.8** |
+
+At 512 states, cache plus in-place gives 64.8 ms against 135.7 ms plain before both changes: 2.1×, about 7,900
+states/s.
+
+CUDA profile of the new cached forward:
+- **512 states:** 48 ms of GPU time per pass against 52.8 ms wall, so the GPU is busy almost all the time. The top
+  kernels are layer norm, elementwise ops and casts, memory-efficient attention and fp16 GEMMs. Most of them belong to
+  the global layers.
+- **128 states:** 13 ms of GPU time per pass against 24 ms wall, so the GPU sits idle about half the time, waiting
+  on Python and launches.
+
+(The old-code run's profile imported the new model by mistake and is not used.)
+
+Conclusion: the leftover local-layer cost was the full-table copies. After the cache and in-place writes, large
+batches are bound by the global layers' compute, and mid-size batches by CPU-side overhead.

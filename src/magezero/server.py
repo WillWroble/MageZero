@@ -9,6 +9,7 @@ import torch
 import waitress
 from flask import Flask, request, Response
 
+from cache import NodeCache
 from dataset import map_ids, node_types
 from model import Graphs, load_checkpoint, AMP, DEVICE, NodeType
 
@@ -19,12 +20,13 @@ torch.set_num_threads(TORCH_THREADS)
 # Batching config
 MAX_BATCH = 128
 CPU_PLAN_MAX = 32  # states per batch up to which NetGraph.plan is built on the CPU (T4: faster below, slower above)
-WORKERS = 1  # batching threads; with 2, one batch's CPU work overlaps the other's forward pass
+WORKERS = 1  # batching threads; must stay 1 while the node cache is used (see NodeCache)
 
 #module state
 server_model = None
 VOCAB = None
 EDGE_VOCAB = None
+CACHE = None
 
 app = Flask(__name__)
 
@@ -32,11 +34,12 @@ req_counter = 0
 req_counter_lock = threading.Lock()
 
 def init(deck: str, version: int, port: int):
-    global server_model, VOCAB, EDGE_VOCAB
+    global server_model, VOCAB, EDGE_VOCAB, CACHE
 
     model_path = f"models/{deck}/ver{version}/model.pt.gz"
     model, VOCAB, EDGE_VOCAB = load_checkpoint(model_path)
     server_model = model.to(DEVICE).eval()
+    CACHE = NodeCache(server_model, DEVICE)
 
     for _ in range(WORKERS):
         threading.Thread(target=worker_loop, daemon=True).start()
@@ -73,7 +76,8 @@ def request_arrays(data):
 
 
 def collate_requests(batch):
-    """One batch of graphs from whole requests (the same tensors collate_graphs builds from their states)."""
+    """One batch of graphs from whole requests (the same tensors collate_graphs builds from their states), and
+    every node's subtree hash if each request sent them (else None)."""
     bases = np.cumsum([0] + [len(p.arrays[0]) for p in batch], dtype=np.int64)
 
     def cat(parts):
@@ -82,11 +86,13 @@ def collate_requests(batch):
     node_type, node_row, values = (cat([p.arrays[i] for p in batch]) for i in range(3))
     edge_child, edge_parent = (cat([p.arrays[i] + base for p, base in zip(batch, bases)]) for i in (3, 4))
     offsets = cat([p.arrays[6][:-1] + base for p, base in zip(batch, bases)] + [bases[-1:]])
-    return Graphs(node_type, node_row, values, offsets, edge_child, edge_parent, cat([p.arrays[5] for p in batch]))
+    graphs = Graphs(node_type, node_row, values, offsets, edge_child, edge_parent, cat([p.arrays[5] for p in batch]))
+    hashed = all(p.node_hash is not None for p in batch)
+    return graphs, np.concatenate([p.node_hash for p in batch]) if hashed else None
 
 
 class Pending:
-    __slots__ = ("req_id", "arrays", "binary", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
+    __slots__ = ("req_id", "arrays", "node_hash", "binary", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
 
     def __init__(self, req_id, data):
         self.req_id = req_id
@@ -97,6 +103,8 @@ class Pending:
         self.t_done = 0.0
 
         self.arrays = request_arrays(data)
+        # per node, its subtree hash (raw int64): the node cache's key. Clients that don't send it go uncached
+        self.node_hash = np.frombuffer(data["node_hash"], "<i8") if "node_hash" in data else None
         self.binary = bool(data.get("binary"))  # reply with raw float32 arrays instead of per-state maps
         self.states = len(self.arrays[6]) - 1
         self.nodes = len(self.arrays[0])
@@ -122,15 +130,20 @@ def worker_loop():
         states = sum(p.states for p in batch)
         t_start = time.perf_counter()
         t_collated = t_forward = t_start
+        computed = None
         try:
             # Single forward pass over every state of every request
-            graphs = collate_requests(batch)
+            graphs, node_hash = collate_requests(batch)
+            cached = None if node_hash is None else CACHE.lookup(graphs.node_type.numpy(), node_hash)
             t_collated = time.perf_counter()
             with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
                 # small batches: the index work runs on the CPU, so the GPU runs the forward pass without stalls;
                 # large ones: the CPU work costs more than the stalls (bench.py compares both)
-                plan = server_model.plan(graphs).to(DEVICE) if states <= CPU_PLAN_MAX else None
-                out = server_model(graphs.to(DEVICE), plan)
+                g = graphs.to(DEVICE)
+                plan = server_model.plan(graphs if states <= CPU_PLAN_MAX else g, cached).to(DEVICE)
+                out = server_model(g, plan, None if cached is None else CACHE.table)
+            if cached is not None:
+                computed = f"{int(cached[1].sum())}/{int((cached[0] >= 0).sum())}"
             priority, target, use, value = (t.float().cpu().numpy() for t in out)
             t_forward = time.perf_counter()
 
@@ -159,6 +172,7 @@ def worker_loop():
         except Exception as e:
             # fail these requests instead of the worker, so later requests still get served
             traceback.print_exc()
+            CACHE.clear()  # the failed batch's new slots were never written
             for p in batch:
                 p.error = f"{type(e).__name__}: {e}"
 
@@ -170,7 +184,7 @@ def worker_loop():
         print(f"[BATCH] size={len(batch)}, total_states={states}, "
               f"queued={(t_start - min(p.t_recv for p in batch)) * 1000:.1f}ms "
               f"collate={(t_collated - t_start) * 1000:.1f}ms forward={(t_forward - t_collated) * 1000:.1f}ms "
-              f"split={(t_end - t_forward) * 1000:.1f}ms")
+              f"split={(t_end - t_forward) * 1000:.1f}ms computed={computed}")
 
 
 @app.post("/evaluate")

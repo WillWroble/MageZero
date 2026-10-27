@@ -1,0 +1,11 @@
+arch: {'d_model': 256, 'n_heads': 4, 'd_ff': 512, 'dropout': 0.0, 'n_passes': 2, 'global_layers': 2, 'local': 'sequential', 'global_tokens': 'internal'}
+bench batch=1  gpu plan 21.1 ms  cpu plan 19.2 ms  52 states/s  0.06 GB
+bench batch=8  gpu plan 23.9 ms  cpu plan 23.2 ms  345 states/s  0.07 GB
+bench batch=32  gpu plan 24.6 ms  cpu plan 24.4 ms  1314 states/s  0.09 GB
+bench batch=128  gpu plan 31.1 ms  cpu plan 35.5 ms  3605 states/s  0.20 GB
+bench batch=512  gpu plan 116.5 ms  cpu plan 138.2 ms  3705 states/s  0.64 GB
+cache batch=1 (40 steps, 9.7% of internal nodes computed)  plain 21.8 ms (lookup 0.0, plan 1.4, forward 20.4)  cached 13.8 ms (lookup 0.2, plan 1.7, forward 12.0) max |diff| 0.016 top-1 changes 0  graphed 8.0 ms (lookup 0.1, plan 1.1, forward 6.8) max |diff| 0.016 top-1 changes 0  4 captures, 372 ms in all
+cache batch=8 (40 steps, 5.6% of internal nodes computed)  plain 26.4 ms (lookup 0.0, plan 2.2, forward 24.2)  cached 23.1 ms (lookup 0.3, plan 2.6, forward 20.2) max |diff| 0.023 top-1 changes 0  graphed 9.7 ms (lookup 0.2, plan 1.7, forward 7.7) max |diff| 0.016 top-1 changes 0  5 captures, 440 ms in all
+cache batch=32 (40 steps, 4.7% of internal nodes computed)  plain 29.9 ms (lookup 0.0, plan 4.3, forward 25.5)  cached 26.5 ms (lookup 0.6, plan 4.6, forward 21.4) max |diff| 0.023 top-1 changes 1  graphed 17.5 ms (lookup 0.5, plan 3.4, forward 13.5) max |diff| 0.020 top-1 changes 1  4 captures, 436 ms in all
+cache batch=128 (24 steps, 4.6% of internal nodes computed)  plain 36.7 ms (lookup 0.0, plan 4.3, forward 32.4)  cached 32.9 ms (lookup 1.6, plan 5.1, forward 26.1) max |diff| 0.023 top-1 changes 1  graphed 57.0 ms (lookup 1.6, plan 8.4, forward 47.0) max |diff| 0.023 top-1 changes 0  4 captures, 850 ms in all
+cache batch=512 (6 steps, 4.6% of internal nodes computed)  plain 136.3 ms (lookup 0.0, plan 5.9, forward 130.4)  cached 89.1 ms (lookup 5.7, plan 7.8, forward 75.5) max |diff| 0.023 top-1 changes 0
