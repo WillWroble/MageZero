@@ -193,6 +193,6 @@ Seer / Miscreant (no Miscreant out): gen0 0.46 / 0.29, v4 0.30 / 0.37, v5 0.45 /
 Seer preference against MonoW but flipped against MonoB. v5 median value labels: Seer only −0.44, one Miscreant
 −0.27, 2+ Miscreants −0.15.
 
-Conclusion: dropping the ≈1,600 Pauper-pool games costs a lot against MonoW (57.5% → 40.6%) and little or nothing
+Conclusion: dropping the ≈2,600 Pauper-pool games (421K states, both seats) costs a lot against MonoW (57.5% → 40.6%) and little or nothing
 significant against MonoB, with both opponents in training. Behaviour sits between gen0 and v4 in both matchups.
 Diverse opponent data made gen1's play against known opponents stronger, not just its predictions.
