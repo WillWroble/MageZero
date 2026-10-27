@@ -25,17 +25,18 @@ def train(
         steps: int = 15000,
         use_checkpoint: bool = False,
         arch: dict = None,
+        hide_opponent_hand: bool = False,
 ):
     os.makedirs(f"models/{deck}/ver{version}", exist_ok=True)
     data_path = f"data/{deck}/ver{version}/training"
-    ds = H5Graphs(data_path)
+    ds = H5Graphs(data_path, hide_opponent_hand=hide_opponent_hand)
     if len(ds) == 0:
         found = (f"{len(ds.files)} .hdf5/.h5 files, none with readable states (see warnings above)" if ds.files
                  else "no .hdf5/.h5 files")
         raise SystemExit(f"no training data in {data_path}: {found}")
     vocab, edge_vocab, model = prepare_vocab(deck, version, use_checkpoint, ds, arch or {})
     ds.apply_vocab(vocab, edge_vocab)
-    test_ds = H5Graphs(f"data/{deck}/ver{version}/testing", vocab, edge_vocab)
+    test_ds = H5Graphs(f"data/{deck}/ver{version}/testing", vocab, edge_vocab, hide_opponent_hand)
 
     train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab, edge_vocab)
 
@@ -157,8 +158,10 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint", action="store_true")
     parser.add_argument("--arch", type=json.loads, default={}, help='NetGraph options as JSON, e.g. \'{"n_passes": 1}\'')
     parser.add_argument("--seed", type=int)
+    parser.add_argument("--hide-opponent-hand", action="store_true",
+                        help="train and test on states without the non-deciding player's hand (H5Graphs.hide_opponent_hand)")
 
     args = parser.parse_args()
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    train(args.deck, args.version, args.epochs, args.steps, args.checkpoint, args.arch)
+    train(args.deck, args.version, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand)

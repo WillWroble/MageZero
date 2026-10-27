@@ -89,9 +89,10 @@ class H5Graphs(Dataset):
       /row                          float32 [N, 6]      resultLabel, stateScore, isPlayer, actionType,
                                                         useFalseVisits, useTrueVisits
     Ids stay raw until apply_vocab maps them to embedding rows; __getitem__ needs the mapped form.
+    hide_opponent_hand: see hide_opponent_hand.
     """
 
-    def __init__(self, dir_path: str, vocab=None, edge_vocab=None):
+    def __init__(self, dir_path: str, vocab=None, edge_vocab=None, hide_opponent_hand: bool = False):
         p = Path(dir_path)
         self.files = [str(pp) for pp in sorted(list(p.rglob("*.h5")) + list(p.rglob("*.hdf5")))]
 
@@ -133,10 +134,49 @@ class H5Graphs(Dataset):
         self.cand_visits = cat("/policy_visits", np.int32)
         self.cand_offsets = cat_offsets("/policy_offsets")
         self.node_type = node_types(self.ids)
+        if hide_opponent_hand:
+            self.hide_opponent_hand()
         self.check_candidates()
 
         if vocab is not None:
             self.apply_vocab(vocab, edge_vocab)
+
+    def hide_opponent_hand(self) -> None:
+        """Each state as StateEncoder encodes it without perfectInfo: the cards in the hand of the player who isn't
+        deciding (the one without IsDecisionPlayer) are cut from its hand zone, and every node then unreachable from
+        the root goes. The hand zone and HandSize stay. Policy candidates always stay (the decider sees what it
+        chooses from); a hidden card also reachable another way (e.g. a decision source) keeps its subtree."""
+        e_state = states_of(self.edge_offsets)
+        child, parent = self.edge_child + self.offsets[e_state], self.edge_parent + self.offsets[e_state]
+        t = self.node_type
+        decider = np.zeros(len(t), bool)
+        decider[parent[self.ids[child] == feature_id("IsDecisionPlayer")]] = True
+        hand = np.zeros(len(t), bool)
+        hand[parent[(self.ids[child] == feature_id("Hand")) & (t[parent] == NodeType.ZONE)]] = True
+        hidden = np.zeros(len(t), bool)
+        hidden[child[hand[child] & (t[parent] == NodeType.PLAYER) & ~decider[parent]]] = True
+
+        cand = self.cand_node + self.offsets[states_of(self.cand_offsets)]
+        keep = t == NodeType.ROOT
+        keep[cand] = True
+        edges = ~hidden[parent]
+        while True:  # reachable without passing through a hidden hand zone
+            n = keep.sum()
+            keep[child[edges & keep[parent]]] = True
+            if keep.sum() == n:
+                break
+        edges &= keep[parent]
+
+        state = states_of(self.offsets)
+        offsets = np.concatenate([[0], np.cumsum(np.bincount(state[keep], minlength=self.N))])
+        local = (np.cumsum(keep) - 1 - offsets[state]).astype(np.int32)  # each kept node's new index in its state
+        self.edge_child, self.edge_parent = local[child[edges]], local[parent[edges]]
+        self.edge_label = self.edge_label[edges]
+        self.edge_offsets = np.concatenate([[0], np.cumsum(np.bincount(e_state[edges], minlength=self.N))])
+        self.cand_node = local[cand]
+        self.ids, self.values, self.node_type, self.offsets = self.ids[keep], self.values[keep], t[keep], offsets
+        print(f"hid {int(hidden.sum())} opponent hands: {int((~keep).sum())} nodes removed "
+              f"({(~keep).mean():.1%}), {int((~edges).sum())} edges")
 
     def apply_vocab(self, vocab, edge_vocab) -> None:
         self.node_row, self.edge_row = map_ids(self.ids, self.node_type, self.edge_label, vocab, edge_vocab)

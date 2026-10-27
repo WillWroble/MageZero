@@ -146,6 +146,8 @@ if __name__ == "__main__":
     parser.add_argument("--deck", required=True)
     parser.add_argument("--version", type=int, required=True)
     parser.add_argument("--testing", help="test shard directory (default: data/<deck>/ver<version>/testing)")
+    parser.add_argument("--hide-opponent-hand", action="store_true",
+                        help="test on states without the non-deciding player's hand (H5Graphs.hide_opponent_hand)")
     args = parser.parse_args()
 
     checkpoint_path = f"models/{args.deck}/ver{args.version}/model.pt.gz"
@@ -154,7 +156,7 @@ if __name__ == "__main__":
 
     testing = args.testing or f"data/{args.deck}/ver{args.version}/testing"
     print(f"Testing on {testing}")
-    ds = H5Graphs(testing, vocab, edge_vocab)
+    ds = H5Graphs(testing, vocab, edge_vocab, args.hide_opponent_hand)
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0,
                     collate_fn=collate_batch, pin_memory=AMP, persistent_workers=False)
 
