@@ -98,6 +98,27 @@ class Targets(NamedTuple):
         return Targets(*(t.to(device, non_blocking=True) for t in self))
 
 
+class Plan(NamedTuple):
+    """NetGraph.plan's output: index tensors for one batch of graphs, and the global sequence width."""
+    leaves: torch.Tensor      # nodes with a leaf embedding
+    child: torch.Tensor       # kept edges (both ends have embeddings)
+    parent: torch.Tensor
+    label: torch.Tensor
+    leaf_edges: torch.Tensor  # kept edges whose child is a leaf
+    stages: list              # (layer name, nodes, children, edge labels, each child's parent position)
+    internal: torch.Tensor    # global tokens
+    gi: torch.Tensor          # state of each global token
+    pos: torch.Tensor         # position of each global token in its state's sequence
+    counts: torch.Tensor      # global tokens per state
+    width: int                # padded sequence length (1 + the largest count)
+
+    def to(self, device):
+        def move(x):
+            return x.to(device, non_blocking=True) if isinstance(x, torch.Tensor) else x
+        return Plan(*(move(x) for x in self[:5]), [tuple(move(x) for x in st) for st in self.stages],
+                    *(move(x) for x in self[6:]))
+
+
 def graph_index(offsets: torch.Tensor) -> torch.Tensor:
     """State of each node, from a batch's node offsets."""
     return torch.repeat_interleave(torch.arange(offsets.numel() - 1, device=offsets.device), offsets.diff())
@@ -203,58 +224,71 @@ class NetGraph(nn.Module):
                     init_rows, dtype=new.weight.dtype, device=new.weight.device)[:added]
         setattr(self, name, new)
 
-    def forward(self, g: Graphs):
-        """Returns per-node priority and target scores [N] (-inf at leaves), choose_use logits
-        [B, 2] (false, true) and value [B]."""
+    def plan(self, g: Graphs) -> "Plan":
+        """The forward pass's index work, which depends only on the graphs' structure. Built where `g` lives;
+        the server builds it on the CPU, where its nonzero() and max() calls don't stall the GPU."""
         B, N = g.node_offsets.numel() - 1, g.node_type.numel()
-
-        # initial embeddings: typed nodes their type, leaves their name and numeric value
         leaves = (g.node_row >= 0).nonzero().squeeze(1)
-        value = torch.bucketize(g.node_value[leaves], self.value_bounds, right=True)
-        h = self.type_embedding(g.node_type).index_add(
-            0, leaves, self.embedding(g.node_row[leaves]) + self.value_embedding(value))
 
         # leaves outside the vocab have no embedding, so their edges are dropped
         keep = (g.node_type[g.edge_child] != NodeType.LEAF) | (g.node_row[g.edge_child] >= 0)
         child, parent, label = g.edge_child[keep], g.edge_parent[keep], g.edge_label[keep]
-
-        if self.arch["local"] == "flat":
-            leaf = g.node_type[child] == NodeType.LEAF
-            p = parent[leaf]
-            count = torch.bincount(p, minlength=N).clamp(min=1).unsqueeze(1)
-            h = h + h.new_zeros(h.shape).index_add(0, p, h[child[leaf]] + self.edge_embedding(label[leaf])) / count
+        leaf_edges = (g.node_type[child] == NodeType.LEAF).nonzero().squeeze(1)
 
         # one stage per group of types: its nodes, their children, and each child's parent position
         parent_type = g.node_type[parent]
         stages = []
         for name, types in self.groups.items():
-            types = torch.tensor(types, device=h.device)
+            types = torch.tensor(types, device=g.node_type.device)
             nodes = torch.isin(g.node_type, types).nonzero().squeeze(1)
             if len(nodes):
                 edges = torch.isin(parent_type, types).nonzero().squeeze(1)
                 stages.append((name, nodes, child[edges], label[edges], torch.searchsorted(nodes, parent[edges])))
 
-        # local layers, bottom-up passes. sequential: children earlier in the order arrive updated in this
-        # pass, children of the same type or later in the order (attachments, targets, linked exile) from the last one
-        for layers in self.local_layers:
-            src = h
-            for name, nodes, c, lbl, seg in stages:
-                if self.arch["local"] == "sequential":
-                    src = h
-                h = h.index_copy(0, nodes, layers[name](src[nodes], src[c] + self.edge_embedding(lbl), seg))
-
-        # global layers: self-attention over [CLS, tokens], one padded sequence per state
+        # global tokens: [CLS, tokens] per state
         internal = g.node_type != NodeType.LEAF
         if self.arch["global_tokens"] == "all":
             internal |= g.node_row >= 0
         internal = internal.nonzero().squeeze(1)
         gi = graph_index(g.node_offsets)[internal]
         counts = torch.bincount(gi, minlength=B)
-        pos = torch.arange(len(internal), device=h.device) - (counts.cumsum(0) - counts)[gi] + 1
-        x = h.new_zeros(B, int(counts.max()) + 1, h.shape[1])
+        pos = torch.arange(len(internal), device=gi.device) - (counts.cumsum(0) - counts)[gi] + 1
+        return Plan(leaves, child, parent, label, leaf_edges, stages, internal, gi, pos, counts, int(counts.max()) + 1)
+
+    def forward(self, g: Graphs, plan: "Plan" = None):
+        """Returns per-node priority and target scores [N] (-inf at leaves), choose_use logits
+        [B, 2] (false, true) and value [B]. `plan`: self.plan(g), built ahead (see plan); computed here if omitted."""
+        if plan is None:
+            plan = self.plan(g)
+        B, N = g.node_offsets.numel() - 1, g.node_type.numel()
+        child, parent, label = plan.child, plan.parent, plan.label
+
+        # initial embeddings: typed nodes their type, leaves their name and numeric value
+        value = torch.bucketize(g.node_value[plan.leaves], self.value_bounds, right=True)
+        h = self.type_embedding(g.node_type).index_add(
+            0, plan.leaves, self.embedding(g.node_row[plan.leaves]) + self.value_embedding(value))
+
+        if self.arch["local"] == "flat":
+            p = parent[plan.leaf_edges]
+            count = torch.bincount(p, minlength=N).clamp(min=1).unsqueeze(1)
+            h = h + h.new_zeros(h.shape).index_add(
+                0, p, h[child[plan.leaf_edges]] + self.edge_embedding(label[plan.leaf_edges])) / count
+
+        # local layers, bottom-up passes. sequential: children earlier in the order arrive updated in this
+        # pass, children of the same type or later in the order (attachments, targets, linked exile) from the last one
+        for layers in self.local_layers:
+            src = h
+            for name, nodes, c, lbl, seg in plan.stages:
+                if self.arch["local"] == "sequential":
+                    src = h
+                h = h.index_copy(0, nodes, layers[name](src[nodes], src[c] + self.edge_embedding(lbl), seg))
+
+        # global layers: self-attention over [CLS, tokens], one padded sequence per state
+        internal, gi, pos = plan.internal, plan.gi, plan.pos
+        x = h.new_zeros(B, plan.width, h.shape[1])
         x[:, 0] = self.cls
         x[gi, pos] = h[internal]
-        pad = torch.arange(x.shape[1], device=h.device) > counts.unsqueeze(1)
+        pad = torch.arange(plan.width, device=h.device) > plan.counts.unsqueeze(1)
         x = self.global_layers(x, src_key_padding_mask=pad)
         cls, z = x[:, 0], x[gi, pos]
 

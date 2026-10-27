@@ -105,7 +105,8 @@ def worker_loop():
             # Single forward pass over every state of every request
             graphs = collate_graphs(*zip(*states))
             with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
-                out = server_model(graphs.to(DEVICE))
+                # the index work runs on the CPU, so the GPU runs the forward pass without stalls
+                out = server_model(graphs.to(DEVICE), server_model.plan(graphs).to(DEVICE))
             priority, target, use, value = (t.float().cpu().numpy() for t in out)
 
             # Split results back to individual requests: per-node scores in the order each state was sent

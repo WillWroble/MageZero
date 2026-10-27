@@ -10,7 +10,7 @@ on each, or all at once with --parallel), each followed by bench.py. Logs land i
 Optional run keys: "ref" trains with src/magezero from a git ref instead of the working tree; "data" picks a
 subdirectory of the dataset (the one holding training/ and testing/); "setup" is a shell command run first
 (see --internet for pip); "post" is a shell command run after training, with $SRC (the code) and $DECK
-(train.py's --deck/--version) set.
+(train.py's --deck/--version) set; "train": false skips training (e.g. to bench a checkpoint copied in by setup).
 """
 import argparse
 import base64
@@ -44,7 +44,8 @@ def command(run):
     deck = f"--deck {{run['name']}} --version {{VERSION}}"
     arch = f"--arch {{shlex.quote(json.dumps(run['arch']))}}" if "arch" in run else ""
     post = f"(SRC={{src}}; DECK={{shlex.quote(deck)}}; {{run['post']}})" if "post" in run else "true"
-    return (f"{{run.get('setup', 'true')}} && python -u {{src}}/train.py {{deck}} {{arch}} {{run['args']}} && {{post}} && "
+    train = f"python -u {{src}}/train.py {{deck}} {{arch}} {{run['args']}}" if run.get("train", True) else "true"
+    return (f"{{run.get('setup', 'true')}} && {{train}} && {{post}} && "
             f"(test ! -f {{src}}/bench.py || python -u {{src}}/bench.py {{deck}}); "
             f"rm -rf models/{{run['name']}}/ver{{VERSION}}/best.pt.gz")
 
