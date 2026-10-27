@@ -50,15 +50,19 @@ def command(run):
             f"rm -rf models/{{run['name']}}/ver{{VERSION}}/best.pt.gz")
 
 
+def log_text(run):
+    log = Path(f"{{run['name']}}.log")
+    return log.read_text() if log.exists() else ""
+
+
 # runs alternate between the two GPUs; each GPU runs its share one after another, or all at once with PARALLEL
 chains = [[run] for run in RUNS] if PARALLEL else [RUNS[0::2], RUNS[1::2]]
 procs = []
 for i, chain in enumerate(chains):
     if not chain:
         continue
-    previous = Path(f"{{chains[i - 1][0]['name']}}.log")
     # one run loads the dataset at a time: loading peaks at about twice the resident size
-    while procs and procs[-1].poll() is None and not (previous.exists() and "arch:" in previous.read_text()):
+    while procs and procs[-1].poll() is None and "arch:" not in log_text(chains[i - 1][0]):
         time.sleep(10)
     cmd = "; ".join(f"({{command(run)}}) > {{run['name']}}.log 2>&1" for run in chain)
     procs.append(subprocess.Popen(cmd, shell=True, env={{**os.environ, "CUDA_VISIBLE_DEVICES": str(i % 2)}}))
