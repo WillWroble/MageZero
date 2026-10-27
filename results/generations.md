@@ -196,3 +196,23 @@ Seer preference against MonoW but flipped against MonoB. v5 median value labels:
 Conclusion: dropping the ≈2,600 Pauper-pool games (421K states, both seats) costs a lot against MonoW (57.5% → 40.6%) and little or nothing
 significant against MonoB, with both opponents in training. Behaviour sits between gen0 and v4 in both matchups.
 Diverse opponent data made gen1's play against known opponents stronger, not just its predictions.
+
+## PIMC with hidden information (ver5 gen1 MonoB `_pimc` shards)
+
+Faeries ran PIMC with the encoder's hidden-information mode on (PlayerA), against a MonoB opponent with perfect
+information (PlayerB). Compared with the perfect-info MonoB shards (win rate from Faeries' seat, 95% interval):
+
+| shards | games | Faeries WR | Faeries states/game | opponent hand cards in Faeries' states |
+|---|---|---|---|---|
+| ver4 gen1 (perfect info) | 171 | 31.6% ± 7.0 | 84 | 3.63 |
+| ver5 gen1 (perfect info) | 200 | 26.5% ± 6.1 | 88 | 3.31 |
+| ver5 gen1 PIMC, hidden | 200 | **12.5% ± 4.6** | 75 | 0.00 |
+
+- Faeries' recorded states hold the hidden-information encoding, not PIMC's determinized worlds. The
+  opponent's hand zone keeps only its name leaf; its cards are gone.
+- `H5Graphs(hide_opponent_hand=True)` is an exact no-op on these states. Applied to perfect-info states, it gives
+  the opponent's hand zone the same shape. This check caught a bug, now fixed: the first version also cut the hand
+  zone's name edge.
+
+Conclusion: these states are exactly what a hidden-info model sees at play time, so the `_pimc` shards can be
+trained on directly. Their win rate halves against a perfect-info opponent with the same budget.

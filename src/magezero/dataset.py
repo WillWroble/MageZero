@@ -159,8 +159,8 @@ class H5Graphs(Dataset):
         cand = self.cand_node + self.offsets[states_of(self.cand_offsets)]
         keep = t == NodeType.ROOT
         keep[cand] = True
-        edges = ~hidden[parent]
-        while True:  # reachable without passing through a hidden hand zone
+        edges = ~(hidden[parent] & (t[child] == NodeType.CARD))
+        while True:  # reachable without the hidden hands' card edges
             n = keep.sum()
             keep[child[edges & keep[parent]]] = True
             if keep.sum() == n:
