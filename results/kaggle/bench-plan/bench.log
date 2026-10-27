@@ -1,0 +1,6 @@
+arch: {'d_model': 256, 'n_heads': 4, 'd_ff': 512, 'dropout': 0.0, 'n_passes': 2, 'global_layers': 2, 'local': 'sequential', 'global_tokens': 'internal'}
+bench batch=1  gpu plan 25.4 ms  cpu plan 19.7 ms  51 states/s  0.06 GB
+bench batch=8  gpu plan 24.2 ms  cpu plan 23.8 ms  336 states/s  0.07 GB
+bench batch=32  gpu plan 28.9 ms  cpu plan 28.1 ms  1140 states/s  0.09 GB
+bench batch=128  gpu plan 31.4 ms  cpu plan 38.2 ms  3355 states/s  0.20 GB
+bench batch=512  gpu plan 112.8 ms  cpu plan 145.8 ms  3513 states/s  0.64 GB

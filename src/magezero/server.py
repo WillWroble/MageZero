@@ -18,6 +18,7 @@ torch.set_num_threads(TORCH_THREADS)
 
 # Batching config
 MAX_BATCH = 128
+CPU_PLAN_MAX = 32  # states per batch up to which NetGraph.plan is built on the CPU (T4: faster below, slower above)
 
 #module state
 server_model = None
@@ -105,8 +106,10 @@ def worker_loop():
             # Single forward pass over every state of every request
             graphs = collate_graphs(*zip(*states))
             with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
-                # the index work runs on the CPU, so the GPU runs the forward pass without stalls
-                out = server_model(graphs.to(DEVICE), server_model.plan(graphs).to(DEVICE))
+                # small batches: the index work runs on the CPU, so the GPU runs the forward pass without stalls;
+                # large ones: the CPU work costs more than the stalls (bench.py compares both)
+                plan = server_model.plan(graphs).to(DEVICE) if len(states) <= CPU_PLAN_MAX else None
+                out = server_model(graphs.to(DEVICE), plan)
             priority, target, use, value = (t.float().cpu().numpy() for t in out)
 
             # Split results back to individual requests: per-node scores in the order each state was sent

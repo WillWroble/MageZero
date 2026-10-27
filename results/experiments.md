@@ -185,3 +185,20 @@ Conclusion across both seeds:
 - **Priority on unseen opponents is dominated by seed noise.** Rankings flip between seeds (MonoW: deck4 1.098 →
   0.693, deck2 0.789 → 1.349; mirror: deck2 0.679 → 2.499). The priority head's out-of-distribution calibration is
   unstable; diversity's effect on it can't be measured at this noise level.
+
+## Inference: index work on the CPU (`NetGraph.plan`, mz-bench-plan)
+
+`NetGraph.plan(g)` holds the forward pass's graph-structure index work (≈20 nonzero/mask/max calls, each a
+CPU–GPU sync when done on the GPU). Outputs are bit-for-bit identical either way. T4, ver4 checkpoint, gen1 MonoB
+states, server path (CPU batch → GPU → outputs back), mean of 20:
+
+| batch | plan on GPU | plan on CPU |
+|---|---|---|
+| 1 | 25.4 ms | 19.7 ms (−22%) |
+| 8 | 24.2 ms | 23.8 ms |
+| 32 | 28.9 ms | 28.1 ms |
+| 128 | 31.4 ms | 38.2 ms (+22%) |
+| 512 | 112.8 ms | 145.8 ms (+29%) |
+
+Conclusion: removing the syncs saves ≈5 ms at small batches; at large batches the CPU index work (on Kaggle's slow
+CPU, not overlapped) costs more than the syncs did. The server uses the CPU plan up to `CPU_PLAN_MAX = 32` states.
