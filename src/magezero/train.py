@@ -26,22 +26,24 @@ def train(
         use_checkpoint: bool = False,
         arch: dict = None,
         hide_opponent_hand: bool = False,
+        out: str = None,
 ):
-    os.makedirs(f"models/{deck}/ver{version}", exist_ok=True)
+    out = out or f"models/{deck}/ver{version}"
+    os.makedirs(out, exist_ok=True)
     data_path = f"data/{deck}/ver{version}/training"
     ds = H5Graphs(data_path, hide_opponent_hand=hide_opponent_hand)
     if len(ds) == 0:
         found = (f"{len(ds.files)} .hdf5/.h5 files, none with readable states (see warnings above)" if ds.files
                  else "no .hdf5/.h5 files")
         raise SystemExit(f"no training data in {data_path}: {found}")
-    vocab, edge_vocab, model = prepare_vocab(deck, version, use_checkpoint, ds, arch or {})
+    vocab, edge_vocab, model = prepare_vocab(out, use_checkpoint, ds, arch or {})
     ds.apply_vocab(vocab, edge_vocab)
     test_ds = H5Graphs(f"data/{deck}/ver{version}/testing", vocab, edge_vocab, hide_opponent_hand)
 
-    train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab, edge_vocab)
+    train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab)
 
 
-def prepare_vocab(deck: str, version: int, use_checkpoint: bool, ds: H5Graphs, arch: dict):
+def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict):
     """Leaf and edge label vocabs = the previous checkpoint's (rows unchanged) + ids newly kept in
     this dataset, appended. Each embedding table has one row per vocab entry."""
     print("Building vocabs from dataset (ids seen in more than 10 states)")
@@ -52,7 +54,7 @@ def prepare_vocab(deck: str, version: int, use_checkpoint: bool, ds: H5Graphs, a
     model = NetGraph(**arch)
     vocab, edge_vocab = FeatureVocab(feature_hash_bins=GLOBAL_MAX), FeatureVocab(feature_hash_bins=GLOBAL_MAX)
     if use_checkpoint:
-        checkpoint_path = f"models/{deck}/ver{version}/model.pt.gz"
+        checkpoint_path = f"{out}/model.pt.gz"
         try:
             model, vocab, edge_vocab = load_checkpoint(checkpoint_path)
             print(f"Successfully loaded checkpoint from {checkpoint_path}")
@@ -94,7 +96,7 @@ def save_checkpoint(path, epoch, model, opt, vocab, edge_vocab, avg):
     os.remove(temp_path)
 
 
-def train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab, edge_vocab):
+def train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab):
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
@@ -143,10 +145,10 @@ def train_loop(deck, version, epochs, steps, model, ds, test_ds, vocab, edge_voc
             val_loss = test.validate(model, dl_test, vocab, edge_vocab)
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                save_checkpoint(f"models/{deck}/ver{version}/best.pt.gz", epoch, model, opt, vocab, edge_vocab, avg)
+                save_checkpoint(f"{out}/best.pt.gz", epoch, model, opt, vocab, edge_vocab, avg)
 
         #TODO: make validation based checkpoint schedule
-        save_checkpoint(f"models/{deck}/ver{version}/model.pt.gz", epoch, model, opt, vocab, edge_vocab, avg)
+        save_checkpoint(f"{out}/model.pt.gz", epoch, model, opt, vocab, edge_vocab, avg)
 
 if __name__ == "__main__":
     import argparse
@@ -155,7 +157,8 @@ if __name__ == "__main__":
     parser.add_argument("--version", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--steps", type=int, default=15000)
-    parser.add_argument("--checkpoint", action="store_true")
+    parser.add_argument("--checkpoint", action="store_true", help="resume from <out>/model.pt.gz")
+    parser.add_argument("--out", help="model directory (default: models/<deck>/ver<version>)")
     parser.add_argument("--arch", type=json.loads, default={}, help='NetGraph options as JSON, e.g. \'{"n_passes": 1}\'')
     parser.add_argument("--seed", type=int)
     parser.add_argument("--hide-opponent-hand", action="store_true",
@@ -164,4 +167,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    train(args.deck, args.version, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand)
+    train(args.deck, args.version, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand, args.out)
