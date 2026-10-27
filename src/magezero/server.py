@@ -19,6 +19,7 @@ torch.set_num_threads(TORCH_THREADS)
 # Batching config
 MAX_BATCH = 128
 CPU_PLAN_MAX = 32  # states per batch up to which NetGraph.plan is built on the CPU (T4: faster below, slower above)
+WORKERS = 1  # batching threads; with 2, one batch's CPU work overlaps the other's forward pass
 
 #module state
 server_model = None
@@ -37,7 +38,8 @@ def init(deck: str, version: int, port: int):
     model, VOCAB, EDGE_VOCAB = load_checkpoint(model_path)
     server_model = model.to(DEVICE).eval()
 
-    threading.Thread(target=worker_loop, daemon=True).start()
+    for _ in range(WORKERS):
+        threading.Thread(target=worker_loop, daemon=True).start()
 
     print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE} "
           f"leaf_rows={len(VOCAB)} edge_rows={len(EDGE_VOCAB)}")
@@ -102,15 +104,19 @@ def worker_loop():
                 break
 
         states = [s for p in batch for s in p.states]
+        t_start = time.perf_counter()
+        t_collated = t_forward = t_start
         try:
             # Single forward pass over every state of every request
             graphs = collate_graphs(*zip(*states))
+            t_collated = time.perf_counter()
             with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
                 # small batches: the index work runs on the CPU, so the GPU runs the forward pass without stalls;
                 # large ones: the CPU work costs more than the stalls (bench.py compares both)
                 plan = server_model.plan(graphs).to(DEVICE) if len(states) <= CPU_PLAN_MAX else None
                 out = server_model(graphs.to(DEVICE), plan)
             priority, target, use, value = (t.float().cpu().numpy() for t in out)
+            t_forward = time.perf_counter()
 
             # Split results back to individual requests: per-node scores in the order each state was sent
             starts = np.asarray(graphs.node_offsets)
@@ -136,7 +142,11 @@ def worker_loop():
             p.t_done = time.perf_counter()
             p.evt.set()
 
-        print(f"[BATCH] size={len(batch)}, total_states={len(states)}")
+        t_end = time.perf_counter()
+        print(f"[BATCH] size={len(batch)}, total_states={len(states)}, "
+              f"queued={(t_start - min(p.t_recv for p in batch)) * 1000:.1f}ms "
+              f"collate={(t_collated - t_start) * 1000:.1f}ms forward={(t_forward - t_collated) * 1000:.1f}ms "
+              f"split={(t_end - t_forward) * 1000:.1f}ms")
 
 
 @app.post("/evaluate")
