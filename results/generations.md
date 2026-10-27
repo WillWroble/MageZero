@@ -148,3 +148,28 @@ vs +0.23 on gen0 data), while the opponent seats stay well predicted. Its errors
 passes (vs MonoB: predicts an action in 19% of gen1's pass states, vs 6% on the gen0 mirror). Priority loss stays
 level because the soft visit distributions still overlap. Value is worst where gen1 outperformed gen0 most (MonoB,
 MonoR: 0.065), despite gen1's labels being largely this model's own evaluations.
+
+## gen1 vs MonoB from a Mono-only gen0 model (`ver5`)
+
+`ver5` model: the default trained on gen0 Mono games only (both seats, all five decks, 1.12M states), 4 epochs; same
+search settings as `ver4` gen1 except a longer timeout (which favours Faeries), 200 games.
+
+| | v4 gen1 (Pauper + Mono model) | v5 gen1 (Mono-only model) |
+|---|---|---|
+| Faeries win rate | 31.6% (171 games) | 26.5% (200 games; difference ≈1 SE) |
+| states/game Faeries / MonoB | 84.1 / 47.2 | 88.1 / 55.3 |
+| decisions with < 300 visits | 0.32 | 0.26 (longer timeout) |
+
+Chosen when available, gen0 / v4 gen1 / v5 gen1: Pass 0.33 / 0.50 / 0.50; Ninja 0.88 / 0.28 / 0.38; ninjutsu A
+0.65 / 0.27 / 0.36, B 0.61 / 0.40 / 0.50; Harrier Strix 0.58 / 0.32 / 0.42; Saiba 0.63 / 0.35 / 0.47; Of One Mind
+0.39 / 0.32 / 0.46; Elder 0.42 / 0.23 / 0.30; Miscreant 0.63 / 0.53 / 0.60; Seer 0.61 / 0.37 / 0.41; Spellstutter
+0.38 / 0.24 / 0.23; Counterspell 0.39 / 0.37 / 0.38; Snap 0.52 / 0.34 / 0.26; Island 0.69 / 0.65 / 0.59.
+Spellstutter own-turn share 0.84 / 0.68 / 0.75; Elder 0.69 / 0.66 / 0.73.
+
+Seer / Miscreant (no Miscreant out): v5 0.30 / 0.56 (50 states). Median value label by board, v4 / v5: Seer only
+−0.20 / −0.40, one Miscreant −0.25 / −0.26, 2+ Miscreants −0.10 / −0.08.
+
+Conclusion: the patience shift does not need the Pauper games (same pass rate, threats still held). v5 sits
+between gen0 and v4, much closer to v4: it casts threats ≈0.1 more often and moves flash plays less, each about
+two standard errors but all in the same direction. The Pauper games made gen1 slightly more patient and possibly
+slightly stronger against MonoB; the win-rate gap is within noise and confounded by the timeout.
