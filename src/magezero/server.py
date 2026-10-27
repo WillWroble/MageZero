@@ -9,8 +9,8 @@ import torch
 import waitress
 from flask import Flask, request, Response
 
-from dataset import collate_graphs, map_ids, node_types
-from model import load_checkpoint, AMP, DEVICE, NodeType
+from dataset import map_ids, node_types
+from model import Graphs, load_checkpoint, AMP, DEVICE, NodeType
 
 # Threading config
 TORCH_THREADS = 1 #max(1, os.cpu_count() // 2)
@@ -60,7 +60,7 @@ def request_arrays(data):
       edge_child, edge_parent, edge_label   per edge; child and parent are local to the state
       edge_offsets                          per state, its first edge
     Returns node_type, node_row, values, edge_child, edge_parent, edge_row (edges local to the request) and each
-    state's first node plus the node count."""
+    state's first node plus the node count, all int64 so the worker only concatenates."""
     ids, values = as_array(data["indices"]), as_array(data["values"])
     edge_child, edge_parent = as_array(data["edge_child"]), as_array(data["edge_parent"])
     node_type = node_types(ids)
@@ -68,15 +68,21 @@ def request_arrays(data):
     starts = np.append(as_array(data["offsets"], np.int64), len(ids))
     edge_starts = np.append(as_array(data["edge_offsets"], np.int64), len(edge_child))
     state_start = np.repeat(starts[:-1], np.diff(edge_starts))
-    return node_type, node_row, values, edge_child + state_start, edge_parent + state_start, edge_row, starts
+    return (node_type.astype(np.int64), node_row.astype(np.int64), values.astype(np.int64),
+            edge_child + state_start, edge_parent + state_start, edge_row.astype(np.int64), starts)
 
 
 def collate_requests(batch):
-    """One batch of graphs from whole requests: collate_graphs over the requests, with node offsets per state."""
-    graphs = collate_graphs(*zip(*(p.arrays[:6] for p in batch)))
-    bases = np.asarray(graphs.node_offsets)
-    offsets = np.concatenate([p.arrays[6][:-1] + base for p, base in zip(batch, bases)] + [bases[-1:]])
-    return graphs._replace(node_offsets=torch.from_numpy(offsets.astype(np.int64)))
+    """One batch of graphs from whole requests (the same tensors collate_graphs builds from their states)."""
+    bases = np.cumsum([0] + [len(p.arrays[0]) for p in batch], dtype=np.int64)
+
+    def cat(parts):
+        return torch.from_numpy(np.concatenate(parts))
+
+    node_type, node_row, values = (cat([p.arrays[i] for p in batch]) for i in range(3))
+    edge_child, edge_parent = (cat([p.arrays[i] + base for p, base in zip(batch, bases)]) for i in (3, 4))
+    offsets = cat([p.arrays[6][:-1] + base for p, base in zip(batch, bases)] + [bases[-1:]])
+    return Graphs(node_type, node_row, values, offsets, edge_child, edge_parent, cat([p.arrays[5] for p in batch]))
 
 
 class Pending:
