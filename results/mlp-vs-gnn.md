@@ -98,3 +98,55 @@ Conclusions (one seed):
 - gen1 has no mirror games. On the gen0 mirror, the gen1-trained legal GNN's value head collapsed (MSE 0.766;
   every other run 0.06–0.08). One seed. This is the failure mode seen before in `experiments.md`: value on an unseen
   matchup from a model without that matchup.
+
+### gen1 training, seeds 1–2 (`mlp-g1b`)
+
+| run | test | value | prio KL | prio acc | non-pass | pass | tgt KL | tgt acc | use acc |
+|---|---|---|---|---|---|---|---|---|---|
+| gnnlegal s1 | gen1 held-out | 0.064 | 0.075 | 0.756 | 0.574 | 0.878 | 0.144 | 0.768 | 0.813 |
+| gnnlegal s2 | gen1 held-out | 0.063 | 0.075 | 0.754 | 0.605 | 0.854 | 0.144 | 0.764 | 0.809 |
+| mlp s1 | gen1 held-out | 0.083 | 0.081 | 0.747 | 0.611 | 0.838 | 0.153 | 0.743 | 0.816 |
+| mlp s2 | gen1 held-out | 0.078 | 0.081 | 0.737 | 0.613 | 0.819 | 0.151 | 0.744 | 0.812 |
+| gnnlegal s1 | gen0 mirror | 0.714 | 0.086 | 0.697 | 0.644 | 0.774 | 0.094 | 0.648 | 0.861 |
+| gnnlegal s2 | gen0 mirror | 0.599 | 0.080 | 0.734 | 0.727 | 0.745 | 0.086 | 0.742 | 0.794 |
+| mlp s1 | gen0 mirror | 0.065 | 0.075 | 0.731 | 0.687 | 0.794 | 0.080 | 0.737 | 0.886 |
+| mlp s2 | gen0 mirror | 0.054 | 0.076 | 0.729 | 0.682 | 0.797 | 0.079 | 0.732 | 0.885 |
+
+Three seeds each, gen1 in distribution (gnnlegal vs mlp, ranges): prio KL 0.075–0.076 vs 0.080–0.081, target acc
+0.758–0.768 vs 0.733–0.744, target KL 0.144 vs 0.151–0.153, value 0.063–0.074 vs 0.078–0.083. Non-pass overlaps
+(0.574–0.612 vs 0.580–0.613), use is level. **On gen1, in distribution, the GNN is consistently but slightly
+better on priority KL, targets and value.** The gen1-trained GNN's mirror value collapse repeats on all three
+seeds (0.60–0.77 vs 0.054–0.065 for the MLP).
+
+## True OOD opponents at gen0 (`mlp-ood`)
+
+Training: `gen0-nomirror/train`, i.e. gen0/train without the mirror shards (7 Pauper matchups, both seats). Tests:
+the gen0 mirror (now an unseen opponent) and `gen0-mono/test`, the first 100 games of each gen0 Standard Mono
+matchup, both seats (54K states; no gen0 training set has Mono). In `ver4/training/gen0/PlayerB`,
+`Pauper-Faeries_vs_Standard-MonoW.hdf5` is a byte-identical copy of PlayerA's shard; it is left out.
+
+| run | test | value | prio KL | prio acc | non-pass | pass | tgt KL | tgt acc | use acc |
+|---|---|---|---|---|---|---|---|---|---|
+| gnnlegal s0 | mirror (unseen) | 0.863 | 0.074 | 0.756 | 0.780 | 0.721 | 0.083 | 0.749 | 0.883 |
+| gnnlegal s1 | mirror (unseen) | 0.947 | 0.081 | 0.732 | 0.739 | 0.722 | 0.088 | 0.666 | 0.855 |
+| mlp s0 | mirror (unseen) | 0.059 | 0.059 | 0.779 | 0.843 | 0.686 | 0.075 | 0.754 | 0.886 |
+| mlp s1 | mirror (unseen) | 0.052 | 0.059 | 0.775 | 0.831 | 0.693 | 0.078 | 0.751 | 0.885 |
+| gnnlegal s0 | Mono (unseen) | 0.226 | 0.109 | 0.778 | 0.801 | 0.748 | 0.116 | 0.753 | 0.715 |
+| gnnlegal s1 | Mono (unseen) | 0.194 | 0.109 | 0.768 | 0.779 | 0.753 | 0.122 | 0.738 | 0.767 |
+| mlp s0 | Mono (unseen) | 0.079 | 0.105 | 0.790 | 0.856 | 0.705 | 0.122 | 0.725 | 0.730 |
+| mlp s1 | Mono (unseen) | 0.075 | 0.100 | 0.779 | 0.806 | 0.745 | 0.127 | 0.724 | 0.729 |
+
+For reference, with the mirror in training (gen0 table above): gnnlegal 0.039–0.041 value, 0.052–0.057 prio KL;
+mlp 0.038, 0.053–0.054.
+
+- **On unseen opponents the MLP wins on value and priority, on both seeds.** Mirror value 0.052–0.059 vs
+  0.86–0.95; Mono 0.075–0.079 vs 0.19–0.23. Priority KL on the mirror 0.059 vs 0.074–0.081. The MLP loses almost
+  nothing when the mirror leaves training (value 0.038 → 0.052–0.059); the GNN's value breaks.
+- Targets: level on the mirror (s0), MLP ahead on s1; GNN ahead on Mono (0.738–0.753 vs 0.724–0.725).
+- **The GNN's value failure is a shortcut on seat identity.** On 60 mirror games per seat (`nm-gnnlegal-s0`), the
+  GNN predicts about +0.76 for every PlayerA state and −0.68 for every PlayerB state (correlation with the result
+  only 0.41 / 0.31); the MLP tracks the result (0.91 / 0.92). Faeries is always PlayerA in the training files, so
+  the player-name leaf identifies the Faeries seat. Hiding the "PlayerA"/"PlayerB" leaves at inference flips
+  PlayerB's mean to +0.74 (MSE 1.05 → 0.49), so the name drives the sign; what is left is a +0.7 bias on both
+  seats, i.e. other deck-identity cues (plausibly Faeries cards on the deciding side). The value head learned
+  "which deck am I" rather than the board.
