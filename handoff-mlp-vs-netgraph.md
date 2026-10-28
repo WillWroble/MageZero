@@ -89,7 +89,7 @@ Fetch only what you need, e.g. `git lfs pull --include="experiment_data/Pauper-F
     - `_pimc`: Faeries ran PIMC with hidden information; MonoB kept perfect information. Faeries' seat already
       encodes the opponent's hand as hidden.
     - `_pimc_pimc`: hidden information on both seats. So far only a PlayerA shard exists.
-    - `_policy`: settings not recorded here; ask Will.
+    - `_policy`: all policy priors turned on.
   - `testing/gen0`: the mirror test set.
 - **Checkpoint:** `experiment_models/Pauper-Faeries/ver4/{model,best}.pt.gz`.
 - **Will's machine** uses the `data/{deck}/ver{N}/...` layout from `CLAUDE.md`. In this repo it's
