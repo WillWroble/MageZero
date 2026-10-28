@@ -4,6 +4,8 @@
 #   gen1/train, gen1/test  every gen1 shard (ver4, ver5) except the hidden-information _pimc ones, split by game:
 #               the last 20% of each shard's games are held out
 #   both/train  gen0/train and gen1/train
+#   gen0-nomirror/train  gen0/train without the mirror shards: the mirror is then an unseen opponent
+#   gen0-mono/test       the first 100 games of each gen0 Standard Mono shard, both seats (no gen0 set trains on Mono)
 set -e
 R=/workspace/repo/experiment_data/Pauper-Faeries D=/workspace/data
 for seat in PlayerA PlayerB; do
@@ -16,4 +18,11 @@ for v in ver4 ver5; do
   python3 split_games.py $R/$v/training/gen1 $D/gen1/train/$v $D/gen1/test/$v 0.2 _pimc
 done
 mkdir -p $D/both/train && cp -rsf $D/gen0/train/. $D/both/train/gen0 && cp -rsf $D/gen1/train/. $D/both/train/gen1
+for seat in PlayerA PlayerB; do
+  mkdir -p $D/gen0-nomirror/train/$seat $D/gen0-mono/test/$seat
+  ln -sf $(ls $D/gen0/train/$seat/*.hdf5 | grep -v Pauper-Faeries_vs_Pauper-Faeries) $D/gen0-nomirror/train/$seat/
+  for f in $R/ver4/training/gen0/$seat/*Standard-Mono*.hdf5; do
+    [ -f $D/gen0-mono/test/$seat/$(basename $f) ] || python3 cut_games.py $f $D/gen0-mono/test/$seat/$(basename $f) 0 100
+  done
+done
 du -shL $D/*/*
