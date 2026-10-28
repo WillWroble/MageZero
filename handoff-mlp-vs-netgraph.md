@@ -85,10 +85,12 @@ Fetch only what you need, e.g. `git lfs pull --include="experiment_data/Pauper-F
   - `testing/gen0/PlayerA|PlayerB`: the mirror test set. This is the "ver4 mirror test" in Dama's table.
 - **`experiment_data/Pauper-Faeries/ver5/`:**
   - `training/gen1`: Affinity, Burn, CawGates, Elves, MonoB, MonoW.
-  - Extra MonoB shards: `MonoB2`, `MonoB_pimc`, `MonoB_pimc2`, `MonoB_pimc_pimc`, `MonoB_policy`. Their exact
-    generation settings aren't recorded here; ask Will.
+  - Extra MonoB shards. A trailing number (`MonoB2`, `_pimc2`) means another seed of the same run.
+    - `_pimc`: Faeries ran PIMC with hidden information; MonoB kept perfect information. Faeries' seat already
+      encodes the opponent's hand as hidden.
+    - `_pimc_pimc`: hidden information on both seats. So far only a PlayerA shard exists.
+    - `_policy`: settings not recorded here; ask Will.
   - `testing/gen0`: the mirror test set.
-  - The `_pimc` shards on Faeries' seat already encode the opponent's hand as hidden.
 - **Checkpoint:** `experiment_models/Pauper-Faeries/ver4/{model,best}.pt.gz`.
 - **Will's machine** uses the `data/{deck}/ver{N}/...` layout from `CLAUDE.md`. In this repo it's
   `experiment_data/`.
