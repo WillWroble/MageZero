@@ -9,7 +9,7 @@ python3 -m http.server 8000 --directory /workspace/runs >/dev/null 2>&1 &
 (while sleep 30; do du -sh /workspace/repo/.git/lfs > /workspace/runs/lfs-progress.txt; done) &
 cd /workspace
 [ -d repo ] || GIT_LFS_SKIP_SMUDGE=1 git clone -q -b graph-encoder-test https://github.com/WillWroble/MageZero.git repo
-cd repo && GIT_LFS_SKIP_SMUDGE=1 git fetch -q origin graph-encoder-test \
+cd repo && rm -f .git/index.lock && GIT_LFS_SKIP_SMUDGE=1 git fetch -q origin graph-encoder-test \
   && GIT_LFS_SKIP_SMUDGE=1 git reset -q --hard origin/graph-encoder-test \
   && git lfs pull --include="experiment_data/Pauper-Faeries/**" && bash runpod/prepare.sh
 echo ready
