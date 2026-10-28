@@ -1,12 +1,13 @@
 """
 Run experiments on a RunPod GPU pod. The pod clones this repo at the current pushed commit (code only), reads the
 data sets that files.sh builds on the network volume (/workspace/data), runs the runs `--concurrent` at a time on
-its one GPU, then deletes itself. Each run trains, then tests on each of its test sets; its model directory (with
+its one GPU, then writes DONE there (`--reap` deletes pods that are done). Each run trains, then tests on each of its test sets; its model directory (with
 train.log and test.log) is /workspace/runs/<name>/<run>, and its console output /workspace/runs/<name>/<run>.log.
 
   python runpod/launch.py --name s1 --runs '[{"name": "mlp", "train": "gen0/train", "tests": ["gen0/test"],
       "arch": {"net": "mlp"}, "args": "--epochs 6 --lr 1e-3"}]'
   python runpod/launch.py --files      # (re)start the files pod: fetches data, builds data sets, serves /workspace/runs
+  python runpod/launch.py --reap       # delete the experiment pods whose runs are all done
 
 Logs: https://<files pod id>-8000.proxy.runpod.net/<name>/<run>.log (the files pod's id: python runpod/launch.py --list)
 Run keys: name, train and tests (data sets under /workspace/data), arch (JSON for --arch), args (more train.py args).
@@ -37,8 +38,6 @@ cat > /tmp/runs.txt <<'RUNS'
 RUNS
 timeout {hours}h xargs -P {concurrent} -d '\\n' -I CMD bash -c CMD < /tmp/runs.txt
 echo done > $OUT/DONE
-python -c "import os, urllib.request as u; u.urlopen(u.Request('{api}/pods/' + os.environ['RUNPOD_POD_ID'], \
-method='DELETE', headers={{'Authorization': 'Bearer ' + os.environ['RUNPOD_API_KEY'], 'User-Agent': 'magezero'}}))"
 sleep infinity
 '''
 
@@ -69,11 +68,25 @@ def main():
     parser.add_argument("--hours", type=float, default=10, help="time limit for all runs")
     parser.add_argument("--files", action="store_true", help="(re)start the files pod")
     parser.add_argument("--list", action="store_true", help="list pods")
+    parser.add_argument("--reap", action="store_true", help="delete experiment pods that wrote DONE")
     args = parser.parse_args()
 
     if args.list:
         for p in api("GET", "pods"):
             print(p["id"], p["name"], p["desiredStatus"], p.get("costPerHr"), p.get("gpu", {}).get("displayName"))
+        return
+    if args.reap:
+        pods = api("GET", "pods")
+        files = next(p["id"] for p in pods if p["name"] == "mz-files")
+        for p in pods:
+            if p["name"].startswith("mz-") and p["name"] != "mz-files":
+                done = f"https://{files}-8000.proxy.runpod.net/{p['name'][3:]}/DONE"
+                try:
+                    urllib.request.urlopen(urllib.request.Request(done, headers={"User-Agent": "magezero"}))
+                except urllib.error.HTTPError:
+                    continue
+                api("DELETE", f"pods/{p['id']}")
+                print("deleted", p["name"])
         return
     if args.files:
         for p in api("GET", "pods"):
@@ -88,7 +101,7 @@ def main():
             raise SystemExit(f"push {commit} first: the pod clones it from GitHub")
         commands = "\n".join(command(args.name, run) for run in args.runs)
         script = POD.format(name=args.name, repo=REPO, commit=commit, commands=commands, hours=args.hours,
-                            concurrent=args.concurrent, api=API)
+                            concurrent=args.concurrent)
         body = {"name": f"mz-{args.name}", "computeType": "GPU", "gpuTypeIds": args.gpu, "gpuCount": 1,
                 "gpuTypePriority": "custom", "cloudType": "SECURE", "imageName": IMAGE, "containerDiskInGb": 20,
                 "dockerStartCmd": ["bash", "-c", script]}
