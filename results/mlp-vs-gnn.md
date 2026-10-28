@@ -10,7 +10,7 @@ training objective: NetGraph's softmax covers every ability node, legal or not.
 - **Models.**
   - `gnn`: NetGraph default (d256, FF 512, 2 passes, 8.95M params), policy softmax over all nodes of the head's types.
   - `gnnlegal`: the same model, policy softmax over the legal candidates only (`policy_domain: "legal"`).
-  - `mlp`: `NetMLP` d64, 1 block (209K params incl. embeddings), legal candidates only, lr 1e-3.
+  - `mlp`: `NetMLP` d64, 1 block (172K params with gen0's vocab; Dama: 166K), legal candidates only, lr 1e-3.
   - `mlp256`: `NetMLP` d256, 2 blocks (2.2M params), lr 1e-3.
 - **NetMLP** is a reconstruction of Dama's `MLPNet` from the forward pass in gorge's `bots/gonet/gonet.go`; his
   bridge from our graphs to MLP inputs isn't published. Each object is an MLP over the mean of its leaves; it adds the
@@ -58,4 +58,43 @@ Conclusions (one seed):
   help (d256 ≈ d64).
 - **Not on the next generation.** Trained on gen0 and tested on held-out gen1 games, the GNN generalizes better on
   every head but pass: value 0.077 vs 0.096–0.105, non-pass 0.749 vs 0.683–0.699, target acc 0.685 vs 0.642–0.645,
-  choose_use 0.814 vs 0.728–0.740. Needs a second seed (running) before it counts.
+  choose_use 0.814 vs 0.728–0.740. Needs a second seed before it counts (below: only value and target hold up).
+
+### gen0, second seed and controls (`mlp-g0b`)
+
+| run | test | value | prio KL | prio acc | non-pass | pass | tgt KL | tgt acc | use acc |
+|---|---|---|---|---|---|---|---|---|---|
+| gnnlegal seed 1 | gen0 mirror | 0.041 | 0.057 | 0.787 | 0.807 | 0.757 | 0.059 | 0.802 | 0.886 |
+| mlp seed 1 | gen0 mirror | 0.038 | 0.054 | 0.790 | 0.836 | 0.724 | 0.073 | 0.762 | 0.886 |
+| gnnlegal d64 (667K params) | gen0 mirror | 0.040 | 0.053 | 0.785 | 0.805 | 0.757 | 0.067 | 0.785 | 0.886 |
+| mlp lr 3e-4 | gen0 mirror | 0.040 | 0.052 | 0.794 | 0.862 | 0.694 | 0.072 | 0.761 | 0.886 |
+| gnnlegal seed 1 | gen1 held-out | 0.077 | 0.109 | 0.680 | 0.528 | 0.786 | 0.192 | 0.696 | 0.735 |
+| mlp seed 1 | gen1 held-out | 0.101 | 0.100 | 0.716 | 0.681 | 0.739 | 0.190 | 0.675 | 0.730 |
+| gnnlegal d64 | gen1 held-out | 0.093 | 0.106 | 0.716 | 0.626 | 0.780 | 0.192 | 0.695 | 0.734 |
+| mlp lr 3e-4 | gen1 held-out | 0.097 | 0.108 | 0.719 | 0.713 | 0.724 | 0.214 | 0.640 | 0.731 |
+
+- On the gen0 mirror, both seeds agree: value and priority are level, and the GNN leads on targets (acc 0.794/0.802
+  vs 0.763/0.762). The MLP's learning rate doesn't change that (lr 3e-4: 0.761).
+- A d64 GNN (667K params, 3× the MLP) keeps most of the target lead (0.785) with the MLP's value and priority.
+- gen0 → gen1 transfer: only two results repeat across seeds. The GNN's value is better (0.077 on both seeds vs
+  0.101–0.105), and so are targets (0.685/0.696 vs 0.645/0.675). Out-of-distribution priority swings with the
+  seed (GNN non-pass 0.749 → 0.528, use 0.814 → 0.735), as in the earlier diversity runs.
+
+## gen1 training (`mlp-g1`)
+
+| run | test | value | prio KL | prio acc | non-pass | pass | tgt KL | tgt acc | use acc |
+|---|---|---|---|---|---|---|---|---|---|
+| gnn | gen1 held-out | 0.058 | 0.152 | 0.715 | 0.403 | 0.924 | 0.147 | 0.758 | 0.816 |
+| gnnlegal | gen1 held-out | 0.074 | **0.076** | **0.756** | **0.612** | 0.853 | **0.144** | **0.758** | 0.798 |
+| mlp | gen1 held-out | 0.079 | 0.080 | 0.744 | 0.580 | 0.854 | 0.153 | 0.733 | 0.802 |
+| mlp256 | gen1 held-out | 0.086 | 0.081 | 0.742 | 0.564 | 0.862 | 0.154 | 0.738 | 0.806 |
+| gnn | gen0 mirror | 0.063 | 0.309 | 0.576 | 0.330 | 0.932 | 0.131 | 0.710 | 0.885 |
+| gnnlegal | gen0 mirror | **0.766** | 0.083 | 0.721 | 0.687 | 0.771 | 0.089 | 0.703 | 0.846 |
+| mlp | gen0 mirror | 0.058 | 0.083 | 0.704 | 0.655 | 0.776 | 0.079 | 0.727 | 0.868 |
+| mlp256 | gen0 mirror | 0.084 | 0.085 | 0.680 | 0.567 | 0.844 | 0.084 | 0.735 | 0.886 |
+
+- In distribution on gen1, the legal GNN is ahead of the MLP on priority (KL 0.076 vs 0.080, non-pass 0.612 vs
+  0.580) and targets (acc 0.758 vs 0.733). Value and choose_use are level. One seed; seeds 1–2 are running.
+- gen1 has no mirror games. On the gen0 mirror, the gen1-trained legal GNN's value head collapsed (MSE 0.766;
+  every other run 0.06–0.08). One seed. This is the failure mode seen before in `experiments.md`: value on an unseen
+  matchup from a model without that matchup.
