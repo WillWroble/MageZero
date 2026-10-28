@@ -216,3 +216,26 @@ information (PlayerB). Compared with the perfect-info MonoB shards (win rate fro
 
 Conclusion: these states are exactly what a hidden-info model sees at play time, so the `_pimc` shards can be
 trained on directly. Their win rate halves against a perfect-info opponent with the same budget.
+
+### PIMC play vs perfect-info play (Faeries vs MonoB, gen1)
+
+From the h5s (`results/pimc_play.py`, `src/magezero/util/behaviour.py`). Faeries' priority states with a choice;
+"top move" = most visited.
+
+| | ver4 perfect info | ver5 perfect info | ver5 PIMC hidden |
+|---|---|---|---|
+| WR | 31.6% | 26.5% | **12.5%** |
+| priority choices per game, own / opponent's turn | 27.0 / 6.3 | 28.9 / 6.8 | 32.8 / **3.7** |
+| flash creature or Strix loot castable on opponent's turn, states per game | 4.5 | 4.9 | **1.9** |
+| Spellstutter per game: own turn / onto a spell / opponent's turn, empty stack | 0.80 / 0.15 / 0.22 | 0.93 / 0.10 / 0.21 | **1.19 / 0.02** / 0.10 |
+| counterspells per game; used when castable on opponent's turn | 1.11; 52% | 1.29; 64% | 1.00; 58% |
+| top move's visit share (own / opponent's turn) | 0.64 / 0.65 | 0.64 / 0.65 | 0.63 / 0.65 |
+| search root value vs result, first third of the game | −0.08 vs −0.33 | −0.13 vs −0.47 | **−0.14 vs −0.71** |
+
+- **PIMC Faeries acts at sorcery speed.** It reaches the opponent's turn with instant-speed plays available less
+  than half as often. Spellstutter, Elder and Strix loot are chosen on its own turn 91%, 80% and 80% of the time,
+  against 49–75%.
+- **Spellstutter is cast as a creature, not a counter:** 0.02 times per game onto a spell, against 0.10–0.15.
+- **Counterspells are used at the same rate when castable,** but castable less often.
+- **Search confidence is unchanged, but root values overstate the result** by 0.57 early in the game, against
+  0.25–0.34.
