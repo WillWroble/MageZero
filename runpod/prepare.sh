@@ -18,11 +18,14 @@ for v in ver4 ver5; do
   python3 split_games.py $R/$v/training/gen1 $D/gen1/train/$v $D/gen1/test/$v 0.2 _pimc
 done
 mkdir -p $D/both/train && cp -rsf $D/gen0/train/. $D/both/train/gen0 && cp -rsf $D/gen1/train/. $D/both/train/gen1
-for seat in PlayerA PlayerB; do
-  mkdir -p $D/gen0-nomirror/train/$seat $D/gen0-mono/test/$seat
-  ln -sf $(ls $D/gen0/train/$seat/*.hdf5 | grep -v Pauper-Faeries_vs_Pauper-Faeries) $D/gen0-nomirror/train/$seat/
-  for f in $R/ver4/training/gen0/$seat/*Standard-Mono*.hdf5; do
-    [ -f $D/gen0-mono/test/$seat/$(basename $f) ] || python3 cut_games.py $f $D/gen0-mono/test/$seat/$(basename $f) 0 100
+# the seat's own shards only: gen0 PlayerB also holds a copy of PlayerA's MonoW shard
+rm -rf $D/gen0-mono
+for seat in "PlayerA Pauper-Faeries_vs_Standard-Mono" "PlayerB Standard-Mono"; do
+  set -- $seat
+  mkdir -p $D/gen0-nomirror/train/$1 $D/gen0-mono/test/$1
+  ln -sf $(ls $D/gen0/train/$1/*.hdf5 | grep -v Pauper-Faeries_vs_Pauper-Faeries) $D/gen0-nomirror/train/$1/
+  for f in $R/ver4/training/gen0/$1/$2*.hdf5; do
+    python3 cut_games.py $f $D/gen0-mono/test/$1/$(basename $f) 0 100
   done
 done
 du -shL $D/*/*
