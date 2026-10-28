@@ -150,3 +150,22 @@ mlp 0.038, 0.053–0.054.
   PlayerB's mean to +0.74 (MSE 1.05 → 0.49), so the name drives the sign; what is left is a +0.7 bias on both
   seats, i.e. other deck-identity cues (plausibly Faeries cards on the deciding side). The value head learned
   "which deck am I" rather than the board.
+
+## gen0 + gen1 training (`mlp-g01`)
+
+Both test sets are in distribution here (the gen0 mirror shard and every gen1 matchup are in training).
+
+| run | test | value | prio KL | prio acc | non-pass | pass | tgt KL | tgt acc | use acc |
+|---|---|---|---|---|---|---|---|---|---|
+| gnn | gen1 held-out | 0.056 | 0.170 | 0.702 | 0.321 | 0.958 | 0.155 | 0.751 | 0.814 |
+| gnnlegal | gen1 held-out | **0.053** | **0.074** | **0.755** | 0.572 | 0.878 | **0.140** | **0.762** | **0.827** |
+| mlp | gen1 held-out | 0.055 | 0.080 | 0.739 | **0.614** | 0.823 | 0.149 | 0.743 | 0.812 |
+| mlp256 | gen1 held-out | 0.072 | 0.079 | 0.744 | 0.573 | 0.859 | 0.149 | 0.738 | 0.819 |
+| gnn | gen0 mirror | 0.035 | 0.199 | 0.622 | 0.398 | 0.946 | 0.076 | 0.794 | 0.886 |
+| gnnlegal | gen0 mirror | 0.037 | **0.051** | **0.798** | 0.824 | 0.760 | **0.059** | **0.801** | 0.885 |
+| mlp | gen0 mirror | 0.036 | 0.054 | 0.789 | **0.827** | 0.734 | 0.071 | 0.765 | 0.886 |
+| mlp256 | gen0 mirror | 0.044 | 0.055 | 0.785 | 0.813 | 0.744 | 0.073 | 0.756 | 0.886 |
+
+One seed. Same pattern as gen0-only and gen1-only: in distribution, the legal GNN is slightly ahead on priority
+KL (0.074 vs 0.080, 0.051 vs 0.054) and clearly ahead on targets (0.762 vs 0.743, 0.801 vs 0.765); value is level.
+With gen1 added, value on gen1 drops for both (0.063–0.083 → 0.053–0.055).
