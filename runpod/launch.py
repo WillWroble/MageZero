@@ -77,7 +77,9 @@ def main():
         return
     if args.reap:
         pods = api("GET", "pods")
-        files = next(p["id"] for p in pods if p["name"] == "mz-files")
+        files = next((p["id"] for p in pods if p["name"] == "mz-files"), None)
+        if files is None:
+            return
         for p in pods:
             if p["name"].startswith("mz-") and p["name"] != "mz-files":
                 done = f"https://{files}-8000.proxy.runpod.net/{p['name'][3:]}/DONE"
