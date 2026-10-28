@@ -9,7 +9,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 import test
-from model import (NetGraph, NodeType, load_checkpoint, losses, accumulate, averages, decision_states,
+from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states,
                    AMP, DEVICE, GLOBAL_MAX)
 from dataset import H5Graphs, collate_batch, states_of, BATCH_SIZE
 from vocab import FeatureVocab, initial_rows, kept_feature_ids
@@ -26,6 +26,7 @@ def train(
         use_checkpoint: bool = False,
         arch: dict = None,
         hide_opponent_hand: bool = False,
+        lr: float = 1e-4,
 ):
     os.makedirs(out, exist_ok=True)
     ds = H5Graphs(train_dir, hide_opponent_hand=hide_opponent_hand)
@@ -37,7 +38,7 @@ def train(
     ds.apply_vocab(vocab, edge_vocab)
     test_ds = H5Graphs(test_dir, vocab, edge_vocab, hide_opponent_hand)
 
-    train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_opponent_hand)
+    train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_opponent_hand, lr)
 
 
 def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict):
@@ -48,7 +49,7 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict):
     kept_leaves = kept_feature_ids(ds.ids[leaf], states_of(ds.offsets)[leaf])
     kept_labels = kept_feature_ids(ds.edge_label, states_of(ds.edge_offsets))
 
-    model = NetGraph(**arch)
+    model = build_model(**arch)
     vocab, edge_vocab = FeatureVocab(feature_hash_bins=GLOBAL_MAX), FeatureVocab(feature_hash_bins=GLOBAL_MAX)
     if use_checkpoint:
         checkpoint_path = f"{out}/model.pt.gz"
@@ -94,7 +95,7 @@ def save_checkpoint(path, epoch, model, opt, vocab, edge_vocab, avg, hide_oppone
     os.remove(temp_path)
 
 
-def train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_opponent_hand):
+def train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_opponent_hand, lr=1e-4):
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
@@ -104,7 +105,8 @@ def train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_o
 
     #test.SHOW_CONFUSION_MATRIX = False
 
-    opt = optim.Adam(model.parameters(), lr=1e-4)
+    opt = optim.Adam(model.parameters(), lr=lr)
+    legal_only = model.arch.get("policy_domain") == "legal"
     scaler = torch.amp.GradScaler(enabled=AMP)
 
     best_val_loss = float('inf')
@@ -120,7 +122,7 @@ def train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_o
             graphs, targets = graphs.to(DEVICE), targets.to(DEVICE)
 
             with torch.amp.autocast(DEVICE.type, enabled=AMP):
-                heads = losses(model(graphs), graphs, targets)
+                heads = losses(model(graphs), graphs, targets, legal_only)
                 loss = sum(head[0] for head in heads.values())
 
             opt.zero_grad()
@@ -157,8 +159,9 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--steps", type=int, default=15000)
     parser.add_argument("--checkpoint", action="store_true", help="resume from <out>/model.pt.gz")
-    parser.add_argument("--arch", type=json.loads, default={}, help='NetGraph options as JSON, e.g. \'{"n_passes": 1}\'')
+    parser.add_argument("--arch", type=json.loads, default={}, help='model options as JSON, e.g. \'{"n_passes": 1}\' (NetGraph) or \'{"net": "mlp"}\' (NetMLP)')
     parser.add_argument("--seed", type=int)
+    parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--hide-opponent-hand", action="store_true",
                         help="train and test on states without the non-deciding player's hand (H5Graphs.hide_opponent_hand)")
 
@@ -167,4 +170,5 @@ if __name__ == "__main__":
     test.log_to(f"{args.out}/train.log")
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    train(args.train, args.test, args.out, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand)
+    train(args.train, args.test, args.out, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand,
+          args.lr)
