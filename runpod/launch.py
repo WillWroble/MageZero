@@ -31,6 +31,7 @@ apt-get update -qq && apt-get install -y -qq git >/dev/null; pip install -q h5py
 OUT=/workspace/runs/{name}; mkdir -p $OUT
 GIT_LFS_SKIP_SMUDGE=1 git clone -q {repo} /tmp/code && cd /tmp/code && git checkout -q {commit}
 cd /tmp/code/src/magezero && nvidia-smi > $OUT/gpu.txt
+export OMP_NUM_THREADS=$(( $(nproc) / {concurrent} ))  # concurrent runs otherwise oversubscribe the CPU
 cat > /tmp/runs.txt <<'RUNS'
 {commands}
 RUNS
