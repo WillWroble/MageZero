@@ -4,6 +4,7 @@ import time
 import gzip
 import shutil
 
+import numpy as np
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
@@ -12,7 +13,10 @@ import test
 from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states,
                    AMP, DEVICE, GLOBAL_MAX)
 from dataset import H5Graphs, collate_batch, states_of, BATCH_SIZE
-from vocab import FeatureVocab, initial_rows, kept_feature_ids
+from vocab import FeatureVocab, feature_id, initial_rows, kept_feature_ids
+
+# seat names: Faeries is always PlayerA in the data, so they identify the deck (a shortcut for the value head)
+PLAYER_NAMES = [feature_id("PlayerA"), feature_id("PlayerB")]
 
 
 
@@ -27,6 +31,7 @@ def train(
         arch: dict = None,
         hide_opponent_hand: bool = False,
         lr: float = 1e-4,
+        drop_player_names: bool = False,
 ):
     os.makedirs(out, exist_ok=True)
     ds = H5Graphs(train_dir, hide_opponent_hand=hide_opponent_hand)
@@ -34,19 +39,21 @@ def train(
         found = (f"{len(ds.files)} .hdf5/.h5 files, none with readable states (see warnings above)" if ds.files
                  else "no .hdf5/.h5 files")
         raise SystemExit(f"no training data in {train_dir}: {found}")
-    vocab, edge_vocab, model = prepare_vocab(out, use_checkpoint, ds, arch or {})
+    vocab, edge_vocab, model = prepare_vocab(out, use_checkpoint, ds, arch or {}, drop_player_names)
     ds.apply_vocab(vocab, edge_vocab)
     test_ds = H5Graphs(test_dir, vocab, edge_vocab, hide_opponent_hand)
 
     train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_opponent_hand, lr)
 
 
-def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict):
+def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop_player_names: bool = False):
     """Leaf and edge label vocabs = the previous checkpoint's (rows unchanged) + ids newly kept in
     this dataset, appended. Each embedding table has one row per vocab entry."""
     print("Building vocabs from dataset (ids seen in more than 10 states)")
     leaf = ds.node_type == NodeType.LEAF
     kept_leaves = kept_feature_ids(ds.ids[leaf], states_of(ds.offsets)[leaf])
+    if drop_player_names:  # leaves outside the vocab are dropped with their edges, here and wherever the checkpoint runs
+        kept_leaves = kept_leaves[~np.isin(kept_leaves, PLAYER_NAMES)]
     kept_labels = kept_feature_ids(ds.edge_label, states_of(ds.edge_offsets))
 
     model = build_model(**arch)
@@ -164,6 +171,8 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--hide-opponent-hand", action="store_true",
                         help="train and test on states without the non-deciding player's hand (H5Graphs.hide_opponent_hand)")
+    parser.add_argument("--drop-player-names", action="store_true",
+                        help="leave the PlayerA/PlayerB name leaves out of the vocab, so the model never sees them")
 
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -171,4 +180,4 @@ if __name__ == "__main__":
     if args.seed is not None:
         torch.manual_seed(args.seed)
     train(args.train, args.test, args.out, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand,
-          args.lr)
+          args.lr, args.drop_player_names)
