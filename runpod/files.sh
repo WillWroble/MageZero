@@ -8,6 +8,7 @@ mkdir -p /workspace/runs
 python3 -m http.server 8000 --directory /workspace/runs >/dev/null 2>&1 &
 cd /workspace
 [ -d repo ] || GIT_LFS_SKIP_SMUDGE=1 git clone -q -b graph-encoder-test https://github.com/WillWroble/MageZero.git repo
+(while sleep 30; do du -sh /workspace/repo/.git/lfs > /workspace/runs/lfs-progress.txt; done) &
 cd repo && GIT_LFS_SKIP_SMUDGE=1 git pull -q && git lfs pull --include="experiment_data/Pauper-Faeries/**" \
   > /workspace/runs/files.log 2>&1 && bash runpod/prepare.sh >> /workspace/runs/files.log 2>&1
 echo ready >> /workspace/runs/files.log
