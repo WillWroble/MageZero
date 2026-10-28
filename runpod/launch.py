@@ -37,7 +37,7 @@ RUNS
 timeout {hours}h xargs -P {concurrent} -d '\\n' -I CMD bash -c CMD < /tmp/runs.txt
 echo done > $OUT/DONE
 python -c "import os, urllib.request as u; u.urlopen(u.Request('{api}/pods/' + os.environ['RUNPOD_POD_ID'], \
-method='DELETE', headers={{'Authorization': 'Bearer ' + os.environ['RUNPOD_API_KEY']}}))"
+method='DELETE', headers={{'Authorization': 'Bearer ' + os.environ['RUNPOD_API_KEY'], 'User-Agent': 'magezero'}}))"
 sleep infinity
 '''
 
@@ -53,7 +53,7 @@ def command(name, run):
 def api(method, path, body=None):
     req = urllib.request.Request(f"{API}/{path}", method=method, data=json.dumps(body).encode() if body else None,
                                  headers={"Authorization": f"Bearer {os.environ['RUNPOD_API_KEY']}",
-                                          "Content-Type": "application/json"})
+                                          "Content-Type": "application/json", "User-Agent": "magezero"})
     with urllib.request.urlopen(req) as r:
         return json.loads(r.read() or "null")
 

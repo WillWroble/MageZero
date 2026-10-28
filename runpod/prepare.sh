@@ -3,6 +3,7 @@
 #   gen0/test   ver4 gen0 mirror test set
 #   gen1/train, gen1/test  every gen1 shard (ver4, ver5) except the hidden-information _pimc ones, split by game:
 #               the last 20% of each shard's games are held out
+#   both/train  gen0/train and gen1/train
 set -e
 R=/workspace/repo/experiment_data/Pauper-Faeries D=/workspace/data
 for seat in PlayerA PlayerB; do
@@ -14,4 +15,5 @@ cd /workspace/repo/src/magezero/util
 for v in ver4 ver5; do
   python3 split_games.py $R/$v/training/gen1 $D/gen1/train/$v $D/gen1/test/$v 0.2 _pimc
 done
+mkdir -p $D/both/train && cp -rsf $D/gen0/train/. $D/both/train/gen0 && cp -rsf $D/gen1/train/. $D/both/train/gen1
 du -shL $D/*/*
