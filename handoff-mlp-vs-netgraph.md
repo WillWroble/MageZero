@@ -49,6 +49,34 @@ score   policy MLP([s ‖ o]), a logit
   was trained on for the ver4 table (data, split, epochs).
 - **Other code:** `bots/gonet` also loads a second architecture, `"gnn"` (`bots/gonet/gnn.go`).
 
+## How we analyse
+
+- **Classic test:** the model that generated a generation is scored with `test.py` on each new matchup and seat,
+  with its own gen0 mirror test as the reference. Example: `results/generations.md`, "gen0 model on gen1 data".
+  - Columns: states, always-pass (share of priority states whose MCTS top move is Pass), priority accuracy and its
+    gain over always-pass, non-pass recall, priority loss, target legal accuracy, use accuracy, value MSE.
+  - Command: `python src/magezero/test.py --data <matchup dir> --model <model dir>`.
+- **Comparing models:** per-head test metrics, not training loss. Report value, priority, target and use loss;
+  non-pass priority; and the legal-only accuracy and mass (`*_legal_accuracy`, `*_legal_mass`).
+  - Seeds: fixed seeds (`--seed`), plus a second seed when arms are close. Validation loss moves about 0.01–0.03
+    between epochs, so smaller differences are noise.
+  - Records: one table and a one-line conclusion per run in `results/experiments.md`.
+- **Behaviour, straight from the h5s:** no model needed. The top move is the most-visited candidate, and game
+  results come from `game_offsets` and the final value label.
+  - `src/magezero/util/behaviour.py`, run from `src/magezero` as `PYTHONPATH=. python util/behaviour.py <shard>`:
+    games, states per game, win rate, Seer vs Miscreant, value labels by board, and how often each ability is the
+    top move when available, with its own-turn share.
+  - `results/pimc_play.py <shard>...`, with `PYTHONPATH=src/magezero`: decisions per game on own vs opponent's turn,
+    Spellstutter use, counters when castable, flash timing, top move's visit share, and root value against
+    result.
+  - Used to track how play changes across generations (`results/generations.md`).
+- **Combat per step:** `src/magezero/util/step_accuracy.py`, run from `src/magezero` as
+  `PYTHONPATH=. python util/step_accuracy.py <checkpoint> <test dir>`. Target-head top-1 per game step (attacks,
+  blocks and so on) against a random legal pick.
+- **Data checks:** read shards directly before trusting a setting, for example counting hand cards per seat to
+  confirm hidden information. `src/magezero/util/cut_games.py src dst start end` copies a range of games into a
+  new shard.
+
 ## Related results in this repo
 
 - **Bag of tokens** (`n_passes: 0, global_tokens: all`, run mz-s1-edges): collapsed. Priority stayed at uniform
