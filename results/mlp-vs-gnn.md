@@ -237,3 +237,31 @@ Conclusions (Faeries' seat):
   The MLP's pooled lead on Mono priority came from the Mono deck's own seat. Everywhere else priority KL is level
   or slightly in the GNN's favour; the MLP keeps a higher non-pass top-1 on most sets (it passes less).
 - **Value:** without names, the GNN is level or better on every set.
+
+## Larger training set: gen0 Mono → unseen Pauper (`mlp-mono-s0`, `mlp-mono-s1`)
+
+Will's point: the Pauper-only training set (420K states) is small for a 9M-parameter GNN. Here both models train on
+gen0 Standard Mono, games 100 onward of each shard, both seats (1.07M states, ~9,500 games), 4 epochs, names kept.
+Tests: `gen0-pauper/test` (first 100 games of the 7 non-mirror Pauper matchups, both seats, 116K states, unseen),
+the gen0 mirror (unseen) and `gen0-mono/test` (the first 100 Mono games, in distribution).
+
+| run | test | value | prio KL | prio acc | non-pass | pass | tgt KL | tgt acc | use acc |
+|---|---|---|---|---|---|---|---|---|---|
+| gnnlegal s0 | Pauper (unseen) | 0.100 | 0.097 | 0.782 | 0.741 | 0.817 | 0.095 | 0.742 | 0.817 |
+| gnnlegal s1 | Pauper (unseen) | 0.083 | 0.099 | 0.789 | 0.800 | 0.781 | 0.103 | 0.738 | 0.708 |
+| mlp s0 | Pauper (unseen) | 0.090 | 0.099 | 0.781 | 0.888 | 0.690 | 0.105 | 0.704 | 0.831 |
+| mlp s1 | Pauper (unseen) | 0.095 | 0.097 | 0.768 | 0.861 | 0.690 | 0.097 | 0.711 | 0.773 |
+| gnnlegal s0 | mirror (unseen) | 0.683 | 0.082 | 0.740 | 0.709 | 0.784 | 0.090 | 0.738 | 0.554 |
+| gnnlegal s1 | mirror (unseen) | 0.678 | 0.086 | 0.726 | 0.790 | 0.633 | 0.080 | 0.751 | 0.556 |
+| mlp s0 | mirror (unseen) | 0.047 | 0.054 | 0.790 | 0.845 | 0.709 | 0.079 | 0.735 | 0.886 |
+| mlp s1 | mirror (unseen) | 0.043 | 0.057 | 0.789 | 0.815 | 0.751 | 0.079 | 0.722 | 0.881 |
+| gnnlegal s0 | Mono (in distribution) | 0.040 | 0.070 | 0.800 | 0.768 | 0.840 | 0.073 | 0.819 | 0.861 |
+| gnnlegal s1 | Mono (in distribution) | 0.039 | 0.071 | 0.800 | 0.789 | 0.813 | 0.079 | 0.813 | 0.861 |
+| mlp s0 | Mono (in distribution) | 0.043 | 0.075 | 0.789 | 0.800 | 0.775 | 0.091 | 0.770 | 0.868 |
+| mlp s1 | Mono (in distribution) | 0.048 | 0.074 | 0.787 | 0.780 | 0.797 | 0.085 | 0.783 | 0.869 |
+
+- **More data does not stop the shortcut.** With names, both GNN seeds collapse on the unseen mirror (value 0.68,
+  choose_use 0.55) while the MLP is fine (0.043–0.047). The no-names version is running (`mlp-mono-dn`).
+- On unseen Pauper (both seats): value mixed (GNN 0.083–0.100, MLP 0.090–0.095), priority KL level, targets GNN
+  (0.738–0.742 vs 0.704–0.711). In distribution the GNN leads on everything but choose_use (targets 0.813–0.819
+  vs 0.770–0.783).
