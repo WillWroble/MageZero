@@ -8,6 +8,8 @@ train.log and test.log) is /workspace/runs/<name>/<run>, and its console output 
       "arch": {"net": "mlp"}, "args": "--epochs 6 --lr 1e-3"}]'
   python runpod/launch.py --files      # (re)start the files pod: fetches data, builds data sets, serves /workspace/runs
   python runpod/launch.py --reap       # delete the experiment pods whose runs are all done
+  python runpod/launch.py --name build --script runpod/build-xmage.sh --env MAGE_COMMIT=f2ce8eca --cpu 32
+      # any repo script, run from the repo root with $OUT=/workspace/runs/<name>; its output goes to $OUT/script.log
 
 Logs: https://<files pod id>-8000.proxy.runpod.net/<name>/<run>.log (the files pod's id: python runpod/launch.py --list)
 Run keys: name, train and tests (data sets under /workspace/data, or absolute paths), arch (JSON for --arch), args
@@ -44,6 +46,15 @@ echo done > $OUT/DONE
 sleep infinity
 '''
 
+SCRIPT_POD = '''set -x
+apt-get update -qq && apt-get install -y -qq git >/dev/null
+export OUT=/workspace/runs/{name}; mkdir -p $OUT
+GIT_LFS_SKIP_SMUDGE=1 git clone -q {repo} /tmp/code && cd /tmp/code && git checkout -q {commit}
+{env} timeout {hours}h bash {script} > $OUT/script.log 2>&1
+echo $? > $OUT/DONE
+sleep infinity
+'''
+
 
 def command(name, run):
     log, data = f"/workspace/runs/{name}/{run['name']}.log", "/workspace/data"
@@ -73,6 +84,9 @@ def main():
     parser.add_argument("--concurrent", type=int, default=4, help="runs at once on the GPU")
     parser.add_argument("--hours", type=float, default=10, help="time limit for all runs")
     parser.add_argument("--setup", default="", help="shell command run on the pod before the runs")
+    parser.add_argument("--script", help="run this repo script instead of training runs")
+    parser.add_argument("--env", nargs="*", default=[], help="KEY=VALUE pairs for --script")
+    parser.add_argument("--cpu", type=int, help="a CPU pod with this many vCPUs instead of a GPU pod")
     parser.add_argument("--files", action="store_true", help="(re)start the files pod")
     parser.add_argument("--list", action="store_true", help="list pods")
     parser.add_argument("--reap", action="store_true", help="delete experiment pods that wrote DONE")
@@ -108,12 +122,21 @@ def main():
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
         if subprocess.run(["git", "branch", "-r", "--contains", commit], capture_output=True, text=True).stdout == "":
             raise SystemExit(f"push {commit} first: the pod clones it from GitHub")
-        commands = "\n".join(command(args.name, run) for run in args.runs)
-        script = POD.format(name=args.name, repo=REPO, commit=commit, commands=commands, hours=args.hours,
-                            concurrent=args.concurrent, setup=args.setup)
-        body = {"name": f"mz-{args.name}", "computeType": "GPU", "gpuTypeIds": args.gpu, "gpuCount": 1,
-                "gpuTypePriority": "custom", "cloudType": "SECURE", "imageName": IMAGE, "containerDiskInGb": 20,
-                "dockerStartCmd": ["bash", "-c", script]}
+        if args.script:
+            script = SCRIPT_POD.format(name=args.name, repo=REPO, commit=commit, hours=args.hours, script=args.script,
+                                       env=" ".join(shlex.quote(e) for e in args.env))
+        else:
+            commands = "\n".join(command(args.name, run) for run in args.runs)
+            script = POD.format(name=args.name, repo=REPO, commit=commit, commands=commands, hours=args.hours,
+                                concurrent=args.concurrent, setup=args.setup)
+        if args.cpu:
+            body = {"name": f"mz-{args.name}", "computeType": "CPU", "cpuFlavorIds": ["cpu5c", "cpu3c"],
+                    "vcpuCount": args.cpu, "imageName": "ubuntu:22.04", "containerDiskInGb": 30,
+                    "dockerStartCmd": ["bash", "-c", script]}
+        else:
+            body = {"name": f"mz-{args.name}", "computeType": "GPU", "gpuTypeIds": args.gpu, "gpuCount": 1,
+                    "gpuTypePriority": "custom", "cloudType": "SECURE", "imageName": IMAGE, "containerDiskInGb": 60,
+                    "dockerStartCmd": ["bash", "-c", script]}
     body.update(networkVolumeId=VOLUME, volumeMountPath="/workspace", dataCenterIds=[DATA_CENTER])
     pod = api("POST", "pods", body)
     print(pod["id"], pod.get("costPerHr"), pod.get("machine", {}).get("gpuTypeId"))
