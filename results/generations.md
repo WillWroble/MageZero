@@ -151,6 +151,11 @@ MonoR: 0.065), despite gen1's labels being largely this model's own evaluations.
 
 ## gen1 vs MonoB from a Mono-only gen0 model (`ver5`)
 
+**Correction (Will, Oct 29):** every gen1 shard, `ver4` and `ver5`, was generated with the v4 model. There is no
+Mono-only model; `ver5` is a later batch of v4-model games. The ver4 vs ver5 differences below (win rates, behaviour)
+come from whatever else changed between the batches (the timeout, possibly engine changes, seeds), not from the
+model's training data, and the conclusions about the Pauper games are unsupported.
+
 `ver5` model: the default trained on gen0 Mono games only (both seats, all five decks, 1.12M states), 4 epochs; same
 search settings as `ver4` gen1 except a longer timeout (which favours Faeries), 200 games.
 
