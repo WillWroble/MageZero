@@ -17,6 +17,7 @@ For each generation:
   9. Record gen completion in the run file
 """
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -320,9 +321,11 @@ def launch_jvm(game_yml_path: str, log_path: Optional[Path] = None) -> None:
 
 def run_train(deck: str, version: int, epochs: int, use_checkpoint: bool,
               run_dir: Path, gen: int) -> None:
-    data = Path("data") / deck / f"ver{version}"
-    cmd = [PYTHON, f"{SRC}/train.py", "--train", str(data / "training"), "--test", str(data / "testing"),
-           "--out", str(Path("models") / deck / f"ver{version}"), "--epochs", str(epochs)]
+    data, model = f"data/{deck}/ver{version}", Path("models") / deck / f"ver{version}"
+    model.mkdir(parents=True, exist_ok=True)
+    if not (model / "split.txt").exists():  # a hand-written split.txt wins
+        (model / "split.txt").write_text(f"train:\n{re.escape(data)}/training/.*\ntest:\n{re.escape(data)}/testing/.*\n")
+    cmd = [PYTHON, f"{SRC}/train.py", "--model", str(model), "--epochs", str(epochs)]
     if use_checkpoint:
         cmd.append("--checkpoint")
     log_path = run_dir / "train.log"
@@ -338,8 +341,7 @@ def run_test(deck: str, version: int, run_dir: Path, gen: int) -> None:
         f.write(f"\n=== GEN {gen} TEST {datetime.now().isoformat()} ===\n")
         f.flush()
         subprocess.run(
-            [PYTHON, f"{SRC}/test.py", "--data", str(Path("data") / deck / f"ver{version}" / "testing"),
-             "--model", str(Path("models") / deck / f"ver{version}")],
+            [PYTHON, f"{SRC}/test.py", "--model", str(Path("models") / deck / f"ver{version}")],
             check=True, stdout=f, stderr=subprocess.STDOUT,
         )
 

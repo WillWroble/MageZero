@@ -1,4 +1,5 @@
 # dataset.py
+import re
 from pathlib import Path
 
 import h5py
@@ -7,6 +8,7 @@ import torch
 from torch.utils.data import Dataset
 
 from model import ActionType, Graphs, NodeType, PRIORITY_TYPES, TARGET_TYPES, Targets
+from util.cut_games import select_games
 from vocab import feature_id
 
 BATCH_SIZE = 64
@@ -46,6 +48,50 @@ def map_ids(ids, node_type, edge_label, vocab, edge_vocab):
     outside the vocab). Training data and inference requests map the same way."""
     node_row = np.where(node_type == NodeType.LEAF, vocab.lookup(ids), -1)
     return node_row.astype(np.int32), (edge_vocab.lookup(edge_label) + 1).astype(np.int32)
+
+
+def read_split(path: str):
+    """(train, vals) from a model directory's split.txt. Each is a list of (shard path, games or None for all);
+    vals maps each val set's name to one, in file order. The file:
+        holdout 5        optional: every 5th game (games 4, 9, ...) of each train shard is the first val set, "holdout"
+        train:           regexes, one per line, each matched against the whole path of every .h5/.hdf5 file under
+        <regex>          the current directory
+        val1:            any number of named val sets; a val set may not share a shard with train
+        <regex>
+    # starts a comment."""
+    holdout, sections, current = None, {}, None
+    for line in Path(path).read_text().splitlines():
+        line = line.split("#")[0].strip()
+        if line.startswith("holdout "):
+            holdout = int(line.split()[1])
+        elif line.endswith(":"):
+            current = sections.setdefault(line[:-1].strip(), [])
+        elif line:
+            if current is None:
+                raise SystemExit(f"{path}: regex before the first section: {line}")
+            current.append(re.compile(line))
+    files = sorted(str(p) for p in list(Path(".").rglob("*.h5")) + list(Path(".").rglob("*.hdf5")))
+
+    def match(regexes):
+        return [f for f in files if any(r.fullmatch(f) for r in regexes)]
+
+    train_files = match(sections.pop("train", []))
+    train, vals = [(f, None) for f in train_files], {}
+    if holdout:
+        train, held = [], []
+        for f in train_files:
+            with h5py.File(f, "r") as h:
+                games = range(len(h["/game_offsets"]) - 1)
+            train.append((f, [i for i in games if i % holdout != holdout - 1]))
+            held.append((f, [i for i in games if i % holdout == holdout - 1]))
+        vals["holdout"] = held
+    for name, regexes in sections.items():
+        shards = match(regexes)
+        shared = sorted(set(shards) & set(train_files))
+        if shared:
+            raise SystemExit(f"{path}: val set {name} shares shards with train: {', '.join(shared)}")
+        vals[name] = [(f, None) for f in shards]
+    return train, vals
 
 
 def shard_problem(s: dict):
@@ -90,17 +136,19 @@ class H5Graphs(Dataset):
                                                         useFalseVisits, useTrueVisits
     Ids stay raw until apply_vocab maps them to embedding rows; __getitem__ needs the mapped form.
     hide_opponent_hand: see hide_opponent_hand.
+    source: a directory (every shard under it) or a list of (shard path, games or None for all), as read_split gives.
     """
 
-    def __init__(self, dir_path: str, vocab=None, edge_vocab=None, hide_opponent_hand: bool = False):
-        p = Path(dir_path)
-        self.files = [str(pp) for pp in sorted(list(p.rglob("*.h5")) + list(p.rglob("*.hdf5")))]
+    def __init__(self, source, vocab=None, edge_vocab=None, hide_opponent_hand: bool = False):
+        if isinstance(source, (str, Path)):
+            source = [(str(p), None) for p in sorted(list(Path(source).rglob("*.h5")) + list(Path(source).rglob("*.hdf5")))]
+        self.files = [path for path, _ in source]
 
         shards = []
-        for path in self.files:
+        for path, games in source:
             try:
                 with h5py.File(path, "r") as f:
-                    shard = {key: f[key][...] for key in KEYS}
+                    shard = {key: f[key][...] for key in KEYS} if games is None else select_games(f, games)
             except (OSError, KeyError) as e:
                 print(f"[warn] skipping unreadable shard {path}: {e}")
                 continue
