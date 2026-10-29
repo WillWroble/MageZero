@@ -16,12 +16,14 @@ Run keys: name, train and tests (data sets under /workspace/data, or absolute pa
 (more train.py args); model (an existing model directory under /workspace/runs) skips training and only tests it.
 """
 import argparse
+import email.utils
 import json
 import os
 import posixpath
 import shlex
 import subprocess
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 API = "https://rest.runpod.io/v1"
@@ -33,7 +35,7 @@ HERE = Path(__file__).resolve().parent
 
 POD = '''set -x
 apt-get update -qq && apt-get install -y -qq git >/dev/null; pip install -q h5py
-OUT=/workspace/runs/{name}; mkdir -p $OUT
+OUT=/workspace/runs/{name}; mkdir -p $OUT; rm -f $OUT/DONE
 GIT_LFS_SKIP_SMUDGE=1 git clone -q {repo} /tmp/code && cd /tmp/code && git checkout -q {commit}
 cd /tmp/code/src/magezero && nvidia-smi > $OUT/gpu.txt
 {setup}
@@ -48,7 +50,7 @@ sleep infinity
 
 SCRIPT_POD = '''set -x
 apt-get update -qq && apt-get install -y -qq git >/dev/null
-export OUT=/workspace/runs/{name}; mkdir -p $OUT
+export OUT=/workspace/runs/{name}; mkdir -p $OUT; rm -f $OUT/DONE
 GIT_LFS_SKIP_SMUDGE=1 git clone -q {repo} /tmp/code && cd /tmp/code && git checkout -q {commit}
 {env} timeout {hours}h bash {script} > $OUT/script.log 2>&1
 echo $? > $OUT/DONE
@@ -108,8 +110,12 @@ def main():
             if p["name"].startswith("mz-") and p["name"] != "mz-files":
                 done = f"https://{files}-8000.proxy.runpod.net/{p['name'][3:]}/DONE"
                 try:
-                    urllib.request.urlopen(urllib.request.Request(done, headers={"User-Agent": "magezero"}))
+                    with urllib.request.urlopen(urllib.request.Request(done, headers={"User-Agent": "magezero"})) as r:
+                        written = email.utils.parsedate_to_datetime(r.headers["Last-Modified"])
                 except urllib.error.HTTPError:
+                    continue
+                started = datetime.fromisoformat(p["lastStartedAt"].replace(" +0000 UTC", "+00:00"))
+                if written < started:  # left by an earlier pod of the same name
                     continue
                 api("DELETE", f"pods/{p['id']}")
                 print("deleted", p["name"])
