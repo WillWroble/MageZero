@@ -109,3 +109,27 @@ Conclusion: no clear win. Priority top-1 and target accuracy stay within ±0.01 
 moves 2–4 points of priority accuracy from pass to non-pass moves. The split head costs value (gen0 0.032 →
 0.036 / 0.044); the shared w 1.0 head keeps value and is the only variant with no clear cost. Shared w 0.1 has the
 best selfplay/reg/PIMC value (0.040 / 0.042 / 0.039) but the worst gen0 (0.046, prio top-1 0.791): mixed, one seed.
+
+## Value labels rebuilt with TD 0.97 / 0.99 (branch D, GNN vs MLP, one seed)
+
+Same runs as D-gnn / D-mlp except `--td` (labels rebuilt from root values and results, `dataset.td_labels`).
+Value MSE on each holdout set against the run's own TD labels (both seats), epoch 3 (best epoch in brackets).
+0.92 = the original D runs. Logs: `/workspace/runs/td-{gnn,mlp}-{0.97,0.99}`. The gen0 val sets came out empty
+(`gen0/test` is a directory symlink and `read_split` doesn't follow those), so there is no gen0 column.
+
+| TD | holdout | GNN | MLP | gap (MLP − GNN) |
+|---|---|---|---|---|
+| 0.92 | self-play | 0.039 | 0.046 | 0.007 (15%) |
+| 0.92 | reg | 0.043 | 0.051 | 0.008 (16%) |
+| 0.92 | PIMC | 0.043 | 0.050 | 0.007 (14%) |
+| 0.97 | self-play | 0.079 (0.078) | 0.082 | 0.003 (4%) |
+| 0.97 | reg | 0.098 | 0.101 | 0.003 (3%) |
+| 0.97 | PIMC | 0.082 | 0.088 | 0.006 (7%) |
+| 0.99 | self-play | 0.191 (0.175) | 0.177 | −0.014 (best epochs: 0.002) |
+| 0.99 | reg | 0.237 (0.231) | 0.245 | 0.008 (3%) |
+| 0.99 | PIMC | 0.159 | 0.156 | −0.003 |
+
+Conclusion: the GNN's value advantage shrinks on the harder targets, from ≈15% at 0.92 to ≈3–7% at 0.97 and about
+nothing at 0.99. Most of a 0.99 label is the game's outcome noise, which neither model can reduce, so the absolute
+gaps are expected to shrink; but the relative gap shrinks too. The GNN's edge at 0.92 is mostly in matching the
+search's own root values.
