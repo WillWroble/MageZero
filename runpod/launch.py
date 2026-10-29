@@ -10,11 +10,13 @@ train.log and test.log) is /workspace/runs/<name>/<run>, and its console output 
   python runpod/launch.py --reap       # delete the experiment pods whose runs are all done
 
 Logs: https://<files pod id>-8000.proxy.runpod.net/<name>/<run>.log (the files pod's id: python runpod/launch.py --list)
-Run keys: name, train and tests (data sets under /workspace/data), arch (JSON for --arch), args (more train.py args).
+Run keys: name, train and tests (data sets under /workspace/data, or absolute paths), arch (JSON for --arch), args
+(more train.py args); model (an existing model directory under /workspace/runs) skips training and only tests it.
 """
 import argparse
 import json
 import os
+import posixpath
 import shlex
 import subprocess
 import urllib.request
@@ -32,6 +34,7 @@ apt-get update -qq && apt-get install -y -qq git >/dev/null; pip install -q h5py
 OUT=/workspace/runs/{name}; mkdir -p $OUT
 GIT_LFS_SKIP_SMUDGE=1 git clone -q {repo} /tmp/code && cd /tmp/code && git checkout -q {commit}
 cd /tmp/code/src/magezero && nvidia-smi > $OUT/gpu.txt
+{setup}
 export OMP_NUM_THREADS=$(( $(nproc) / {concurrent} ))  # concurrent runs otherwise oversubscribe the CPU
 cat > /tmp/runs.txt <<'RUNS'
 {commands}
@@ -43,11 +46,14 @@ sleep infinity
 
 
 def command(name, run):
-    out, data = f"/workspace/runs/{name}/{run['name']}", "/workspace/data"
-    arch = f"--arch {shlex.quote(json.dumps(run['arch']))}" if "arch" in run else ""
-    tests = " && ".join(f"python -u test.py --data {data}/{t} --model {out}" for t in run["tests"])
-    return (f"(python -u train.py --train {data}/{run['train']} --test {data}/{run['tests'][0]} --out {out} {arch} "
-            f"{run.get('args', '')} && {tests}) > {out}.log 2>&1")
+    log, data = f"/workspace/runs/{name}/{run['name']}.log", "/workspace/data"
+    out = f"/workspace/runs/{run['model']}" if "model" in run else log[:-len(".log")]
+    tests = [f"python -u test.py --data {posixpath.join(data, t)} --model {out}" for t in run["tests"]]
+    if "model" not in run:
+        arch = f"--arch {shlex.quote(json.dumps(run['arch']))}" if "arch" in run else ""
+        tests.insert(0, f"python -u train.py --train {posixpath.join(data, run['train'])} "
+                        f"--test {posixpath.join(data, run['tests'][0])} --out {out} {arch} {run.get('args', '')}")
+    return f"({' && '.join(tests)}) > {log} 2>&1"
 
 
 def api(method, path, body=None):
@@ -66,6 +72,7 @@ def main():
                         help="acceptable GPU types, in order of preference")
     parser.add_argument("--concurrent", type=int, default=4, help="runs at once on the GPU")
     parser.add_argument("--hours", type=float, default=10, help="time limit for all runs")
+    parser.add_argument("--setup", default="", help="shell command run on the pod before the runs")
     parser.add_argument("--files", action="store_true", help="(re)start the files pod")
     parser.add_argument("--list", action="store_true", help="list pods")
     parser.add_argument("--reap", action="store_true", help="delete experiment pods that wrote DONE")
@@ -103,7 +110,7 @@ def main():
             raise SystemExit(f"push {commit} first: the pod clones it from GitHub")
         commands = "\n".join(command(args.name, run) for run in args.runs)
         script = POD.format(name=args.name, repo=REPO, commit=commit, commands=commands, hours=args.hours,
-                            concurrent=args.concurrent)
+                            concurrent=args.concurrent, setup=args.setup)
         body = {"name": f"mz-{args.name}", "computeType": "GPU", "gpuTypeIds": args.gpu, "gpuCount": 1,
                 "gpuTypePriority": "custom", "cloudType": "SECURE", "imageName": IMAGE, "containerDiskInGb": 20,
                 "dockerStartCmd": ["bash", "-c", script]}

@@ -20,7 +20,7 @@ COLUMNS = {
 def rows(text):
     """(test set, {column: value}) for each test.py section of a run log."""
     for section in text.split("Testing on ")[1:]:
-        name = "/".join(section.split()[0].split("/")[-2:])
+        name = section.split()[0].removeprefix("/workspace/data/")
         yield name, {c: (m.group(1) if (m := re.search(p, section)) else "") for c, p in COLUMNS.items()}
 
 
