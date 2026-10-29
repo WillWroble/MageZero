@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import test
 from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states,
                    AMP, DEVICE, GLOBAL_MAX)
-from dataset import H5Graphs, collate_batch, states_of, BATCH_SIZE
+from dataset import H5Graphs, collate_batch, BATCH_SIZE
 from vocab import FeatureVocab, feature_id, initial_rows, kept_feature_ids
 
 # seat names: Faeries is always PlayerA in the data, so they identify the deck (a shortcut for the value head)
@@ -51,10 +51,10 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop
     this dataset, appended. Each embedding table has one row per vocab entry."""
     print("Building vocabs from dataset (ids seen in more than 10 states)")
     leaf = ds.node_type == NodeType.LEAF
-    kept_leaves = kept_feature_ids(ds.ids[leaf], states_of(ds.offsets)[leaf])
+    kept_leaves = kept_feature_ids(ds.ids, ds.offsets, leaf)
     if drop_player_names:  # leaves outside the vocab are dropped with their edges, here and wherever the checkpoint runs
         kept_leaves = kept_leaves[~np.isin(kept_leaves, PLAYER_NAMES)]
-    kept_labels = kept_feature_ids(ds.edge_label, states_of(ds.edge_offsets))
+    kept_labels = kept_feature_ids(ds.edge_label, ds.edge_offsets)
 
     model = build_model(**arch)
     vocab, edge_vocab = FeatureVocab(feature_hash_bins=GLOBAL_MAX), FeatureVocab(feature_hash_bins=GLOBAL_MAX)

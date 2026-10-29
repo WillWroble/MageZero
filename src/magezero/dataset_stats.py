@@ -170,10 +170,10 @@ def main(deck, version, split):
     # leaves and edge labels: occurring here, kept by the >10-states rule over this split alone,
     # and covered by the checkpoint's vocabs (the global kept sets)
     leaf = ds.node_type == NodeType.LEAF
-    leaf_ids, leaf_counts = feature_state_counts(ds.ids[leaf], states_of(ds.offsets)[leaf])
+    leaf_ids, leaf_counts = feature_state_counts(ds.ids, ds.offsets, leaf)
     label_ids = np.unique(ds.edge_label)
-    local_leaves = kept_feature_ids(ds.ids[leaf], states_of(ds.offsets)[leaf])
-    local_labels = kept_feature_ids(ds.edge_label, states_of(ds.edge_offsets))
+    local_leaves = kept_feature_ids(ds.ids, ds.offsets, leaf)
+    local_labels = kept_feature_ids(ds.edge_label, ds.edge_offsets)
     vocab, edge_vocab = load_vocabs()
     print(f"[stats] leaf ids: occurring={leaf_ids.size}  kept locally={local_leaves.size}"
           + (f"  in checkpoint vocab={int((vocab.lookup(leaf_ids) >= 0).sum())}" if vocab is not None else ""))

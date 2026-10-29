@@ -148,16 +148,27 @@ class FeatureVocab:
                    d.get("hash_algorithm", HASH_ALGORITHM), d.get("hash_version", 1))
 
 
-def feature_state_counts(ids, states) -> tuple[np.ndarray, np.ndarray]:
-    """(sorted distinct ids, number of states each occurs in). states[i] is the state ids[i] occurs
-    in; an id repeated within a state (numeric leaves share their name's id) counts once."""
-    ids = np.asarray(ids, dtype=np.int64) - np.iinfo(np.int32).min   # ids are Java ints -> [0, 2^32)
-    pairs = np.unique(np.asarray(states, dtype=np.int64) << 32 | ids)
-    present, counts = np.unique(pairs & 0xFFFFFFFF, return_counts=True)
+def feature_state_counts(ids, offsets, keep=None, chunk: int = 100_000) -> tuple[np.ndarray, np.ndarray]:
+    """(sorted distinct ids, number of states each occurs in). ids [items] with offsets [N+1] marking each state's
+    items; keep: optional bool mask over the items to count. An id repeated within a state (numeric leaves share
+    their name's id) counts once. Counted a chunk of states at a time, so memory stays small for large data sets."""
+    parts = []
+    for a in range(0, len(offsets) - 1, chunk):
+        b = min(a + chunk, len(offsets) - 1)
+        items = slice(offsets[a], offsets[b])
+        state = np.repeat(np.arange(b - a, dtype=np.int64), np.diff(offsets[a:b + 1]))
+        x = np.asarray(ids[items], dtype=np.int64) - np.iinfo(np.int32).min   # ids are Java ints -> [0, 2^32)
+        if keep is not None:
+            state, x = state[keep[items]], x[keep[items]]
+        parts.append(np.unique(np.unique(state << 32 | x) & 0xFFFFFFFF, return_counts=True))
+    if not parts:
+        return np.zeros(0, np.int64), np.zeros(0, np.int64)
+    present, inverse = np.unique(np.concatenate([p for p, _ in parts]), return_inverse=True)
+    counts = np.bincount(inverse, np.concatenate([c for _, c in parts])).astype(np.int64)
     return present + np.iinfo(np.int32).min, counts
 
 
-def kept_feature_ids(ids, states, k: int = 10) -> np.ndarray:
-    """Sorted ids that occur in more than k states."""
-    present, counts = feature_state_counts(ids, states)
+def kept_feature_ids(ids, offsets, keep=None, k: int = 10) -> np.ndarray:
+    """Sorted ids that occur in more than k states (arguments as for feature_state_counts)."""
+    present, counts = feature_state_counts(ids, offsets, keep)
     return present[counts > k]
