@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from dataset import H5Graphs, collate_batch, BATCH_SIZE
+from dataset import H5Graphs, collate_batch, read_split, BATCH_SIZE
 from model import (Graphs, Targets, ActionType, NodeType, load_checkpoint, load_model, losses, accumulate, averages,
                    decision_states, graph_index, segment_logsumexp, PRIORITY_TYPES, TARGET_TYPES, AMP, DEVICE)
 from vocab import feature_id
@@ -177,8 +177,10 @@ def validate(model, dl, vocab, edge_vocab):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", required=True, help="test shard directory")
-    parser.add_argument("--model", required=True, help="model directory (model.pt.gz); the log goes to its test.log")
+    parser.add_argument("--model", required=True,
+                        help="model directory (model.pt.gz): tests on each val set of its split.txt; the log goes to its test.log")
+    parser.add_argument("--td", type=float, help="test against value labels rebuilt with this TD discount "
+                                                 "(dataset.td_labels; 1 = the game result) instead of the stored ones")
     args = parser.parse_args()
     log_to(f"{args.model}/test.log")
 
@@ -188,9 +190,10 @@ if __name__ == "__main__":
     print(f"Loaded checkpoint from {checkpoint_path}: {len(vocab)} leaf rows, {len(edge_vocab)} edge label rows, "
           f"hide_opponent_hand={hide_opponent_hand}")
 
-    print(f"Testing on {args.data}")
-    ds = H5Graphs(args.data, vocab, edge_vocab, hide_opponent_hand)
-    dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0,
-                    collate_fn=collate_batch, pin_memory=AMP, persistent_workers=False)
-
-    validate(model.to(DEVICE), dl, vocab, edge_vocab)
+    model = model.to(DEVICE)
+    for name, shards in read_split(f"{args.model}/split.txt")[1].items():
+        print(f"Testing on {name}" + ("" if args.td is None else f" (TD {args.td})"))
+        ds = H5Graphs(shards, vocab, edge_vocab, hide_opponent_hand, args.td)
+        dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0,
+                        collate_fn=collate_batch, pin_memory=AMP, persistent_workers=False)
+        validate(model, dl, vocab, edge_vocab)

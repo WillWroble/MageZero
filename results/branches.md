@@ -90,3 +90,22 @@ Value MSE / priority legal KL / priority top-1 / target top-1:
 ver7 is better on every head of every test. Most of the priority gain is the legal-only loss (v4 is at 0.65 top-1
 on its own gen0 mirror vs ver7's 0.805; non-pass 0.44 vs 0.82), the rest the gen1 data. Offline only: a play gate
 (ver7 vs v4 at equal sims) is still to do.
+
+## Auxiliary legality head on branch D (GNN, one seed)
+
+Arch `legality_weight` w (BCE: is each candidate-type node legal) with one head shared by priority and target nodes,
+or `legality_heads: "split"`. Otherwise identical to D-gnn (ver7). Both seats; value / prio KL / prio top-1
+(non-pass / pass) / tgt acc. Logs: `/workspace/runs/legality-*`, `legsplit-*`.
+
+| run | selfplay | reg | pimc | gen0 |
+|---|---|---|---|---|
+| D-gnn (no head) | 0.039 / 0.069 / 0.760 (0.61 / 0.86) / 0.754 | 0.043 / 0.064 / 0.784 (0.64 / 0.88) / 0.781 | 0.043 / 0.089 / 0.689 (0.63 / 0.77) / 0.754 | 0.032 / 0.049 / 0.805 (0.82 / 0.79) / 0.797 |
+| shared, w 1.0 | 0.041 / 0.068 / 0.760 (0.63 / 0.85) / 0.747 | 0.046 / 0.062 / 0.784 (0.66 / 0.87) / 0.777 | 0.041 / 0.087 / 0.696 (0.67 / 0.73) / 0.750 | 0.033 / 0.048 / 0.808 (0.82 / 0.79) / 0.808 |
+| shared, w 0.1 | 0.040 / 0.070 / 0.757 (0.62 / 0.85) / 0.747 | 0.042 / 0.063 / 0.783 (0.65 / 0.87) / 0.773 | 0.039 / 0.084 / 0.703 (0.67 / 0.74) / 0.748 | 0.046 / 0.055 / 0.791 (0.80 / 0.78) / 0.800 |
+| split, w 0.1 | 0.041 / 0.074 / 0.754 (0.65 / 0.83) / 0.748 | 0.045 / 0.066 / 0.779 (0.68 / 0.85) / 0.774 | 0.048 / 0.088 / 0.700 (0.69 / 0.71) / 0.756 | 0.036 / 0.050 / 0.800 (0.85 / 0.73) / 0.797 |
+| split, w 1.0 | 0.044 / 0.071 / 0.762 (0.64 / 0.84) / 0.756 | 0.051 / 0.062 / 0.786 (0.67 / 0.86) / 0.782 | 0.049 / 0.081 / 0.707 (0.66 / 0.77) / 0.755 | 0.044 / 0.047 / 0.806 (0.83 / 0.77) / 0.807 |
+
+Conclusion: no clear win. Priority top-1 and target accuracy stay within ±0.01 (PIMC +0.01–0.02). Every variant
+moves 2–4 points of priority accuracy from pass to non-pass moves. The split head costs value (gen0 0.032 →
+0.036 / 0.044); the shared w 1.0 head keeps value and is the only variant with no clear cost. Shared w 0.1 has the
+best selfplay/reg/PIMC value (0.040 / 0.042 / 0.039) but the worst gen0 (0.046, prio top-1 0.791): mixed, one seed.

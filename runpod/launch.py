@@ -1,10 +1,10 @@
 """
 Run experiments on a RunPod GPU pod. The pod clones this repo at the current pushed commit (code only), reads the
 data sets that files.sh builds on the network volume (/workspace/data), runs the runs `--concurrent` at a time on
-its one GPU, then writes DONE there (`--reap` deletes pods that are done). Each run trains, then tests on each of its test sets; its model directory (with
+its one GPU, then writes DONE there (`--reap` deletes pods that are done). Each run trains, then tests on each val set of its split.txt; its model directory (with
 train.log and test.log) is /workspace/runs/<name>/<run>, and its console output /workspace/runs/<name>/<run>.log.
 
-  python runpod/launch.py --name s1 --runs '[{"name": "mlp", "train": "gen0/train", "tests": ["gen0/test"],
+  python runpod/launch.py --name s1 --runs '[{"name": "mlp", "split": "holdout 5\\ntrain:\\nexperiment_data/.*/gen0/.*",
       "arch": {"net": "mlp"}, "args": "--epochs 6 --lr 1e-3"}]'
   python runpod/launch.py --files      # (re)start the files pod: fetches data, builds data sets, serves /workspace/runs
   python runpod/launch.py --reap       # delete the experiment pods whose runs are all done
@@ -12,14 +12,16 @@ train.log and test.log) is /workspace/runs/<name>/<run>, and its console output 
       # any repo script, run from the repo root with $OUT=/workspace/runs/<name>; its output goes to $OUT/script.log
 
 Logs: https://<files pod id>-8000.proxy.runpod.net/<name>/<run>.log (the files pod's id: python runpod/launch.py --list)
-Run keys: name, train and tests (data sets under /workspace/data, or absolute paths), arch (JSON for --arch), args
-(more train.py args); model (an existing model directory under /workspace/runs) skips training and only tests it.
+Run keys: name, split (the model's split.txt, dataset.read_split; regexes match paths from root), arch (JSON for
+--arch), args (more train.py args), tests (test.py args, one test.py run each; default [""]), root (the directory the
+regexes are relative to; default the repo checkout, /workspace/data for the data sets files.sh builds); model (an
+existing model directory under /workspace/runs) skips training and only tests it on its split.txt (written first
+when split is given).
 """
 import argparse
 import email.utils
 import json
 import os
-import posixpath
 import shlex
 import subprocess
 import urllib.request
@@ -31,13 +33,14 @@ VOLUME = "0ksqf5sep2"   # magezero-data, EU-RO-1
 DATA_CENTER = "EU-RO-1"
 IMAGE = "pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime"
 REPO = "https://github.com/WillWroble/MageZero.git"
+REPO_DIR = "/workspace/repo"  # the files pod's checkout (with LFS data): split.txt regexes match paths from its root
 HERE = Path(__file__).resolve().parent
 
 POD = '''set -x
 apt-get update -qq && apt-get install -y -qq git >/dev/null; pip install -q h5py
 OUT=/workspace/runs/{name}; mkdir -p $OUT; rm -f $OUT/DONE
 GIT_LFS_SKIP_SMUDGE=1 git clone -q {repo} /tmp/code && cd /tmp/code && git checkout -q {commit}
-cd /tmp/code/src/magezero && nvidia-smi > $OUT/gpu.txt
+nvidia-smi > $OUT/gpu.txt
 {setup}
 export OMP_NUM_THREADS=$(( $(nproc) / {concurrent} ))  # concurrent runs otherwise oversubscribe the CPU
 cat > /tmp/runs.txt <<'RUNS'
@@ -59,14 +62,17 @@ sleep infinity
 
 
 def command(name, run):
-    log, data = f"/workspace/runs/{name}/{run['name']}.log", "/workspace/data"
+    log = f"/workspace/runs/{name}/{run['name']}.log"
     out = f"/workspace/runs/{run['model']}" if "model" in run else log[:-len(".log")]
-    tests = [f"python -u test.py --data {posixpath.join(data, t)} --model {out}" for t in run["tests"]]
+    steps = [f"cd {run.get('root', REPO_DIR)}"]
+    if "split" in run:
+        lines = " ".join(shlex.quote(line) for line in run["split"].splitlines())
+        steps += [f"mkdir -p {out}", f"printf '%s\\n' {lines} > {out}/split.txt"]
     if "model" not in run:
         arch = f"--arch {shlex.quote(json.dumps(run['arch']))}" if "arch" in run else ""
-        tests.insert(0, f"python -u train.py --train {posixpath.join(data, run['train'])} "
-                        f"--test {posixpath.join(data, run['tests'][0])} --out {out} {arch} {run.get('args', '')}")
-    return f"({' && '.join(tests)}) > {log} 2>&1"
+        steps.append(f"python -u /tmp/code/src/magezero/train.py --model {out} {arch} {run.get('args', '')}")
+    steps += [f"python -u /tmp/code/src/magezero/test.py --model {out} {t}" for t in run.get("tests", [""])]
+    return f"({' && '.join(steps)}) > {log} 2>&1"
 
 
 def api(method, path, body=None):
