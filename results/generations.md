@@ -296,3 +296,18 @@ often, Seer again level with Miscreant) and moves Strix loot back to its own tur
 match its search far better than v4's did on gen1 (non-pass 0.64 vs v4's 0.38 on gen1), so gen2 is mostly
 the model's prior play; the WR plateau suggests MonoB is near what 300 sims can get with this deck and model, or
 that better predictions no longer translate into better search.
+
+### Search value (root `stateScore`) vs result, Faeries seat
+
+| | gen0 | gen1 | gen1 `MonoB2` | gen2 |
+|---|---|---|---|---|
+| mean root value vs mean result | −0.06 vs −0.82 | −0.14 vs −0.33 | −0.17 vs −0.39 | −0.21 vs −0.36 |
+| AUC (root value → win), early / mid / late third | 0.71 / 0.82 / 0.94 | 0.75 / 0.92 / 0.99 | 0.73 / 0.85 / 0.97 | 0.77 / 0.88 / 0.98 |
+| root value bin ≈ −0.34 → actual result | −0.97 | −0.84 | −0.68 | −0.70 |
+| root value bin ≈ +0.33 → actual result | −0.69 | +0.51 | +0.40 | +0.64 |
+| mean step-to-step change | 0.041 | 0.027 | 0.026 | 0.028 |
+
+Conclusion: no real change from gen1. gen2's root values are a little more pessimistic (bias +0.19/+0.22 → +0.16)
+and as discriminative as gen1's (within the gap between the two gen1 shards). In all three model generations the
+root value is compressed toward 0: a −0.34 position ends in a loss 85% of the time, a +0.33 position wins 70–82%.
+The MonoB seat (offline heuristic) is unchanged, as expected.
