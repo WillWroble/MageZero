@@ -1,8 +1,9 @@
 # Self-play data generation on a GPU pod: serves $MODEL (a model directory under the repo) for both seats on port
-# 50052 and runs the XMage distribution at /workspace/xmage/$MAGE_COMMIT with $CONFIG (a file in the repo), whose
+# 50052 and runs the XMage distribution at /workspace/xmage/$MAGE_COMMIT (built first if missing) with $CONFIG (a file in the repo), whose
 # output_file paths should point into $OUT. Run by launch.py --script.
 set -ex
-apt-get install -y -qq curl git-lfs >/dev/null
+apt-get install -y -qq curl unzip git-lfs >/dev/null
+bash runpod/build-xmage.sh  # once per mage commit
 source runpod/java.sh
 pip install -q h5py flask waitress msgpack pyyaml
 lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt

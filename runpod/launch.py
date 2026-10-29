@@ -8,7 +8,7 @@ train.log and test.log) is /workspace/runs/<name>/<run>, and its console output 
       "arch": {"net": "mlp"}, "args": "--epochs 6 --lr 1e-3"}]'
   python runpod/launch.py --files      # (re)start the files pod: fetches data, builds data sets, serves /workspace/runs
   python runpod/launch.py --reap       # delete the experiment pods whose runs are all done
-  python runpod/launch.py --name build --script runpod/build-xmage.sh --env MAGE_COMMIT=f2ce8eca --cpu 32
+  python runpod/launch.py --name selfplay-monob --script runpod/generate.sh --env MAGE_COMMIT=<sha> CONFIG=<yml> MODEL=<dir>
       # any repo script, run from the repo root with $OUT=/workspace/runs/<name>; its output goes to $OUT/script.log
 
 Logs: https://<files pod id>-8000.proxy.runpod.net/<name>/<run>.log (the files pod's id: python runpod/launch.py --list)
@@ -71,8 +71,11 @@ def api(method, path, body=None):
     req = urllib.request.Request(f"{API}/{path}", method=method, data=json.dumps(body).encode() if body else None,
                                  headers={"Authorization": f"Bearer {os.environ['RUNPOD_API_KEY']}",
                                           "Content-Type": "application/json", "User-Agent": "magezero"})
-    with urllib.request.urlopen(req) as r:
-        return json.loads(r.read() or "null")
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read() or "null")
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"{method} {path}: {e.code} {e.read().decode()}")
 
 
 def main():
