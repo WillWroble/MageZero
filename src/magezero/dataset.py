@@ -163,6 +163,8 @@ class H5Graphs(Dataset):
             try:
                 with h5py.File(path, "r") as f:
                     shard = {key: f[key][...] for key in KEYS} if games is None else select_games(f, games)
+                    if games is None and td is not None:
+                        shard["/game_offsets"] = f["/game_offsets"][...]  # td_labels needs the games
             except (OSError, KeyError) as e:
                 print(f"[warn] skipping unreadable shard {path}: {e}")
                 continue
