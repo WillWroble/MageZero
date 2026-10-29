@@ -127,7 +127,7 @@ def main():
             raise SystemExit(f"push {commit} first: the pod clones it from GitHub")
         if args.script:
             script = SCRIPT_POD.format(name=args.name, repo=REPO, commit=commit, hours=args.hours, script=args.script,
-                                       env=" ".join(shlex.quote(e) for e in args.env))
+                                       env=" ".join(k + "=" + shlex.quote(v) for k, v in (e.split("=", 1) for e in args.env)))
         else:
             commands = "\n".join(command(args.name, run) for run in args.runs)
             script = POD.format(name=args.name, repo=REPO, commit=commit, commands=commands, hours=args.hours,
