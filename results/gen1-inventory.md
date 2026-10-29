@@ -41,7 +41,7 @@ sampled; 0 means the hidden-information encoding). Faeries WR is from Faeries' s
 
 Summary by matchup (games; both seats are recorded for every shard and the A/B game counts match):
 
-| opponent | ver4 gen1 | ver5 gen1 (both batches from the v4 model) |
+| opponent | ver4 gen1 (v4 model) | ver5 gen1 |
 |---|---|---|
 | Standard-MonoB | 171 | 200 + 200 (`2`) perfect info, 199 `_policy`, 200 + 200 `_pimc`, 200 `_pimc_pimc` |
 | Standard-MonoG | 200 | – |
@@ -54,6 +54,9 @@ Summary by matchup (games; both seats are recorded for every shard and the A/B g
 | Pauper-Elves | – | 200 |
 | Pauper-Rally, Spy, Wildfire | – | – |
 | Pauper-Faeries (mirror) | – | – |
+
+Models: every gen1 shard is from the v4 model except `ver5/.../Pauper-Faeries_vs_Standard-MonoB.hdf5` and
+`ver5/.../Pauper-Faeries_vs_Standard-MonoW.hdf5` (and their PlayerB pairs), which are from the Mono-only v5 model.
 
 Notes:
 - Not yet at gen1 for the gen0 pool: Rally, Spy, Wildfire and the mirror (Pauper), and MonoG/R/U for ver5.
