@@ -1,5 +1,5 @@
 # Self-play data generation on a GPU pod: serves $MODEL (a model directory under the repo) for both seats on port
-# 50052 and runs the XMage distribution at /workspace/xmage/$MAGE_COMMIT (built first if missing) with each config
+# 50052 and runs (a local copy of) the XMage distribution at /workspace/xmage/$MAGE_COMMIT (built first if missing) with each config
 # in $CONFIG (space-separated files in the repo), one after another. Each config's output_file paths say where its
 # shards go; its game log tail and sims/s lines land in $OUT. Run by launch.py --script.
 set -ex
@@ -14,7 +14,8 @@ lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt
 mkdir -p models/Pauper-Faeries/ver4 && cp /workspace/repo/$MODEL/model.pt.gz models/Pauper-Faeries/ver4/
 python -u src/magezero/server.py --deck Pauper-Faeries --version 4 --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
 until curl -sf localhost:50052/healthz; do sleep 2; done
-X=/workspace/xmage/$MAGE_COMMIT
+# a local copy per pod: XMage's card database (db/) can't be shared between pods on the network volume
+cp -r /workspace/xmage/$MAGE_COMMIT /tmp/xmage && X=/tmp/xmage
 for C in $CONFIG; do
   N=$(basename $C .yml)
   cp $C $OUT/$N.yml
