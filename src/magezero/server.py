@@ -33,18 +33,17 @@ app = Flask(__name__)
 req_counter = 0
 req_counter_lock = threading.Lock()
 
-def init(deck: str, version: int, port: int):
+def init(model_dir: str, port: int):
     global server_model, VOCAB, EDGE_VOCAB, CACHE
 
-    model_path = f"models/{deck}/ver{version}/model.pt.gz"
-    model, VOCAB, EDGE_VOCAB = load_checkpoint(model_path)
+    model, VOCAB, EDGE_VOCAB = load_checkpoint(f"{model_dir}/model.pt.gz")
     server_model = model.to(DEVICE).eval()
     CACHE = NodeCache(server_model, DEVICE)
 
     for _ in range(WORKERS):
         threading.Thread(target=worker_loop, daemon=True).start()
 
-    print(f"[INIT] deck={deck} ver={version} port={port} device={DEVICE} "
+    print(f"[INIT] model={model_dir} port={port} device={DEVICE} "
           f"leaf_rows={len(VOCAB)} edge_rows={len(EDGE_VOCAB)}")
     waitress.serve(app, host="127.0.0.1", port=port, threads=8)
 
@@ -223,8 +222,7 @@ def healthz():
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--deck", required=True)
-    parser.add_argument("--version", type=int, required=True)
+    parser.add_argument("--model", required=True, help="model directory (model.pt.gz)")
     parser.add_argument("--port", type=int, default=50052)
     args = parser.parse_args()
-    init(args.deck, args.version, args.port)
+    init(args.model, args.port)

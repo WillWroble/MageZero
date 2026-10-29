@@ -275,8 +275,7 @@ def start_server(deck: str, version: int, port: int, run_dir: Path) -> subproces
     log_file.flush()
 
     proc = subprocess.Popen(
-        [PYTHON, f"{SRC}/server.py",
-         "--deck", deck, "--version", str(version), "--port", str(port)],
+        [PYTHON, f"{SRC}/server.py", "--model", str(Path("models") / deck / f"ver{version}"), "--port", str(port)],
         stdout=log_file,
         stderr=subprocess.STDOUT,
     )

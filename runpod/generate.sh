@@ -11,8 +11,7 @@ lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt
 # the model, from the volume's copy of the repo
 # (pulled only while still a pointer file: concurrent pods would otherwise race on the repo's index lock)
 [ $(stat -c %s /workspace/repo/$MODEL/model.pt.gz) -gt 1000 ] || (cd /workspace/repo && git lfs pull --include="$MODEL/model.pt.gz")
-mkdir -p models/Pauper-Faeries/ver4 && cp /workspace/repo/$MODEL/model.pt.gz models/Pauper-Faeries/ver4/
-python -u src/magezero/server.py --deck Pauper-Faeries --version 4 --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
+python -u src/magezero/server.py --model /workspace/repo/$MODEL --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
 until curl -sf localhost:50052/healthz; do sleep 2; done
 # a local copy per pod, without the card database: XMage builds its own (db/) on startup. A shared or copied
 # database breaks when another pod is using it (failed connections, decks loading with cards missing)
