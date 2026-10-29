@@ -72,3 +72,21 @@ only, 0.004–0.005 on gen1 only, 0.002–0.006 here); and value, level before, 
   than A–C's PIMC test). Priority on PIMC stays the hardest test for every model (KL 0.089–0.125).
 
 Recommendation for gen2 training: all of gen0 + every gen1 kind (D), with the GNN (legal-only, no player names).
+
+## ver7 (branch D GNN) vs the v4 model (`v4-tests`)
+
+v4 (`experiment_models/Pauper-Faeries/ver4`, all-node policy loss, trained on gen0 only) scored on the same test sets.
+Gen1 tests are out of distribution for v4 and in distribution for ver7; the gen0 mirror is in distribution for both.
+Value MSE / priority legal KL / priority top-1 / target top-1:
+
+| test | v4 | ver7 |
+|---|---|---|
+| self-play held-out | 0.047 / 0.191 / 0.695 / 0.709 | **0.039 / 0.069 / 0.760 / 0.754** |
+| reg held-out | 0.053 / 0.163 / 0.718 / 0.745 | **0.043 / 0.064 / 0.784 / 0.781** |
+| PIMC held-out | 0.086 / 0.230 / 0.613 / 0.717 | **0.043 / 0.089 / 0.689 / 0.754** |
+| gen0 mirror | 0.035 / 0.177 / 0.648 / 0.793 | **0.032 / 0.049 / 0.805 / 0.797** |
+| Faeries' seat, self-play | 0.049 / 0.182 / 0.708 / 0.716 | **0.037 / 0.058 / 0.776 / 0.766** |
+
+ver7 is better on every head of every test. Most of the priority gain is the legal-only loss (v4 is at 0.65 top-1
+on its own gen0 mirror vs ver7's 0.805; non-pass 0.44 vs 0.82), the rest the gen1 data. Offline only: a play gate
+(ver7 vs v4 at equal sims) is still to do.
