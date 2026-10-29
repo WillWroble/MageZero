@@ -35,6 +35,8 @@ GLOBAL_LAYERS = 2
 HIDDEN_MLP = 256
 # checkpoints saved before the arch was stored in them
 LEGACY_ARCH = dict(d_model=512, d_ff=1024, dropout=0.25)
+# options added later, as checkpoints saved before them were trained
+LEGACY_OPTIONS = dict(policy_domain="all")
 
 # numeric value buckets: exact -5..20 (P/T, counters, mana, costs, small counts), then 21-25, 26-30,
 # 31-40, 41-60, 61+ (life totals, library and zone sizes); everything below -5 is one bucket
@@ -176,14 +178,19 @@ class NetGraph(nn.Module):
              "flat"        no local layers: each internal node adds the mean of its own leaves (with their
                            edge labels) once; no hierarchy and no object-to-object edges
       global_tokens: "internal"  global layers see [CLS, internal nodes]
-                     "all"       they also see the leaves; with n_passes=0 the state is a bag of tokens"""
+                     "all"       they also see the leaves; with n_passes=0 the state is a bag of tokens
+      policy_domain: "legal"  policy softmax over the legal candidates only, as MCTS uses the priors
+                     "all"    over every node of the head's types (learns legality; checkpoints from before
+                              this option)"""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
-                 global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal"):
+                 global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
+                 policy_domain: str = "legal"):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
-                         global_layers=global_layers, local=local, global_tokens=global_tokens)
+                         global_layers=global_layers, local=local, global_tokens=global_tokens,
+                         policy_domain=policy_domain)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -318,6 +325,90 @@ class NetGraph(nn.Module):
         return per_node(self.priority_head), per_node(self.target_head), self.binary_head(cls), self.value_head(cls).squeeze(-1)
 
 
+class NetMLP(nn.Module):
+    """Small MLP baseline after Dama's d64 MLPNet (gorge `bots/gonet`), on the same graphs and outputs as NetGraph.
+    No attention and no learned message passing: the graph only supplies each object's leaves and its ancestors.
+      object  c = relu(phi(relu(raw(type + mean of its leaves (+ edge label)))))     every internal node
+      entity  e = LN(c + ctx(sum of c over its ancestors))                           the bag-of-nodes bridge:
+                                                                                     zone, owner, source card
+      state   s = root(e_ROOT) + pools(0.25-sum and max of e per node type), then residual blocks, LN
+      heads   value, choose_use from s; priority and target per node from [s, e]
+    Policy heads are meant to be trained over legal candidates only (policy_domain "legal"), as the MLP was."""
+
+    def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = 64, blocks: int = 1,
+                 policy_domain: str = "legal", net: str = "mlp"):
+        super().__init__()
+        self.arch = dict(net=net, d_model=d_model, blocks=blocks, policy_domain=policy_domain)
+        d = d_model
+        self.embedding = nn.Embedding(num_embeddings, d)
+        self.edge_embedding = nn.Embedding(num_edge_labels + 1, d, padding_idx=0)
+        self.type_embedding = nn.Embedding(len(NodeType), d)
+        self.value_embedding = nn.Embedding(len(VALUE_BOUNDS) + 1, d)
+        self.register_buffer("value_bounds", torch.tensor(VALUE_BOUNDS), persistent=False)
+        self.raw, self.phi, self.ctx = nn.Linear(d, d), nn.Linear(d, d), nn.Linear(d, d)
+        self.norm = nn.LayerNorm(d)
+        self.root, self.pools = nn.Linear(d, d), nn.Linear(2 * len(STAGES) * d, d)
+        self.blocks = nn.ModuleList(nn.Sequential(nn.LayerNorm(d), nn.Linear(d, d), nn.ReLU(), nn.Linear(d, d))
+                                    for _ in range(blocks))
+        self.out_norm = nn.LayerNorm(d)
+        head = lambda n_in, n_out, *tail: nn.Sequential(nn.Linear(n_in, d), nn.ReLU(), nn.Linear(d, n_out), *tail)
+        self.priority_head, self.target_head = head(2 * d, 1), head(2 * d, 1)
+        self.binary_head, self.value_head = head(d, 2), head(d, 1, nn.Tanh())
+
+    resize_embedding = NetGraph.resize_embedding
+
+    def forward(self, g: Graphs, plan=None):
+        B, N = g.node_offsets.numel() - 1, g.node_type.numel()
+        leaf = g.node_type == NodeType.LEAF
+        keep = ~leaf[g.edge_child] | (g.node_row[g.edge_child] >= 0)
+        child, parent, label = g.edge_child[keep], g.edge_parent[keep], g.edge_label[keep]
+        node_graph = graph_index(g.node_offsets)
+
+        # objects: type + mean of their leaves (name and value, plus the edge label)
+        leaves = (g.node_row >= 0).nonzero().squeeze(1)
+        value = torch.bucketize(g.node_value[leaves], self.value_bounds, right=True)
+        x = torch.zeros(N, self.arch["d_model"], device=g.node_type.device).index_add(
+            0, leaves, self.embedding(g.node_row[leaves]) + self.value_embedding(value))
+        lf = leaf[child]
+        count = torch.bincount(parent[lf], minlength=N).clamp(min=1).unsqueeze(1)
+        bag = x.new_zeros(x.shape).index_add(0, parent[lf], x[child[lf]] + self.edge_embedding(label[lf])) / count
+        c = F.relu(self.phi(F.relu(self.raw(self.type_embedding(g.node_type) + bag))))
+
+        # bridge: each object adds the sum of its ancestors' c, top-down (ROOT first), so a card knows its zone and
+        # owner, and an ability its card
+        up = ~lf
+        anc = torch.zeros_like(c)
+        for t in reversed(STAGES[:-1]):
+            e = up & (g.node_type[child] == t)
+            anc = anc.index_add(0, child[e], (c + anc)[parent[e]])
+        e = self.norm(c + self.ctx(anc))
+
+        # state: root object + per-type pools
+        pools = []
+        for t in STAGES:
+            m = g.node_type == t
+            pools.append(e.new_zeros(B, e.shape[1]).index_add(0, node_graph[m], 0.25 * e[m]))
+            pools.append(e.new_zeros(B, e.shape[1]).index_reduce(0, node_graph[m], e[m], "amax", include_self=False))
+        root = g.node_type == NodeType.ROOT
+        s = self.root(e.new_zeros(B, e.shape[1]).index_add(0, node_graph[root], e[root])) + self.pools(torch.cat(pools, 1))
+        for block in self.blocks:
+            s = s + block(s)
+        s = self.out_norm(s)
+
+        internal = (~leaf).nonzero().squeeze(1)
+        z = torch.cat([s[node_graph[internal]], e[internal]], 1)
+
+        def per_node(head):
+            return torch.full((N,), float("-inf"), device=s.device).index_copy(0, internal, head(z).squeeze(-1).float())
+
+        return per_node(self.priority_head), per_node(self.target_head), self.binary_head(s), self.value_head(s).squeeze(-1)
+
+
+def build_model(num_embeddings: int = 0, num_edge_labels: int = 0, **arch) -> nn.Module:
+    """NetMLP for arch {"net": "mlp", ...}, NetGraph otherwise."""
+    return (NetMLP if arch.get("net") == "mlp" else NetGraph)(num_embeddings, num_edge_labels, **arch)
+
+
 def node_policy_loss(scores, domain, states, node_graph, t: Targets):
     """KL from the normalized MCTS visits to a softmax over each state's domain nodes, for `states`
     ([B] bool). correct: states whose top-scored domain node (legal or not) is one of MCTS's most
@@ -355,17 +446,19 @@ def use_loss(logits, t: Targets):
     return loss, n, correct
 
 
-def losses(out, g: Graphs, t: Targets) -> dict:
+def losses(out, g: Graphs, t: Targets, legal_only: bool = False) -> dict:
     """Per head: (loss, states it covers, states where the top choice matches MCTS's).
     Value: MSE over every state. Policy heads: over the states of their decision type that have
     visits, a softmax over every node of the head's types (no legality mask; candidates are always
-    included) trained toward the normalized visits."""
+    included) trained toward the normalized visits. legal_only: the softmax is over the candidates only."""
     priority, target, use_logits, value = out
     node_graph = graph_index(g.node_offsets)
     is_cand = torch.zeros_like(g.node_type, dtype=torch.bool).index_fill(0, t.cand_node, True)
     visited = torch.zeros_like(t.value).index_add(0, t.cand_graph, t.cand_visits) > 0
 
     def of_types(types):
+        if legal_only:
+            return is_cand
         return torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device)) | is_cand
 
     return {
@@ -421,6 +514,6 @@ def load_checkpoint(path):
     edge_vocab = FeatureVocab.from_state_dict(checkpoint["edge_vocab"])
     vocab.require_encoding(GLOBAL_MAX)
     edge_vocab.require_encoding(GLOBAL_MAX)
-    model = NetGraph(len(vocab), len(edge_vocab), **checkpoint.get("arch", LEGACY_ARCH))
+    model = build_model(len(vocab), len(edge_vocab), **{**LEGACY_OPTIONS, **checkpoint.get("arch", LEGACY_ARCH)})
     model.load_state_dict(checkpoint["model_state_dict"])
     return model, vocab, edge_vocab
