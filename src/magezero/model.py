@@ -183,16 +183,18 @@ class NetGraph(nn.Module):
                      "all"    over every node of the head's types (learns legality; checkpoints from before
                               this option)
       legality_weight: > 0 adds an auxiliary head that classifies each node of a policy head's types as a legal
-                       candidate or not (BCE, this weight in the total loss), returned as a fifth output"""
+                       candidate or not (BCE, this weight in the total loss), returned as a fifth output
+      legality_heads: "shared"  one legality head for every node type
+                      "split"   one read at ABILITY nodes and one at the target types, like the policy heads"""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
-                 policy_domain: str = "legal", legality_weight: float = 0.0):
+                 policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared"):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
-                         policy_domain=policy_domain, legality_weight=legality_weight)
+                         policy_domain=policy_domain, legality_weight=legality_weight, legality_heads=legality_heads)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -216,6 +218,8 @@ class NetGraph(nn.Module):
         self.value_head = mlp(d_model, 1, nn.Tanh())
         if legality_weight > 0:
             self.legality_head = mlp(d_model, 1)
+            if legality_heads == "split":
+                self.target_legality_head = mlp(d_model, 1)
 
     def resize_embedding(self, num_embeddings: int, init_rows=None, name: str = "embedding") -> None:
         """Grow an embedding table to `num_embeddings` rows, keeping existing rows unchanged.
@@ -327,7 +331,12 @@ class NetGraph(nn.Module):
                 0, internal, head(z).squeeze(-1).float())
 
         out = per_node(self.priority_head), per_node(self.target_head), self.binary_head(cls), self.value_head(cls).squeeze(-1)
-        return out + (per_node(self.legality_head),) if self.arch["legality_weight"] > 0 else out
+        if self.arch["legality_weight"] <= 0:
+            return out
+        legality = per_node(self.legality_head)
+        if self.arch["legality_heads"] == "split":  # target types read their own head
+            legality = torch.where(g.node_type == NodeType.ABILITY, legality, per_node(self.target_legality_head))
+        return out + (legality,)
 
 
 class NetMLP(nn.Module):
