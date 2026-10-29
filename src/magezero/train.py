@@ -114,6 +114,7 @@ def train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_o
 
     opt = optim.Adam(model.parameters(), lr=lr)
     legal_only = model.arch.get("policy_domain") == "legal"
+    legality_weight = model.arch.get("legality_weight", 0.0)
     scaler = torch.amp.GradScaler(enabled=AMP)
 
     best_val_loss = float('inf')
@@ -129,7 +130,7 @@ def train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_o
             graphs, targets = graphs.to(DEVICE), targets.to(DEVICE)
 
             with torch.amp.autocast(DEVICE.type, enabled=AMP):
-                heads = losses(model(graphs), graphs, targets, legal_only)
+                heads = losses(model(graphs), graphs, targets, legal_only, legality_weight)
                 loss = sum(head[0] for head in heads.values())
 
             opt.zero_grad()
@@ -145,7 +146,8 @@ def train_loop(out, epochs, steps, model, ds, test_ds, vocab, edge_vocab, hide_o
         avg = averages(stats)
         print(f"Epoch {epoch}  priority_loss={avg['priority']:.3f}  choose_target_loss={avg['choose_target']:.3f}  "
               f"choose_use_loss={avg['choose_use']:.3f}  value_loss={avg['value']:.3f}  "
-              f"decision_states={decision_states(stats)}  steps={step}  time={time.perf_counter() - start:.0f}s")
+              + (f"legality_loss={stats['legality'][0] / max(stats['legality'][1], 1):.3f}  " if "legality" in stats else "")
+              + f"decision_states={decision_states(stats)}  steps={step}  time={time.perf_counter() - start:.0f}s")
 
         #run current model on testing set (if there is one)
         if len(test_ds) > 0:

@@ -23,7 +23,7 @@ with torch.no_grad():
     for k0 in range(0, len(idx), 128):
         ks = idx[k0:k0 + 128]
         g, t = collate_batch([ds[k] for k in ks])
-        _, target, _, _ = model(g)
+        target = model(g)[1]
         ng = graph_index(g.node_offsets).numpy()
         tt = torch.isin(g.node_type, torch.tensor(TARGET_TYPES)).numpy()
         tt[t.cand_node.numpy()] = True

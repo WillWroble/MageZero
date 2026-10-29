@@ -143,7 +143,7 @@ def worker_loop():
                 out = server_model(g, plan, None if cached is None else CACHE.table)
             if cached is not None:
                 computed = f"{int(cached[1].sum())}/{int((cached[0] >= 0).sum())}"
-            priority, target, use, value = (t.float().cpu().numpy() for t in out)
+            priority, target, use, value = (t.float().cpu().numpy() for t in out[:4])
             t_forward = time.perf_counter()
 
             # Split results back to individual requests: per-node scores in the order each state was sent

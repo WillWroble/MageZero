@@ -181,16 +181,18 @@ class NetGraph(nn.Module):
                      "all"       they also see the leaves; with n_passes=0 the state is a bag of tokens
       policy_domain: "legal"  policy softmax over the legal candidates only, as MCTS uses the priors
                      "all"    over every node of the head's types (learns legality; checkpoints from before
-                              this option)"""
+                              this option)
+      legality_weight: > 0 adds an auxiliary head that classifies each node of a policy head's types as a legal
+                       candidate or not (BCE, this weight in the total loss), returned as a fifth output"""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
-                 policy_domain: str = "legal"):
+                 policy_domain: str = "legal", legality_weight: float = 0.0):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
-                         policy_domain=policy_domain)
+                         policy_domain=policy_domain, legality_weight=legality_weight)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -212,6 +214,8 @@ class NetGraph(nn.Module):
         self.target_head = mlp(d_model, 1)
         self.binary_head = mlp(d_model, 2)
         self.value_head = mlp(d_model, 1, nn.Tanh())
+        if legality_weight > 0:
+            self.legality_head = mlp(d_model, 1)
 
     def resize_embedding(self, num_embeddings: int, init_rows=None, name: str = "embedding") -> None:
         """Grow an embedding table to `num_embeddings` rows, keeping existing rows unchanged.
@@ -322,7 +326,8 @@ class NetGraph(nn.Module):
             return torch.full((N,), float("-inf"), device=h.device).index_copy(
                 0, internal, head(z).squeeze(-1).float())
 
-        return per_node(self.priority_head), per_node(self.target_head), self.binary_head(cls), self.value_head(cls).squeeze(-1)
+        out = per_node(self.priority_head), per_node(self.target_head), self.binary_head(cls), self.value_head(cls).squeeze(-1)
+        return out + (per_node(self.legality_head),) if self.arch["legality_weight"] > 0 else out
 
 
 class NetMLP(nn.Module):
@@ -446,12 +451,14 @@ def use_loss(logits, t: Targets):
     return loss, n, correct
 
 
-def losses(out, g: Graphs, t: Targets, legal_only: bool = False) -> dict:
+def losses(out, g: Graphs, t: Targets, legal_only: bool = False, legality_weight: float = 0.0) -> dict:
     """Per head: (loss, states it covers, states where the top choice matches MCTS's).
     Value: MSE over every state. Policy heads: over the states of their decision type that have
     visits, a softmax over every node of the head's types (no legality mask; candidates are always
-    included) trained toward the normalized visits. legal_only: the softmax is over the candidates only."""
-    priority, target, use_logits, value = out
+    included) trained toward the normalized visits. legal_only: the softmax is over the candidates only.
+    legality_weight: with a fifth output (per-node legality logits), adds "legality": BCE over the nodes of each
+    policy head's types in the states of its decision type, label = is a candidate, times this weight."""
+    priority, target, use_logits, value = out[:4]
     node_graph = graph_index(g.node_offsets)
     is_cand = torch.zeros_like(g.node_type, dtype=torch.bool).index_fill(0, t.cand_node, True)
     visited = torch.zeros_like(t.value).index_add(0, t.cand_graph, t.cand_visits) > 0
@@ -461,7 +468,7 @@ def losses(out, g: Graphs, t: Targets, legal_only: bool = False) -> dict:
             return is_cand
         return torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device)) | is_cand
 
-    return {
+    heads = {
         "priority": node_policy_loss(priority, of_types(PRIORITY_TYPES),
                                      (t.action_type == ActionType.PRIORITY.value) & visited, node_graph, t),
         "choose_target": node_policy_loss(target, of_types(TARGET_TYPES),
@@ -469,6 +476,14 @@ def losses(out, g: Graphs, t: Targets, legal_only: bool = False) -> dict:
         "choose_use": use_loss(use_logits, t),
         "value": (F.mse_loss(value.float(), t.value), t.value.shape[0], 0),
     }
+    if legality_weight > 0 and len(out) > 4:
+        def nodes(action, types):
+            return torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device)) & \
+                (t.action_type == action.value)[node_graph]
+        domain = (nodes(ActionType.PRIORITY, PRIORITY_TYPES) | nodes(ActionType.CHOOSE_TARGET, TARGET_TYPES)).nonzero().squeeze(1)
+        bce = F.binary_cross_entropy_with_logits(out[4][domain].float(), is_cand[domain].float())
+        heads["legality"] = (legality_weight * bce, int(t.value.shape[0]), 0)
+    return heads
 
 
 def accumulate(stats: dict, heads: dict) -> None:
