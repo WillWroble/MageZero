@@ -342,3 +342,32 @@ Conclusion: root values are concentrated around 0 in every bucket (only 29–44%
 are wider only because the result enters near each game's end. gen0's root values ignore the matchup: Faeries'
 roots vs Mono peak slightly above 0 (mean −0.02) at a 20% win rate. gen1's model-guided roots track it (−0.19 to
 −0.30 in the losing Mono/PIMC buckets), but stay much closer to 0 than the results, so the labels keep that compression.
+
+### The same labels recomputed with TD 0.97 and 0.99 (`results/value_histograms_label_0.99_label.png`, `..._0.97_label.png`)
+
+`util/value_hist.py` rebuilds each game's labels from its root values and result, as `ParallelDataGenerator` does
+(recomputing at 0.92 reproduces the stored labels to 4e-8). Label mean / share beyond ±0.5, against the mean result:
+
+| bucket | seat | result (2·WR − 1) | TD 0.92 | TD 0.97 | TD 0.99 |
+|---|---|---|---|---|---|
+| gen0 Pauper | Faeries seat | -0.10 | +0.06 / 0.50 | +0.02 / 0.66 | -0.03 / 0.90 |
+| gen0 Pauper | opponent seat | +0.10 | +0.11 / 0.45 | +0.14 / 0.59 | +0.18 / 0.84 |
+| gen0 Mono | Faeries seat | -0.60 | -0.13 / 0.44 | -0.26 / 0.64 | -0.40 / 0.92 |
+| gen0 Mono | opponent seat | +0.60 | +0.35 / 0.54 | +0.46 / 0.76 | +0.56 / 0.96 |
+| gen1 reg Pauper | Faeries seat | +0.37 | +0.13 / 0.51 | +0.17 / 0.63 | +0.22 / 0.84 |
+| gen1 reg Pauper | opponent seat | -0.37 | +0.02 / 0.43 | -0.03 / 0.55 | -0.10 / 0.79 |
+| gen1 reg Mono | Faeries seat | -0.26 | -0.21 / 0.47 | -0.22 / 0.61 | -0.24 / 0.85 |
+| gen1 reg Mono | opponent seat | +0.26 | +0.33 / 0.56 | +0.36 / 0.71 | +0.37 / 0.87 |
+| gen1 self-play Pauper | Faeries seat | -0.31 | -0.12 / 0.48 | -0.17 / 0.61 | -0.24 / 0.85 |
+| gen1 self-play Pauper | opponent seat | +0.31 | +0.17 / 0.47 | +0.21 / 0.60 | +0.28 / 0.82 |
+| gen1 self-play Mono | Faeries seat | -0.63 | -0.29 / 0.50 | -0.38 / 0.67 | -0.50 / 0.92 |
+| gen1 self-play Mono | opponent seat | +0.63 | +0.39 / 0.63 | +0.49 / 0.83 | +0.58 / 0.98 |
+| gen1 PIMC (MonoB) | Faeries seat | -0.71 | -0.38 / 0.52 | -0.47 / 0.70 | -0.57 / 0.95 |
+| gen1 PIMC (MonoB) | opponent seat | +0.71 | +0.43 / 0.55 | +0.56 / 0.77 | +0.69 / 0.98 |
+| gen1 policy (MonoB) | Faeries seat | -0.43 | -0.20 / 0.44 | -0.25 / 0.61 | -0.33 / 0.88 |
+| gen1 policy (MonoB) | opponent seat | +0.43 | +0.27 / 0.48 | +0.38 / 0.73 | +0.49 / 0.97 |
+
+Conclusion: at 0.99 the horizon (≈100 decisions) exceeds a whole game (42–100 states per seat), so labels become
+nearly the game result: 79–98% of states beyond ±0.5 (vs 43–63% at 0.92) and bucket means near 2·WR − 1. 0.97 sits
+between. Higher TD removes the self-referencing compression, at the cost of noisier (near-binary) targets. (Label
+means are per state and the result per game, so long games weigh more: hence gen1 reg Mono at −0.24 vs −0.26.)

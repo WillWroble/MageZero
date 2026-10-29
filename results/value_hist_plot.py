@@ -57,7 +57,7 @@ for r, b in enumerate(BUCKETS):
               f"{a[BARS][np.abs(mid) > 0.5].sum() / n:.2f} | {sm:+.2f} | {a[LINE][np.abs(mid) > 0.5].sum() / n:.2f} |")
 axes[0, 0].legend(fontsize=8, frameon=False, loc="upper left")
 for ax in axes[-1]: ax.set_xlabel("value (seat's perspective)", fontsize=9, color=MUTED)
-fig.suptitle(f"{NAMES[BARS].capitalize()} vs {NAMES[LINE]}, ver4/ver5 training shards (share of states)", fontsize=11, color=INK, x=0.01, ha="left")
+fig.suptitle(f"{NAMES[BARS][0].upper() + NAMES[BARS][1:]} vs {NAMES[LINE]}, ver4/ver5 training shards (share of states)", fontsize=11, color=INK, x=0.01, ha="left")
 fig.tight_layout()
 fig.savefig("results/value_histograms.png" if (BARS, LINE) == ("label", "score")
             else f"results/value_histograms_{BARS}_{LINE}.png", dpi=110, facecolor="white")
