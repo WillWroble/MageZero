@@ -35,6 +35,8 @@ GLOBAL_LAYERS = 2
 HIDDEN_MLP = 256
 # checkpoints saved before the arch was stored in them
 LEGACY_ARCH = dict(d_model=512, d_ff=1024, dropout=0.25)
+# options added later, as checkpoints saved before them were trained
+LEGACY_OPTIONS = dict(policy_domain="all")
 
 # numeric value buckets: exact -5..20 (P/T, counters, mana, costs, small counts), then 21-25, 26-30,
 # 31-40, 41-60, 61+ (life totals, library and zone sizes); everything below -5 is one bucket
@@ -177,13 +179,14 @@ class NetGraph(nn.Module):
                            edge labels) once; no hierarchy and no object-to-object edges
       global_tokens: "internal"  global layers see [CLS, internal nodes]
                      "all"       they also see the leaves; with n_passes=0 the state is a bag of tokens
-      policy_domain: "all"    policy softmax over every node of the head's types (learns legality)
-                     "legal"  over the legal candidates only"""
+      policy_domain: "legal"  policy softmax over the legal candidates only, as MCTS uses the priors
+                     "all"    over every node of the head's types (learns legality; checkpoints from before
+                              this option)"""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
-                 policy_domain: str = "all"):
+                 policy_domain: str = "legal"):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
@@ -511,6 +514,6 @@ def load_checkpoint(path):
     edge_vocab = FeatureVocab.from_state_dict(checkpoint["edge_vocab"])
     vocab.require_encoding(GLOBAL_MAX)
     edge_vocab.require_encoding(GLOBAL_MAX)
-    model = build_model(len(vocab), len(edge_vocab), **checkpoint.get("arch", LEGACY_ARCH))
+    model = build_model(len(vocab), len(edge_vocab), **{**LEGACY_OPTIONS, **checkpoint.get("arch", LEGACY_ARCH)})
     model.load_state_dict(checkpoint["model_state_dict"])
     return model, vocab, edge_vocab
