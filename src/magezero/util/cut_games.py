@@ -2,24 +2,32 @@
 import sys
 
 import h5py
+import numpy as np
 
 GROUPS = {"/offsets": ("/indices", "/values"), "/edge_offsets": ("/edge_child", "/edge_parent", "/edge_label"),
           "/policy_offsets": ("/policy_node", "/policy_visits")}
 
 
-def cut(src, dst, start, end):
+def take(src, dst, games):
+    """Copy the given games (increasing indices) of shard src to a new shard dst."""
     with h5py.File(src) as f, h5py.File(dst, "w") as g:
-        games = f["/game_offsets"][...]
-        end = min(end, len(games) - 1)
-        first, last = int(games[start]), int(games[end])
-        g["/game_offsets"] = games[start:end + 1] - first
-        g["/row"] = f["/row"][first:last]
+        go = f["/game_offsets"][...]
+        games = np.asarray([i for i in games if i < len(go) - 1], dtype=np.int64)
+        rows = np.concatenate([np.arange(go[i], go[i + 1]) for i in games]) if len(games) else np.zeros(0, np.int64)
+        g["/game_offsets"] = np.concatenate([[0], np.cumsum(go[games + 1] - go[games])])
+        g["/row"] = f["/row"][...][rows]
         for off, items in GROUPS.items():
-            o = f[off][first:last + 1]
-            g[off] = o - o[0]
+            o = f[off][...]
+            n = o[rows + 1] - o[rows]
+            g[off] = np.concatenate([[0], np.cumsum(n)]).astype(o.dtype)
+            items_idx = np.concatenate([np.arange(o[r], o[r + 1]) for r in rows]) if len(rows) else np.zeros(0, np.int64)
             for k in items:
-                g[k] = f[k][o[0]:o[-1]]
-        print(dst.split("/")[-1], "games", end - start, "states", last - first)
+                g[k] = f[k][...][items_idx]
+        print(dst.split("/")[-1], "games", len(games), "states", len(rows))
+
+
+def cut(src, dst, start, end):
+    take(src, dst, range(start, end))
 
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@
 #   gen0-mono/test       the first 100 games of each gen0 Standard Mono shard, both seats
 #   gen0-mono/train      the rest of those shards: a large training set whose opponents exclude the whole Pauper pool
 #   gen0-pauper/test     the first 100 games of each gen0 Pauper non-mirror shard, both seats (unseen by gen0-mono)
+#   selfplay/test        every 5th game of each ver4 gen1 self-play shard (`*_selfplay*`, v4 model on both seats)
+#   selfplay/train-100   the other games; train-50 and train-25 keep every 2nd and 4th of those (nested subsets)
 set -e
 R=/workspace/repo/experiment_data/Pauper-Faeries D=/workspace/data
 for seat in PlayerA PlayerB; do
@@ -17,7 +19,7 @@ done
 mkdir -p $D/gen0 && ln -sfn $R/ver4/testing/gen0 $D/gen0/test
 cd /workspace/repo/src/magezero/util
 for v in ver4 ver5; do
-  python3 split_games.py $R/$v/training/gen1 $D/gen1/train/$v $D/gen1/test/$v 0.2 _pimc
+  python3 split_games.py $R/$v/training/gen1 $D/gen1/train/$v $D/gen1/test/$v --fraction 0.2 --skip _pimc
 done
 mkdir -p $D/both/train && cp -rsf $D/gen0/train/. $D/both/train/gen0 && cp -rsf $D/gen1/train/. $D/both/train/gen1
 # the seat's own shards only: gen0 PlayerB also holds a copy of PlayerA's MonoW shard
@@ -35,4 +37,11 @@ for seat in "PlayerA Pauper-Faeries_vs_Standard-Mono" "PlayerB Standard-Mono"; d
     python3 cut_games.py $f $D/gen0-pauper/test/$1/$(basename $f) 0 100
   done
 done
+mkdir -p $D/selfplay/src
+for seat in PlayerA PlayerB; do
+  mkdir -p $D/selfplay/src/$seat && ln -sf $R/ver4/training/gen1/$seat/*_selfplay*.hdf5 $D/selfplay/src/$seat/
+done
+python3 split_games.py $D/selfplay/src $D/selfplay/train-100 $D/selfplay/test --every 5
+python3 thin_games.py $D/selfplay/train-100 $D/selfplay/train-50 2
+python3 thin_games.py $D/selfplay/train-100 $D/selfplay/train-25 4
 du -shL $D/*/*
