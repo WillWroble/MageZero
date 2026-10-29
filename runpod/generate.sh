@@ -9,7 +9,8 @@ source runpod/java.sh
 pip install -q h5py flask waitress msgpack pyyaml
 lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt
 # the model, from the volume's copy of the repo
-(cd /workspace/repo && git lfs pull --include="$MODEL/model.pt.gz")
+# (pulled only while still a pointer file: concurrent pods would otherwise race on the repo's index lock)
+[ $(stat -c %s /workspace/repo/$MODEL/model.pt.gz) -gt 1000 ] || (cd /workspace/repo && git lfs pull --include="$MODEL/model.pt.gz")
 mkdir -p models/Pauper-Faeries/ver4 && cp /workspace/repo/$MODEL/model.pt.gz models/Pauper-Faeries/ver4/
 python -u src/magezero/server.py --deck Pauper-Faeries --version 4 --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
 until curl -sf localhost:50052/healthz; do sleep 2; done
