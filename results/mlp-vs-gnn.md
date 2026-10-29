@@ -279,3 +279,33 @@ Faeries' seat only (`seatA-mono`):
 
 On Faeries' seat against unseen Pauper the GNN leads on targets by 4–5 points and slightly on priority; value is
 a wash. The mirror collapse (names kept) is the same as pooled.
+
+### Mono-trained, player names dropped (`mlp-mono-dn`)
+
+| run | test | value | prio KL | prio acc | non-pass | tgt KL | tgt acc | use acc |
+|---|---|---|---|---|---|---|---|---|
+| gnnlegal, no names s0 / s1 | Pauper (unseen) | 0.080 / 0.083 | 0.090 / 0.093 | 0.781 / 0.754 | 0.725 / 0.669 | 0.099 / 0.091 | 0.718 / 0.750 | 0.800 / 0.786 |
+| gnnlegal, no names s0 / s1 | mirror (unseen) | 0.224 / 0.090 | 0.065 / 0.063 | 0.776 / 0.775 | 0.783 / 0.797 | 0.080 / 0.079 | 0.733 / 0.758 | 0.886 / 0.885 |
+| gnnlegal, no names s0 / s1 | Mono (in distribution) | 0.044 / 0.041 | 0.072 / 0.071 | 0.799 / 0.799 | 0.762 / 0.771 | 0.076 / 0.073 | 0.813 / 0.824 | 0.864 / 0.871 |
+| gnnlegal, no names s0 / s1 | Pauper, Faeries' seat | 0.079 / 0.090 | 0.062 / 0.058 | 0.787 / 0.798 | 0.775 / 0.825 | 0.075 / 0.070 | 0.744 / 0.780 | 0.835 / 0.842 |
+| gnnlegal, no names s0 / s1 | mirror, Faeries' seat | 0.249 / 0.095 | 0.065 / 0.062 | 0.777 / 0.778 | 0.783 / 0.797 | 0.080 / 0.080 | 0.735 / 0.757 | 0.884 / 0.884 |
+
+- Dropping the names removes most of the mirror collapse (value 0.68 → 0.22 and 0.09; choose_use 0.55 → 0.89)
+  but not all of it: the MLP is at 0.043–0.047. Unlike the Pauper-trained runs (0.040–0.044 without names), a
+  Mono-trained GNN still finds another deck-identity cue, plausibly which side holds Faeries cards: no Mono deck
+  shares Faeries' cards, while some Pauper decks do (Counterspell).
+- On unseen Pauper the no-names GNN now has the better value (0.080–0.083 vs 0.090–0.095 pooled), level priority
+  KL pooled (0.090–0.093 vs 0.097–0.099, slightly ahead), and better targets on Faeries' seat (0.744–0.780 vs
+  0.728–0.730).
+
+## Summary (as of the Mono runs)
+
+- Dama's priority gap was the training objective (softmax over all nodes vs legal candidates). Use `policy_domain:
+  "legal"`.
+- In distribution (gen0, gen1, gen0+gen1, Mono), the legal GNN is level or better on every head: targets by 3–6
+  points, priority KL slightly, value level or slightly better.
+- On unseen opponents the full-size GNN learns deck-identity shortcuts for value: the seat name (fixed by
+  `--drop-player-names`), and with Mono-only training a further cue. The 170K MLP doesn't. Without names, the GNN
+  matches or beats the MLP on unseen opponents in every case except the Mono-trained mirror value.
+- Cheapest robust option measured: the d64 GNN (667K params), which did not take the shortcut even with names.
+  One seed.
