@@ -14,8 +14,9 @@ lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt
 mkdir -p models/Pauper-Faeries/ver4 && cp /workspace/repo/$MODEL/model.pt.gz models/Pauper-Faeries/ver4/
 python -u src/magezero/server.py --deck Pauper-Faeries --version 4 --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
 until curl -sf localhost:50052/healthz; do sleep 2; done
-# a local copy per pod: XMage's card database (db/) can't be shared between pods on the network volume
-cp -r /workspace/xmage/$MAGE_COMMIT /tmp/xmage && X=/tmp/xmage
+# a local copy per pod, without the card database: XMage builds its own (db/) on startup. A shared or copied
+# database breaks when another pod is using it (failed connections, decks loading with cards missing)
+mkdir -p /tmp/xmage && cp -r /workspace/xmage/$MAGE_COMMIT/{lib,decks,config} /tmp/xmage/ && X=/tmp/xmage
 for C in $CONFIG; do
   N=$(basename $C .yml)
   cp $C $OUT/$N.yml
