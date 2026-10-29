@@ -265,3 +265,17 @@ the gen0 mirror (unseen) and `gen0-mono/test` (the first 100 Mono games, in dist
 - On unseen Pauper (both seats): value mixed (GNN 0.083–0.100, MLP 0.090–0.095), priority KL level, targets GNN
   (0.738–0.742 vs 0.704–0.711). In distribution the GNN leads on everything but choose_use (targets 0.813–0.819
   vs 0.770–0.783).
+
+Faeries' seat only (`seatA-mono`):
+
+| run | test | value | prio KL | prio acc | non-pass | tgt KL | tgt acc |
+|---|---|---|---|---|---|---|---|
+| gnnlegal s0 / s1 | Pauper (unseen) | 0.104 / 0.083 | 0.061 / 0.060 | 0.794 / 0.799 | 0.810 / 0.840 | 0.070 / 0.071 | 0.780 / 0.768 |
+| mlp s0 / s1 | Pauper (unseen) | 0.086 / 0.105 | 0.065 / 0.061 | 0.779 / 0.787 | 0.849 / 0.835 | 0.079 / 0.074 | 0.730 / 0.728 |
+| gnnlegal s0 / s1 | mirror (unseen) | 0.667 / 0.564 | 0.080 / 0.068 | 0.745 / 0.765 | 0.722 / 0.822 | 0.094 / 0.082 | 0.731 / 0.742 |
+| mlp s0 / s1 | mirror (unseen) | 0.048 / 0.044 | 0.053 / 0.057 | 0.792 / 0.789 | 0.842 / 0.807 | 0.078 / 0.079 | 0.726 / 0.717 |
+| gnnlegal s0 / s1 | Mono (in distribution) | 0.040 / 0.039 | 0.048 / 0.048 | 0.829 / 0.826 | 0.830 / 0.845 | 0.060 / 0.061 | 0.806 / 0.800 |
+| mlp s0 / s1 | Mono (in distribution) | 0.042 / 0.051 | 0.052 / 0.051 | 0.815 / 0.814 | 0.853 / 0.822 | 0.080 / 0.075 | 0.742 / 0.754 |
+
+On Faeries' seat against unseen Pauper the GNN leads on targets by 4–5 points and slightly on priority; value is
+a wash. The mirror collapse (names kept) is the same as pooled.
