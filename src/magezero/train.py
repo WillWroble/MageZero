@@ -30,16 +30,17 @@ def train(
         hide_opponent_hand: bool = False,
         lr: float = 1e-4,
         drop_player_names: bool = False,
+        td: float = None,
 ):
     train_shards, val_shards = read_split(f"{out}/split.txt")
-    ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand)
+    ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand, td=td)
     if len(ds) == 0:
         found = (f"{len(ds.files)} .hdf5/.h5 files, none with readable states (see warnings above)" if ds.files
                  else "no .hdf5/.h5 files")
         raise SystemExit(f"no training data in {out}/split.txt: {found}")
     vocab, edge_vocab, model = prepare_vocab(out, use_checkpoint, ds, arch or {}, drop_player_names)
     ds.apply_vocab(vocab, edge_vocab)
-    val_sets = {name: H5Graphs(shards, vocab, edge_vocab, hide_opponent_hand) for name, shards in val_shards.items()}
+    val_sets = {name: H5Graphs(shards, vocab, edge_vocab, hide_opponent_hand, td) for name, shards in val_shards.items()}
 
     train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr)
 
@@ -173,10 +174,12 @@ if __name__ == "__main__":
                         help="train and test on states without the non-deciding player's hand (H5Graphs.hide_opponent_hand)")
     parser.add_argument("--drop-player-names", action="store_true",
                         help="leave the PlayerA/PlayerB name leaves out of the vocab, so the model never sees them")
+    parser.add_argument("--td", type=float, help="train and validate on value labels rebuilt with this TD discount "
+                                                 "(dataset.td_labels) instead of the stored ones")
 
     args = parser.parse_args()
     test.log_to(f"{args.model}/train.log")
     if args.seed is not None:
         torch.manual_seed(args.seed)
     train(args.model, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand, args.lr,
-          args.drop_player_names)
+          args.drop_player_names, args.td)

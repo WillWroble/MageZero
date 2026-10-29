@@ -179,6 +179,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True,
                         help="model directory (model.pt.gz): tests on each val set of its split.txt; the log goes to its test.log")
+    parser.add_argument("--td", type=float, help="test against value labels rebuilt with this TD discount "
+                                                 "(dataset.td_labels; 1 = the game result) instead of the stored ones")
     args = parser.parse_args()
     log_to(f"{args.model}/test.log")
 
@@ -190,8 +192,8 @@ if __name__ == "__main__":
 
     model = model.to(DEVICE)
     for name, shards in read_split(f"{args.model}/split.txt")[1].items():
-        print(f"Testing on {name}")
-        ds = H5Graphs(shards, vocab, edge_vocab, hide_opponent_hand)
+        print(f"Testing on {name}" + ("" if args.td is None else f" (TD {args.td})"))
+        ds = H5Graphs(shards, vocab, edge_vocab, hide_opponent_hand, args.td)
         dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0,
                         collate_fn=collate_batch, pin_memory=AMP, persistent_workers=False)
         validate(model, dl, vocab, edge_vocab)

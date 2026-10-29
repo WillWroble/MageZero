@@ -94,6 +94,19 @@ def read_split(path: str):
     return train, vals
 
 
+def td_labels(row, game_offsets, td):
+    """Value labels rebuilt with discount td, as XMage's ParallelDataGenerator builds them: within each game,
+    label[i] = td * label[i + 1] + (1 - td) * stateScore[i], starting from the result (+1 / -1, the sign of the game's
+    last stored label). td 1 gives the result itself."""
+    label = np.empty(len(row), np.float32)
+    for a, b in zip(game_offsets[:-1], game_offsets[1:]):
+        x = 1.0 if row[b - 1, 0] > 0 else -1.0
+        for i in range(b - 1, a - 1, -1):
+            x = td * x + (1 - td) * float(row[i, 1])
+            label[i] = x
+    return label
+
+
 def shard_problem(s: dict):
     """Why a shard's arrays don't form a valid set of graphs, or None."""
     n = s["/row"].shape[0]
@@ -136,10 +149,11 @@ class H5Graphs(Dataset):
                                                         useFalseVisits, useTrueVisits
     Ids stay raw until apply_vocab maps them to embedding rows; __getitem__ needs the mapped form.
     hide_opponent_hand: see hide_opponent_hand.
+    td: if given, the value labels (resultLabel) are rebuilt with this discount (td_labels) instead of the stored ones.
     source: a directory (every shard under it) or a list of (shard path, games or None for all), as read_split gives.
     """
 
-    def __init__(self, source, vocab=None, edge_vocab=None, hide_opponent_hand: bool = False):
+    def __init__(self, source, vocab=None, edge_vocab=None, hide_opponent_hand: bool = False, td: float = None):
         if isinstance(source, (str, Path)):
             source = [(str(p), None) for p in sorted(list(Path(source).rglob("*.h5")) + list(Path(source).rglob("*.hdf5")))]
         self.files = [path for path, _ in source]
@@ -156,6 +170,9 @@ class H5Graphs(Dataset):
             if problem:
                 print(f"[warn] skipping inconsistent shard {path}: {problem}")
                 continue
+            if td is not None:
+                shard["/row"] = shard["/row"].copy()
+                shard["/row"][:, 0] = td_labels(shard["/row"], shard["/game_offsets"], td)
             shards.append(shard)
 
         def cat(key, dtype):

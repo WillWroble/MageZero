@@ -12,9 +12,11 @@ train.log and test.log) is /workspace/runs/<name>/<run>, and its console output 
       # any repo script, run from the repo root with $OUT=/workspace/runs/<name>; its output goes to $OUT/script.log
 
 Logs: https://<files pod id>-8000.proxy.runpod.net/<name>/<run>.log (the files pod's id: python runpod/launch.py --list)
-Run keys: name, split (the model's split.txt, dataset.read_split; regexes match paths from the repo root), arch (JSON
-for --arch), args (more train.py args); model (an existing model directory under /workspace/runs) skips training and
-only tests it on its split.txt.
+Run keys: name, split (the model's split.txt, dataset.read_split; regexes match paths from root), arch (JSON for
+--arch), args (more train.py args), tests (test.py args, one test.py run each; default [""]), root (the directory the
+regexes are relative to; default the repo checkout, /workspace/data for the data sets files.sh builds); model (an
+existing model directory under /workspace/runs) skips training and only tests it on its split.txt (written first
+when split is given).
 """
 import argparse
 import email.utils
@@ -62,12 +64,14 @@ sleep infinity
 def command(name, run):
     log = f"/workspace/runs/{name}/{run['name']}.log"
     out = f"/workspace/runs/{run['model']}" if "model" in run else log[:-len(".log")]
-    steps = [f"cd {REPO_DIR}", f"python -u /tmp/code/src/magezero/test.py --model {out}"]
+    steps = [f"cd {run.get('root', REPO_DIR)}"]
+    if "split" in run:
+        lines = " ".join(shlex.quote(line) for line in run["split"].splitlines())
+        steps += [f"mkdir -p {out}", f"printf '%s\\n' {lines} > {out}/split.txt"]
     if "model" not in run:
         arch = f"--arch {shlex.quote(json.dumps(run['arch']))}" if "arch" in run else ""
-        lines = " ".join(shlex.quote(line) for line in run["split"].splitlines())
-        steps[1:1] = [f"mkdir -p {out}", f"printf '%s\\n' {lines} > {out}/split.txt",
-                      f"python -u /tmp/code/src/magezero/train.py --model {out} {arch} {run.get('args', '')}"]
+        steps.append(f"python -u /tmp/code/src/magezero/train.py --model {out} {arch} {run.get('args', '')}")
+    steps += [f"python -u /tmp/code/src/magezero/test.py --model {out} {t}" for t in run.get("tests", [""])]
     return f"({' && '.join(steps)}) > {log} 2>&1"
 
 

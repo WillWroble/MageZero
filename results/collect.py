@@ -19,7 +19,7 @@ COLUMNS = {
 
 def rows(text):
     """{val set: {column: value}} from the last section of each val set in a run log."""
-    sections = {section.split()[0]: section for section in text.split("Testing on ")[1:]}
+    sections = {section.splitlines()[0]: section for section in text.split("Testing on ")[1:]}
     return {name: {c: (m.group(1) if (m := re.search(p, section)) else "") for c, p in COLUMNS.items()}
             for name, section in sections.items()}
 
