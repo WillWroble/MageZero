@@ -56,11 +56,12 @@ Cells: value MSE / priority legal KL / target legal top-1 (lower, lower, higher 
 - Both together (C) add a little over B on reg targets (0.778) and keep self-play level; everything (D) is the best
   or level-best on every test for the GNN.
 
-**The GNN's lead grows with this data.** In every branch the GNN beats the MLP on targets, by 2.5–4 points (e.g.
+**The GNN's lead holds and grows a little with this data.** In every branch the GNN beats the MLP on targets, by 2.5–4 points (e.g.
 B self-play 0.745 vs 0.720, C reg 0.778 vs 0.749, gen0 mirror 0.794–0.805 vs 0.756–0.774), and on priority KL
 everywhere but one cell (A on self-play, 0.085 vs 0.080, where both are out of distribution). Value is level or
-better for the GNN except on the PIMC test in B and C. On gen0-only data (`mlp-vs-gnn.md`) the in-distribution
-gaps were about half as large (priority KL ≈0.001–0.004, targets ≈3 points, value level).
+better for the GNN except on the PIMC test in B and C. Compared with the earlier in-distribution runs
+(`mlp-vs-gnn.md`): the target gap is about the same (≈3 points); the priority KL gap is a little larger (0.001 on gen0
+only, 0.004–0.005 on gen1 only, 0.002–0.006 here); and value, level before, now favours the GNN by 0.001–0.011.
 
 **PIMC (hidden opponent hand).**
 - Without PIMC training, the value heads of B and C fail on PIMC states (GNN 0.117–0.123, MLP 0.096–0.112; Faeries'
