@@ -169,3 +169,71 @@ Both test sets are in distribution here (the gen0 mirror shard and every gen1 ma
 One seed. Same pattern as gen0-only and gen1-only: in distribution, the legal GNN is slightly ahead on priority
 KL (0.074 vs 0.080, 0.051 vs 0.054) and clearly ahead on targets (0.762 vs 0.743, 0.801 vs 0.765); value is level.
 With gen1 added, value on gen1 drops for both (0.063–0.083 → 0.053–0.055).
+
+## Dropping the player names (`mlp-names`, `train.py --drop-player-names`)
+
+The "PlayerA"/"PlayerB" leaves are left out of the vocab, so the model never sees them (test.py and the server
+drop them too, from the checkpoint's vocab). Same no-mirror training as `mlp-ood`. Value MSE on unseen opponents
+(both seats):
+
+| run | mirror value | Mono value | prio KL mirror / Mono | tgt acc mirror / Mono |
+|---|---|---|---|---|
+| gnnlegal, names (s0, s1) | 0.863, 0.947 | 0.226, 0.194 | 0.074–0.081 / 0.109 | 0.666–0.749 / 0.738–0.753 |
+| gnnlegal, no names (s0, s1) | **0.040, 0.044** | **0.079, 0.069** | 0.054–0.061 / 0.104–0.107 | 0.772–0.778 / 0.751–0.762 |
+| mlp, names (s0, s1) | 0.059, 0.052 | 0.079, 0.075 | 0.059 / 0.100–0.105 | 0.751–0.754 / 0.724–0.725 |
+| mlp, no names (s0) | 0.049 | 0.070 | 0.056 / 0.099 | 0.749 / 0.724 |
+| gen1-trained gnnlegal, names (3 seeds) | 0.60–0.77 | – | – | – |
+| gen1-trained gnnlegal, no names (s0) | **0.052** | – | 0.086 | 0.760 |
+
+Related arms (`mlp-ood2`, names kept): the default-loss GNN collapses on one seed of two (mirror value 0.048, 0.715),
+so the legal-only loss is not the cause. The d64 GNN (667K params) did not collapse (0.037 mirror, 0.069 Mono).
+
+Conclusion: with names, 6 of 7 full-size GNN runs (9M) collapsed on the unseen mirror; without names, 3 of 3 are
+fine and match or beat the MLP. A model that learned the shortcut keeps a bias after the names are hidden at test
+time (+0.7 on both seats), but a model trained without them never learns it. Collapse needs both the shortcut and
+the capacity to memorize it. Dropping the names costs nothing (the MLP improves slightly). Recommendation: drop the
+player-name leaves in `StateEncoder`.
+
+## Faeries' seat only (`seatA`)
+
+Every table above pools both seats; on non-mirror tests half the states are the opponent deck's own decisions.
+Here the same checkpoints are re-scored on PlayerA (Faeries) states only.
+
+Unseen opponents (no-mirror training):
+
+| run | test | value | prio KL | prio acc | non-pass | tgt KL | tgt acc |
+|---|---|---|---|---|---|---|---|
+| gnnlegal, no names s0 | mirror | 0.043 | **0.054** | **0.793** | 0.806 | 0.075 | 0.768 |
+| gnnlegal, no names s1 | mirror | 0.045 | 0.061 | 0.783 | 0.819 | **0.071** | **0.778** |
+| gnnlegal d64 (names) | mirror | **0.038** | 0.062 | 0.774 | 0.835 | 0.078 | 0.764 |
+| mlp s0 / s1 | mirror | 0.062 / 0.054 | 0.059 / 0.058 | 0.778 / 0.778 | **0.843** / 0.833 | 0.075 / 0.079 | 0.754 / 0.747 |
+| mlp, no names | mirror | 0.053 | 0.055 | 0.788 | 0.813 | 0.076 | 0.747 |
+| mlp256 | mirror | 0.056 | 0.059 | 0.775 | 0.818 | 0.078 | 0.750 |
+| gnnlegal, no names s0 | Mono | 0.076 | **0.057** | 0.805 | 0.826 | **0.086** | **0.746** |
+| gnnlegal, no names s1 | Mono | **0.068** | 0.060 | **0.807** | 0.838 | 0.092 | **0.746** |
+| gnnlegal d64 (names) | Mono | 0.069 | 0.064 | 0.787 | 0.824 | 0.107 | 0.703 |
+| mlp s0 / s1 | Mono | 0.079 / 0.072 | 0.063 / 0.061 | 0.793 / 0.790 | **0.857** / 0.839 | 0.100 / 0.104 | 0.691 / 0.696 |
+| mlp, no names | Mono | **0.068** | 0.061 | 0.790 | 0.815 | 0.102 | 0.676 |
+| mlp256 | Mono | 0.078 | 0.063 | 0.785 | 0.844 | 0.099 | 0.704 |
+
+Faeries' seat, other training sets (gen1 held-out = PlayerA shards of the gen1 test split):
+
+| run | test | value | prio KL | prio acc | non-pass | tgt KL | tgt acc |
+|---|---|---|---|---|---|---|---|
+| g0 gnnlegal | gen1 held-out | **0.081** | 0.108 | 0.698 | **0.705** | **0.104** | **0.661** |
+| g0 mlp | gen1 held-out | 0.110 | 0.108 | 0.695 | 0.680 | 0.115 | 0.592 |
+| g1 gnnlegal | gen1 held-out | 0.078 | **0.068** | **0.774** | 0.553 | 0.082 | 0.757 |
+| g1 gnnlegal, no names | gen1 held-out | **0.062** | **0.068** | 0.773 | 0.528 | **0.081** | **0.763** |
+| g1 mlp | gen1 held-out | 0.081 | 0.072 | 0.759 | 0.514 | 0.093 | 0.715 |
+| g01 gnnlegal | gen1 held-out | **0.051** | **0.068** | **0.768** | 0.534 | **0.080** | **0.757** |
+| g01 mlp | gen1 held-out | 0.060 | 0.073 | 0.750 | **0.616** | 0.092 | 0.729 |
+| g01 gnnlegal | gen0 mirror | 0.040 | **0.051** | 0.795 | 0.821 | **0.058** | **0.798** |
+| g01 mlp | gen0 mirror | **0.037** | 0.053 | 0.792 | **0.835** | 0.072 | 0.760 |
+
+Conclusions (Faeries' seat):
+- **Targets are where the GNN wins, by more than the pooled numbers showed:** +2–3 points on the unseen mirror,
+  +5–7 on unseen Mono, +7 on gen0 → gen1 transfer, +3–5 in distribution on gen1.
+- **Priority:** the GNN without names leads on unseen Mono (KL 0.057–0.060 vs 0.061–0.063, top-1 0.805 vs 0.790).
+  The MLP's pooled lead on Mono priority came from the Mono deck's own seat. Everywhere else priority KL is level
+  or slightly in the GNN's favour; the MLP keeps a higher non-pass top-1 on most sets (it passes less).
+- **Value:** without names, the GNN is level or better on every set.
