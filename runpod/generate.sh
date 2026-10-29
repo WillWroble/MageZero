@@ -16,7 +16,7 @@ X=/workspace/xmage/$MAGE_COMMIT
 cp $CONFIG $OUT/config.yml
 # the game log is large: it stays on the container disk, with its tail copied to the volume
 (while sleep 60; do tail -n 500 /tmp/java.log > $OUT/java-tail.log; done) &
-cd $X && java -Xms2g -Xmx48g -XX:+UseZGC --add-opens=java.base/java.lang=ALL-UNNAMED \
+cd $X && java -Xms2g -Xmx48g -XX:+UseParallelGC --add-opens=java.base/java.lang=ALL-UNNAMED \
   -jar lib/mage-magezero-1.4.58.jar $OUT/config.yml > /tmp/java.log 2>&1
 tail -n 2000 /tmp/java.log > $OUT/java-tail.log
 grep "WR with" $X/WinRates.txt | tail -3 > $OUT/winrate.txt || true
