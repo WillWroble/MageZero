@@ -311,3 +311,34 @@ Conclusion: no real change from gen1. gen2's root values are a little more pessi
 and as discriminative as gen1's (within the gap between the two gen1 shards). In all three model generations the
 root value is compressed toward 0: a −0.34 position ends in a loss 85% of the time, a +0.33 position wins 70–82%.
 The MonoB seat (offline heuristic) is unchanged, as expected.
+
+## Value labels vs search root values, gen0 and gen1 (`results/value_histograms.png`)
+
+Every ver4/ver5 training shard, bucketed (`util/value_hist.py` on a RunPod CPU pod, `results/value_hist_plot.py`).
+Labels are the TD(0.92) targets; root = the search's `stateScore`. Both from the seat's perspective.
+`ver4/training/gen0/PlayerB/Pauper-Faeries_vs_Standard-MonoW.hdf5` is the same file as the PlayerA one (same LFS
+object, Faeries' seat) and is left out.
+
+| bucket | seat | games | seat WR | states | label mean | share |label| > 0.5 | root mean | share |root| > 0.5 |
+|---|---|---|---|---|---|---|---|---|
+| gen0 Pauper | Faeries seat | 2576 | 44.9% | 185,035 | +0.06 | 0.50 | +0.08 | 0.38 |
+| gen0 Pauper | opponent seat | 2576 | 55.1% | 235,634 | +0.11 | 0.45 | +0.09 | 0.36 |
+| gen0 Mono | Faeries seat | 9993 | 19.9% | 597,293 | -0.13 | 0.44 | -0.02 | 0.29 |
+| gen0 Mono | opponent seat | 9993 | 80.1% | 527,734 | +0.35 | 0.54 | +0.23 | 0.37 |
+| gen1 reg Pauper | Faeries seat | 780 | 68.7% | 77,644 | +0.13 | 0.51 | +0.10 | 0.43 |
+| gen1 reg Pauper | opponent seat | 780 | 31.3% | 86,011 | +0.02 | 0.43 | +0.05 | 0.35 |
+| gen1 reg Mono | Faeries seat | 1548 | 37.0% | 148,219 | -0.21 | 0.47 | -0.19 | 0.38 |
+| gen1 reg Mono | opponent seat | 1548 | 63.0% | 113,386 | +0.33 | 0.56 | +0.29 | 0.43 |
+| gen1 self-play Pauper | Faeries seat | 1600 | 34.4% | 153,815 | -0.12 | 0.48 | -0.09 | 0.39 |
+| gen1 self-play Pauper | opponent seat | 1600 | 65.6% | 164,369 | +0.17 | 0.47 | +0.13 | 0.39 |
+| gen1 self-play Mono | Faeries seat | 1199 | 18.6% | 98,256 | -0.29 | 0.50 | -0.22 | 0.38 |
+| gen1 self-play Mono | opponent seat | 1199 | 81.4% | 60,700 | +0.39 | 0.63 | +0.28 | 0.44 |
+| gen1 PIMC (MonoB) | Faeries seat | 600 | 14.7% | 42,124 | -0.38 | 0.52 | -0.30 | 0.39 |
+| gen1 PIMC (MonoB) | opponent seat | 600 | 85.3% | 30,541 | +0.43 | 0.55 | +0.29 | 0.38 |
+| gen1 policy (MonoB) | Faeries seat | 199 | 28.6% | 18,355 | -0.20 | 0.44 | -0.17 | 0.33 |
+| gen1 policy (MonoB) | opponent seat | 199 | 71.4% | 10,034 | +0.27 | 0.48 | +0.19 | 0.29 |
+
+Conclusion: root values are concentrated around 0 in every bucket (only 29–44% of states beyond ±0.5), and the labels
+are wider only because the result enters near each game's end. gen0's root values ignore the matchup: Faeries'
+roots vs Mono peak slightly above 0 (mean −0.02) at a 20% win rate. gen1's model-guided roots track it (−0.19 to
+−0.30 in the losing Mono/PIMC buckets), but stay much closer to 0 than the results, so the labels keep that compression.
