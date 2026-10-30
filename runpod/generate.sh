@@ -12,6 +12,12 @@ lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt
 git lfs install --local >/dev/null && git lfs pull --include="$MODEL/model.pt.gz"
 python -u src/magezero/server.py --model $MODEL --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
 until curl -sf localhost:50052/healthz; do sleep 2; done
+# $OPP_MODEL (optional): a second model on port 50053, for configs whose server.opponent_port points player_b there
+if [ -n "$OPP_MODEL" ]; then
+  git lfs pull --include="$OPP_MODEL/model.pt.gz"
+  python -u src/magezero/server.py --model $OPP_MODEL --port 50053 2>&1 | grep -v "^\[REQ" > $OUT/server-opp.log &
+  until curl -sf localhost:50053/healthz; do sleep 2; done
+fi
 # a local copy per pod, without the card database: XMage builds its own (db/) on startup. A shared or copied
 # database breaks when another pod is using it (failed connections, decks loading with cards missing)
 mkdir -p /tmp/xmage && cp -r /workspace/xmage/$MAGE_COMMIT/{lib,decks,config} /tmp/xmage/ && X=/tmp/xmage
