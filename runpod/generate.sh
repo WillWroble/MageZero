@@ -20,11 +20,11 @@ for C in $CONFIG; do
   cp $C $OUT/$N.yml
   grep output_file $C | awk '{print $2}' | xargs -n1 dirname | xargs mkdir -p
   # the game log is large: it stays on the container disk, with its tail and the sims/s lines copied to the volume
-  (while sleep 60; do tail -n 500 /tmp/$N.log > $OUT/$N-java-tail.log; grep "Total: simulated" /tmp/$N.log > $OUT/$N-sims.log; done) &
+  (while sleep 60; do tail -n 500 /tmp/$N.log > $OUT/$N-java-tail.log; grep "Total: simulated" /tmp/$N.log > $OUT/$N-sims.log || true; done) &
   LOOP=$!
   (cd $X && java -Xms2g -Xmx48g -XX:+UseParallelGC --add-opens=java.base/java.lang=ALL-UNNAMED \
     -Dlog4j.configuration=file:config/log4j.properties -jar lib/mage-magezero-1.4.58.jar $OUT/$N.yml > /tmp/$N.log 2>&1)
-  kill $LOOP
+  kill $LOOP || true  # (set -e)
   tail -n 2000 /tmp/$N.log > $OUT/$N-java-tail.log
   grep "Total: simulated" /tmp/$N.log > $OUT/$N-sims.log || true
   grep -E "Successful:|Failed:|win rate" /tmp/$N.log > $OUT/$N-result.txt || true
