@@ -11,7 +11,7 @@ from flask import Flask, request, Response
 
 from cache import NodeCache
 from dataset import map_ids, node_types
-from model import Graphs, load_checkpoint, AMP, DEVICE, NodeType
+from model import Graphs, NetGraph, load_checkpoint, AMP, DEVICE, NodeType
 
 # Threading config
 TORCH_THREADS = 1 #max(1, os.cpu_count() // 2)
@@ -38,7 +38,8 @@ def init(model_dir: str, port: int):
 
     model, VOCAB, EDGE_VOCAB = load_checkpoint(f"{model_dir}/model.pt.gz")
     server_model = model.to(DEVICE).eval()
-    CACHE = NodeCache(server_model, DEVICE)
+    # the node cache holds NetGraph local-layer outputs; NetMLP has none
+    CACHE = NodeCache(server_model, DEVICE) if isinstance(server_model, NetGraph) else None
 
     for _ in range(WORKERS):
         threading.Thread(target=worker_loop, daemon=True).start()
@@ -133,14 +134,17 @@ def worker_loop():
         try:
             # Single forward pass over every state of every request
             graphs, node_hash = collate_requests(batch)
-            cached = None if node_hash is None else CACHE.lookup(graphs.node_type.numpy(), node_hash)
+            cached = None if node_hash is None or CACHE is None else CACHE.lookup(graphs.node_type.numpy(), node_hash)
             t_collated = time.perf_counter()
             with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
                 # small batches: the index work runs on the CPU, so the GPU runs the forward pass without stalls;
                 # large ones: the CPU work costs more than the stalls (bench.py compares both)
                 g = graphs.to(DEVICE)
-                plan = server_model.plan(graphs if states <= CPU_PLAN_MAX else g, cached).to(DEVICE)
-                out = server_model(g, plan, None if cached is None else CACHE.table)
+                if CACHE is None:
+                    out = server_model(g)
+                else:
+                    plan = server_model.plan(graphs if states <= CPU_PLAN_MAX else g, cached).to(DEVICE)
+                    out = server_model(g, plan, None if cached is None else CACHE.table)
             if cached is not None:
                 computed = f"{int(cached[1].sum())}/{int((cached[0] >= 0).sum())}"
             priority, target, use, value = (t.float().cpu().numpy() for t in out[:4])
@@ -171,7 +175,8 @@ def worker_loop():
         except Exception as e:
             # fail these requests instead of the worker, so later requests still get served
             traceback.print_exc()
-            CACHE.clear()  # the failed batch's new slots were never written
+            if CACHE is not None:
+                CACHE.clear()  # the failed batch's new slots were never written
             for p in batch:
                 p.error = f"{type(e).__name__}: {e}"
 
