@@ -393,9 +393,9 @@ Counterspell 0.39 / 0.37 / 0.30 / 0.37; Spellstutter 0.38 / 0.24 / 0.20 / 0.28; 
 In 17% of Faeries' priority decisions the most visited action is not the best scored (MonoB's offline search: 4%).
 Almost all are an action chosen over a higher-scored Pass (Island, Spellstutter, Seer, Miscreant, Elder, ...), by a
 small score margin (median 0.010) while Pass still gets ≈40% of the visits.
-**Caveat (Oct 30):** a short ver10 value-only log (one game thread, 58 Faeries priority decisions) has the same
-mismatch at 12% ± 4% with no priors, so most of the 17% is likely not the priors; MonoB's offline search is not a
-fair baseline for it. The behaviour shift toward acting under priors (choice rates above) is unaffected.
+**Update (Oct 30):** the full ver10 value-only log (19K lines, all threads, ≈5,300 Faeries priority decisions)
+has the mismatch at 5% (an earlier one-thread slice, 58 decisions, showed 12%), so the 17% under priors does come
+from the priors.
 
 Conclusion: with priors on, Faeries reverts toward gen0's play (casts threats on curve, passes less): the priority
 head pulls visits toward acting. ver7's policy trained mostly on gen0 games (≈65% of its states), whose heuristic
@@ -441,3 +441,17 @@ data; whether they cause it is untested.
 Conclusion: ver10 brings back most of gen1's reactive style (passes as often, keeps nearly as many flash windows
 open on the opponent's turn) yet wins 26%, so the sorcery-speed shift does not explain the gen2 plateau. Priors
 (priority, or priority + target) again push toward acting on Faeries' own turn.
+
+### How decisive the search is (console logs, `results/mcts_gaps.py`)
+
+Faeries priority decisions; option scores are the search's mean values per root child.
+
+| log | decisions | best − second score, median | share within 0.02 | best − worst option, median | Pass is best-scored |
+|---|---|---|---|---|---|
+| ver7, priors on | 4,643 | 0.033 | 35% | 0.048 | 50% |
+| ver10, value only | 5,289 | 0.028 | 38% | 0.041 | 47% |
+
+Conclusion: the search barely separates its options. The best and worst option of a decision typically differ by
+0.04–0.05 in value (on a ±1 scale), and over a third of decisions are within 0.02 between the top two, about the
+noise of 300 simulations. Which move is played is then close to a coin flip at many decisions, whichever model
+evaluates them, which fits every gen2 model landing at the same win rate.
