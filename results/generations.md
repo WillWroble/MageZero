@@ -371,3 +371,29 @@ Conclusion: at 0.99 the horizon (≈100 decisions) exceeds a whole game (42–10
 nearly the game result: 79–98% of states beyond ±0.5 (vs 43–63% at 0.92) and bucket means near 2·WR − 1. 0.97 sits
 between. Higher TD removes the self-referencing compression, at the cost of noisier (near-binary) targets. (Label
 means are per state and the result per game, so long games weigh more: hence gen1 reg Mono at −0.24 vs −0.26.)
+
+## gen2 with priority priors on (ver7, vs offline MonoB and MonoW, uploaded Oct 30)
+
+Only the opponents' seats were uploaded (`gen2/PlayerA/Standard-MonoB_vs_Pauper-Faeries_ppolicy.hdf5` is a MonoB-seat
+file; neither shard has a Faeries decision), so Faeries' play comes from Will's console grep of the MonoB run
+(`MCTSNode.bestChild` lines, 20:57–22:19, ≈4,600 Faeries priority decisions; `results/mcts_log.py`).
+
+| matchup | gen2 value only | gen2 priors on |
+|---|---|---|
+| vs MonoB: Faeries WR | 32.0% ± 6.5 | 25.0% ± 6.0 |
+| vs MonoW: Faeries WR | 48.2% ± 6.9 | **16.5% ± 5.1** |
+| vs MonoW: opponent states/game | 96 | 61 |
+
+Faeries, chosen when available (priority states), gen0 / gen1 / gen2 / gen2 with priors: Pass 0.33 / 0.50 / 0.48 /
+**0.38**; Ninja 0.88 / 0.28 / 0.24 / **0.51**; Miscreant 0.63 / 0.53 / 0.46 / 0.64; Seer 0.61 / 0.37 / 0.38 / 0.56;
+Elder 0.42 / 0.23 / 0.37 / 0.43; Harrier Strix 0.58 / 0.32 / 0.33 / 0.38; Saiba 0.63 / 0.35 / 0.37 / 0.41;
+Counterspell 0.39 / 0.37 / 0.30 / 0.37; Spellstutter 0.38 / 0.24 / 0.20 / 0.28; Island 0.69 / 0.65 / 0.67 / 0.72.
+
+In 17% of Faeries' priority decisions the most visited action is not the best scored (MonoB's offline search: 4%).
+Almost all are an action chosen over a higher-scored Pass (Island, Spellstutter, Seer, Miscreant, Elder, ...), by a
+small score margin (median 0.010) while Pass still gets ≈40% of the visits.
+
+Conclusion: with priors on, Faeries reverts toward gen0's play (casts threats on curve, passes less): the priority
+head pulls visits toward acting. ver7's policy trained mostly on gen0 games (≈65% of its states), whose heuristic
+search acted far more, so its priors carry gen0's style. gen1's gain over gen0 was the patience that value-only
+search found, and the priors undo it; the MonoW collapse fits that.
