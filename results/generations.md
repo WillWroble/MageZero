@@ -397,3 +397,24 @@ Conclusion: with priors on, Faeries reverts toward gen0's play (casts threats on
 head pulls visits toward acting. ver7's policy trained mostly on gen0 games (≈65% of its states), whose heuristic
 search acted far more, so its priors carry gen0's style. gen1's gain over gen0 was the patience that value-only
 search found, and the priors undo it; the MonoW collapse fits that.
+
+## gen2 vs MonoB: ver9 (no gen0) with and without priors, and ver7 priors `_nodedup` (uploaded Oct 30)
+
+Faeries' seat, `util/behaviour.py` and `results/pimc_play.py`. ver7 priors-on is from the console log (no Faeries shard).
+
+| | gen1 (v4) | ver7, value only | ver7, priors (log) | ver7, priors `_nodedup` | ver9, value only | ver9, priors |
+|---|---|---|---|---|---|---|
+| Faeries WR | 31.6% | 32.0% ± 6.5 | 25.0% ± 6.0 | 28.5% ± 6.3 | 22.0% ± 5.7 | 28.5% ± 6.3 |
+| Pass chosen | 0.50 | 0.48 | 0.38 | 0.45 | 0.45 | 0.40 |
+| Ninja / Seer / Miscreant | 0.28 / 0.37 / 0.53 | 0.24 / 0.38 / 0.46 | 0.51 / 0.56 / 0.64 | 0.58 / 0.61 / 0.69 | 0.50 / 0.51 / 0.52 | 0.38 / 0.48 / 0.62 |
+| priority choices on opp's turn / game | 6.3 | 5.7 | – | 3.2 | 4.7 | 3.7 |
+| flash/loot castable on opp's turn, states / game | 4.5 | 3.8 | – | 1.8 | 3.4 | 2.4 |
+| Spellstutter onto a spell / game | 0.15 | 0.12 | – | 0.04 | 0.09 | 0.09 |
+| Spellstutter / Elder own-turn share | 0.68 / 0.66 | 0.70 / 0.76 | – | 0.93 / 0.91 | 0.74 / 0.78 | 0.85 / 0.83 |
+
+Conclusion: no variant beats ver7 value-only or gen1 (all within ≈2 SE). Dropping gen0 did not restore gen1's
+patience: ver9's value-only search casts threats as often as ver7 with priors (Ninja 0.50, Seer 0.51). Every gen2
+variant, most of all with priors, plays more at sorcery speed than gen1: fewer decisions on the opponent's turn,
+fewer flash windows kept open, Spellstutter rarely onto a spell. That is the pattern of the PIMC games (§ PIMC play:
+1.9 flash states/game, 0.02 Spellstutter onto a spell, 12.5% WR), which are in both ver7's and ver9's training
+data; whether they cause it is untested.
