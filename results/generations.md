@@ -413,6 +413,8 @@ Faeries' seat, `util/behaviour.py` and `results/pimc_play.py`. ver7 priors-on is
 | Spellstutter onto a spell / game | 0.15 | 0.12 | – | 0.04 | 0.09 | 0.09 |
 | Spellstutter / Elder own-turn share | 0.68 / 0.66 | 0.70 / 0.76 | – | 0.93 / 0.91 | 0.74 / 0.78 | 0.85 / 0.83 |
 
+ver10 (no gen0, no PIMC, no `_policy`), value only, from Will's console: **26.0%** (200 games, ±6.1).
+
 Conclusion: no variant beats ver7 value-only or gen1 (all within ≈2 SE). Dropping gen0 did not restore gen1's
 patience: ver9's value-only search casts threats as often as ver7 with priors (Ninja 0.50, Seer 0.51). Every gen2
 variant, most of all with priors, plays more at sorcery speed than gen1: fewer decisions on the opponent's turn,
