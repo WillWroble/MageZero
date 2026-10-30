@@ -189,3 +189,51 @@ Conclusion: dropping PIMC and `_policy` improves value on the perfect-info holdo
 Faeries' seat 0.038 → 0.035) and leaves the policy as good (same KL and top-1), at the cost of the now-unseen PIMC
 games. Its priors lean slightly toward acting (non-pass +0.02–0.04, pass −0.01–0.02), not toward passing; whether it
 keeps flash windows open on the opponent's turn needs games.
+
+### Value predictions of the legality-head models (`results/value_preds_legality.png`)
+
+Each model's value prediction on every held-out state (`util/value_preds.py` on a RunPod GPU, epoch-3 checkpoints;
+`results/value_preds_plot.py`). MSE label = against the TD 0.92 labels; MSE / AUC result = against the game result;
+corr root = correlation with the search's root value; calibration = mean prediction per bin -> mean result.
+
+| set | model | MSE label | MSE result | AUC result | corr root | std | beyond ±0.5 | calibration: pred bin mean -> result mean |
+|---|---|---|---|---|---|---|---|---|
+| self-play | D-gnn | 0.0393 | 0.537 | 0.906 | 0.972 | 0.546 | 0.44 | -0.74->-0.94 -0.34->-0.61 -0.00->-0.14 +0.34->+0.49 +0.77->+0.93 |
+| self-play | D-gnn-leg0.1 | 0.0401 | 0.530 | 0.910 | 0.969 | 0.549 | 0.44 | -0.74->-0.94 -0.34->-0.65 -0.00->-0.14 +0.34->+0.48 +0.76->+0.93 |
+| self-play | D-gnn-leg1.0 | 0.0410 | 0.537 | 0.907 | 0.969 | 0.547 | 0.44 | -0.74->-0.94 -0.34->-0.64 +0.00->-0.12 +0.34->+0.48 +0.75->+0.92 |
+| self-play | D-gnn-legsplit0.1 | 0.0415 | 0.533 | 0.908 | 0.968 | 0.554 | 0.45 | -0.76->-0.95 -0.34->-0.62 +0.00->-0.17 +0.34->+0.45 +0.75->+0.93 |
+| self-play | D-gnn-legsplit1.0 | 0.0440 | 0.528 | 0.911 | 0.961 | 0.552 | 0.45 | -0.75->-0.95 -0.34->-0.65 +0.00->-0.16 +0.35->+0.46 +0.75->+0.93 |
+| reg | D-gnn | 0.0425 | 0.604 | 0.872 | 0.947 | 0.537 | 0.42 | -0.73->-0.86 -0.34->-0.57 -0.00->-0.11 +0.34->+0.43 +0.77->+0.86 |
+| reg | D-gnn-leg0.1 | 0.0420 | 0.602 | 0.872 | 0.947 | 0.539 | 0.44 | -0.73->-0.87 -0.34->-0.56 -0.00->-0.12 +0.34->+0.39 +0.76->+0.85 |
+| reg | D-gnn-leg1.0 | 0.0457 | 0.611 | 0.867 | 0.945 | 0.537 | 0.43 | -0.73->-0.85 -0.34->-0.56 -0.00->-0.09 +0.34->+0.37 +0.76->+0.86 |
+| reg | D-gnn-legsplit0.1 | 0.0446 | 0.609 | 0.870 | 0.943 | 0.536 | 0.43 | -0.74->-0.87 -0.34->-0.58 +0.00->-0.10 +0.34->+0.36 +0.75->+0.86 |
+| reg | D-gnn-legsplit1.0 | 0.0505 | 0.608 | 0.870 | 0.930 | 0.536 | 0.44 | -0.74->-0.86 -0.34->-0.60 +0.00->-0.13 +0.34->+0.40 +0.74->+0.84 |
+
+Conclusion: the value behaviour is the same with or without a legality head: identical spread (std 0.54–0.55, 42–45%
+of predictions beyond ±0.5), the same compression toward 0 (a −0.34 prediction ends at −0.56 to −0.65), and AUC
+within 0.005. The heaviest head (split, w 1.0) tracks the root values slightly less (corr 0.961 vs 0.972) and so
+fits the labels worse, but predicts the result no worse (self-play MSE 0.528 vs 0.537).
+
+### Value predictions, ver9 vs ver10 (ver7 for reference)
+
+`util/value_preds.py` on the self-play, reg and PIMC holdouts. Per state, pairwise: correlation, mean |difference|,
+mean difference (second minus first), share differing by > 0.2. And each model against the game result.
+
+| holdout | pair | corr | mean \|diff\| | mean diff | > 0.2 |
+|---|---|---|---|---|---|
+| self-play | ver10 − ver9 | 0.975 | 0.087 | −0.004 | 9.1% |
+| self-play | ver9 − ver7 | 0.977 | 0.084 | −0.011 | 8.1% |
+| reg | ver10 − ver9 | 0.969 | 0.091 | +0.002 | 10.4% |
+| reg | ver9 − ver7 | 0.970 | 0.092 | −0.014 | 10.4% |
+| PIMC | ver10 − ver9 | 0.975 | 0.096 | **+0.053** | 11.6% |
+| PIMC | ver9 − ver7 | 0.979 | 0.079 | +0.008 | 7.8% |
+
+| holdout | MSE vs result / AUC, ver7 | ver9 | ver10 |
+|---|---|---|---|
+| self-play | 0.537 / 0.906 | 0.524 / 0.911 | **0.506 / 0.920** |
+| reg | 0.604 / 0.872 | 0.598 / 0.872 | **0.587 / 0.878** |
+| PIMC | 0.466 / 0.941 | **0.454 / 0.945** | 0.487 / 0.934 |
+
+Conclusion: on perfect-info games ver10 and ver9 differ per state by the same amount as any two retrained models
+(≈0.09, no shift), and ver10 predicts the result slightly better. On PIMC states, which it never saw, ver10 is
+systematically more optimistic (+0.053 on average) in games Faeries mostly lost, and predicts them worse.
