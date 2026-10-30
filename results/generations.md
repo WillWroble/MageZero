@@ -393,6 +393,9 @@ Counterspell 0.39 / 0.37 / 0.30 / 0.37; Spellstutter 0.38 / 0.24 / 0.20 / 0.28; 
 In 17% of Faeries' priority decisions the most visited action is not the best scored (MonoB's offline search: 4%).
 Almost all are an action chosen over a higher-scored Pass (Island, Spellstutter, Seer, Miscreant, Elder, ...), by a
 small score margin (median 0.010) while Pass still gets ≈40% of the visits.
+**Caveat (Oct 30):** a short ver10 value-only log (one game thread, 58 Faeries priority decisions) has the same
+mismatch at 12% ± 4% with no priors, so most of the 17% is likely not the priors; MonoB's offline search is not a
+fair baseline for it. The behaviour shift toward acting under priors (choice rates above) is unaffected.
 
 Conclusion: with priors on, Faeries reverts toward gen0's play (casts threats on curve, passes less): the priority
 head pulls visits toward acting. ver7's policy trained mostly on gen0 games (≈65% of its states), whose heuristic
