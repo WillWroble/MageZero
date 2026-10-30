@@ -317,7 +317,8 @@ The MonoB seat (offline heuristic) is unchanged, as expected.
 Every ver4/ver5 training shard, bucketed (`util/value_hist.py` on a RunPod CPU pod, `results/value_hist_plot.py`).
 Labels are the TD(0.92) targets; root = the search's `stateScore`. Both from the seat's perspective.
 `ver4/training/gen0/PlayerB/Pauper-Faeries_vs_Standard-MonoW.hdf5` is the same file as the PlayerA one (same LFS
-object, Faeries' seat) and is left out.
+object, Faeries' seat) and is left out. `runpod/prepare.sh` already leaves it out of `gen0-all`, so branches A–D
+and ver7–ver9 never trained on it twice.
 
 | bucket | seat | games | seat WR | states | label mean | share |label| > 0.5 | root mean | share |root| > 0.5 |
 |---|---|---|---|---|---|---|---|---|
