@@ -171,3 +171,21 @@ Conclusion: dropping gen0 helps both models' policy on gen1 games; the MLP's val
 self-play) while the GNN's slips slightly (0.039 → 0.041). Without gen0 the GNN's value edge nearly vanishes
 (0.001–0.004 vs 0.007–0.008), but its policy edge grows (self-play KL 0.058 vs 0.063, equal with gen0; targets
 +0.029 vs +0.023). Only the GNN's priors shift toward passing (pass accuracy 0.86 → 0.89; the MLP's stays 0.87).
+
+### ver9 without PIMC and `_policy` games too
+
+ver9's settings and holdouts; training set gen1 reg, self-play and the two v5-model shards (0.72M states vs 0.80M).
+Log: `/workspace/runs/nogen0-nopimc-nopolicy`. Epoch 6; value / prio KL / prio top-1 (non-pass / pass) / tgt acc.
+
+| holdout | ver9 | ver9 − PIMC − `_policy` |
+|---|---|---|
+| self-play | 0.041 / 0.058 / 0.775 (0.60 / 0.89) / 0.773 | **0.038** / 0.058 / 0.775 (0.62 / 0.88) / 0.773 |
+| reg | 0.046 / 0.061 / 0.789 (0.60 / 0.91) / 0.785 | 0.045 / 0.063 / 0.789 (0.63 / 0.89) / 0.787 |
+| PIMC (now unseen) | 0.044 / 0.085 / 0.704 (0.63 / 0.81) / 0.755 | 0.052 / 0.092 / 0.698 (0.66 / 0.75) / 0.757 |
+| gen0 mirror | 0.042 / 0.070 / 0.751 (0.72 / 0.79) / 0.758 | 0.043 / 0.074 / 0.743 (0.74 / 0.75) / 0.761 |
+| self-play, Faeries' seat | 0.038 / 0.048 / 0.795 (0.61 / 0.90) / 0.785 | **0.035** / 0.048 / 0.796 (0.65 / 0.88) / 0.784 |
+
+Conclusion: dropping PIMC and `_policy` improves value on the perfect-info holdouts (self-play 0.041 → 0.038,
+Faeries' seat 0.038 → 0.035) and leaves the policy as good (same KL and top-1), at the cost of the now-unseen PIMC
+games. Its priors lean slightly toward acting (non-pass +0.02–0.04, pass −0.01–0.02), not toward passing; whether it
+keeps flash windows open on the opponent's turn needs games.
