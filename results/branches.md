@@ -154,3 +154,20 @@ Conclusion: gen0 hurts the policy on gen1 games. Without it, priority KL on held
 (Faeries' seat 0.058 → 0.048) and targets improve, while value is unchanged. The no-gen0 priors pass more: pass
 accuracy rises 0.03–0.04 and non-pass falls 0–0.04, so ver7's priors lean toward gen0's act-first play, as the
 priors-on games suggested. Only the gen0 mirror gets worse, as expected.
+
+### The same for the MLP
+
+D-mlp's settings (lr 1e-3), the same no-gen0 set and holdouts, 6 epochs. Log: `/workspace/runs/nogen0-mlp`.
+Final epoch, both seats; value / prio KL / prio top-1 / tgt acc.
+
+| holdout | GNN with gen0 (ver7) | GNN no gen0 (ver9) | MLP with gen0 | MLP no gen0 |
+|---|---|---|---|---|
+| self-play | 0.039 / 0.069 / 0.760 / 0.754 | 0.041 / 0.058 / 0.775 / 0.773 | 0.046 / 0.069 / 0.755 / 0.731 | 0.042 / 0.063 / 0.764 / 0.744 |
+| reg | 0.043 / 0.064 / 0.784 / 0.781 | 0.046 / 0.061 / 0.789 / 0.785 | 0.051 / 0.066 / 0.775 / 0.758 | 0.047 / 0.066 / 0.781 / 0.760 |
+| PIMC | 0.043 / 0.089 / 0.689 / 0.754 | 0.044 / 0.085 / 0.704 / 0.755 | 0.050 / 0.094 / 0.679 / 0.734 | 0.048 / 0.092 / 0.695 / 0.738 |
+| gen0 mirror | 0.032 / 0.049 / 0.805 / 0.797 | 0.042 / 0.070 / 0.751 / 0.758 | 0.039 / 0.055 / 0.791 / 0.773 | 0.044 / 0.074 / 0.738 / 0.741 |
+
+Conclusion: dropping gen0 helps both models' policy on gen1 games; the MLP's value improves too (0.046 → 0.042 on
+self-play) while the GNN's slips slightly (0.039 → 0.041). Without gen0 the GNN's value edge nearly vanishes
+(0.001–0.004 vs 0.007–0.008), but its policy edge grows (self-play KL 0.058 vs 0.063, equal with gen0; targets
++0.029 vs +0.023). Only the GNN's priors shift toward passing (pass accuracy 0.86 → 0.89; the MLP's stays 0.87).
