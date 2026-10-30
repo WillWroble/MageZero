@@ -455,3 +455,24 @@ Conclusion: the search barely separates its options. The best and worst option o
 0.04–0.05 in value (on a ±1 scale), and over a third of decisions are within 0.02 between the top two, about the
 noise of 300 simulations. Which move is played is then close to a coin flip at many decisions, whichever model
 evaluates them, which fits every gen2 model landing at the same win rate.
+
+## gen3 data vs the Pauper pool: the gen2 model (ver10) against the offline heuristic search
+
+RunPod (`runpod/configs/gen3-offline-*.yml`, value only, 300 sims, 200 games each; shards in
+`/workspace/runs/gen3-offline`). gen1 = v4 vs offline: Affinity, Burn, CawGates, Elves from the repo's gen1 shards;
+mirror, Rally, Spy, Wildfire from Will's `Mage.MageZero/WinRates.txt` lines 542–547 (v4 vs offline, confirmed
+Oct 30; those games are not in the repo). gen0 = heuristic vs heuristic (ver4 gen0 shards).
+
+| deck | gen0 | gen1 (v4) | gen2 model (ver10) | gen2 − gen1 |
+|---|---|---|---|---|
+| Affinity | 40% (100) | 63.5% | 77.0% | +13.5 |
+| Burn | 56% (100) | 66.5% | 61.5% | −5.0 |
+| CawGates | 61.8% | 81.1% | 74.5% | −6.6 |
+| Elves | 35.5% | 65.0% | running | |
+| Faeries mirror | 50.9% | 72.0% | 49.5% | −22.5 |
+| Rally | 15.2% | 30.0% | 17.0% | −13.0 |
+| Spy | 46.7% | 59.0% | 54.0% | −5.0 |
+| Wildfire | 57.7% | 72.0% | running | |
+
+Conclusion (six decks so far): ver10 averages 55.6% against v4's 62.0% (≈3 SE), a regression from gen1, largest in
+the mirror and against Rally, where it falls back to gen0's level.
