@@ -213,3 +213,27 @@ Conclusion: the value behaviour is the same with or without a legality head: ide
 of predictions beyond ±0.5), the same compression toward 0 (a −0.34 prediction ends at −0.56 to −0.65), and AUC
 within 0.005. The heaviest head (split, w 1.0) tracks the root values slightly less (corr 0.961 vs 0.972) and so
 fits the labels worse, but predicts the result no worse (self-play MSE 0.528 vs 0.537).
+
+### Value predictions, ver9 vs ver10 (ver7 for reference)
+
+`util/value_preds.py` on the self-play, reg and PIMC holdouts. Per state, pairwise: correlation, mean |difference|,
+mean difference (second minus first), share differing by > 0.2. And each model against the game result.
+
+| holdout | pair | corr | mean \|diff\| | mean diff | > 0.2 |
+|---|---|---|---|---|---|
+| self-play | ver10 − ver9 | 0.975 | 0.087 | −0.004 | 9.1% |
+| self-play | ver9 − ver7 | 0.977 | 0.084 | −0.011 | 8.1% |
+| reg | ver10 − ver9 | 0.969 | 0.091 | +0.002 | 10.4% |
+| reg | ver9 − ver7 | 0.970 | 0.092 | −0.014 | 10.4% |
+| PIMC | ver10 − ver9 | 0.975 | 0.096 | **+0.053** | 11.6% |
+| PIMC | ver9 − ver7 | 0.979 | 0.079 | +0.008 | 7.8% |
+
+| holdout | MSE vs result / AUC, ver7 | ver9 | ver10 |
+|---|---|---|---|
+| self-play | 0.537 / 0.906 | 0.524 / 0.911 | **0.506 / 0.920** |
+| reg | 0.604 / 0.872 | 0.598 / 0.872 | **0.587 / 0.878** |
+| PIMC | 0.466 / 0.941 | **0.454 / 0.945** | 0.487 / 0.934 |
+
+Conclusion: on perfect-info games ver10 and ver9 differ per state by the same amount as any two retrained models
+(≈0.09, no shift), and ver10 predicts the result slightly better. On PIMC states, which it never saw, ver10 is
+systematically more optimistic (+0.053 on average) in games Faeries mostly lost, and predicts them worse.
