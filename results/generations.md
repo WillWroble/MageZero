@@ -421,3 +421,20 @@ variant, most of all with priors, plays more at sorcery speed than gen1: fewer d
 fewer flash windows kept open, Spellstutter rarely onto a spell. That is the pattern of the PIMC games (§ PIMC play:
 1.9 flash states/game, 0.02 Spellstutter onto a spell, 12.5% WR), which are in both ver7's and ver9's training
 data; whether they cause it is untested.
+
+### ver10 value only, and `_ptpolicy_gen1only` (uploaded Oct 30)
+
+`_gen1nopimconly` = ver10, value only; `_ptpolicy_gen1only` = assumed ver9 with priority and target priors.
+
+| | gen1 (v4) | ver7, value | ver9, value | ver10, value | ver9, priority + target priors |
+|---|---|---|---|---|---|
+| Faeries WR | 31.6% | 32.0% | 22.0% | 26.0% | 23.5% |
+| Pass chosen | 0.50 | 0.48 | 0.45 | 0.49 | 0.41 |
+| Ninja / Seer / Miscreant | 0.28 / 0.37 / 0.53 | 0.24 / 0.38 / 0.46 | 0.50 / 0.51 / 0.52 | 0.39 / 0.44 / 0.57 | 0.49 / 0.51 / 0.63 |
+| priority choices on opp's turn / game | 6.3 | 5.7 | 4.7 | 5.6 | 3.9 |
+| flash/loot castable on opp's turn / game | 4.5 | 3.8 | 3.4 | 4.3 | 2.3 |
+| Spellstutter onto a spell / game | 0.15 | 0.12 | 0.09 | 0.10 | 0.07 |
+
+Conclusion: ver10 brings back most of gen1's reactive style (passes as often, keeps nearly as many flash windows
+open on the opponent's turn) yet wins 26%, so the sorcery-speed shift does not explain the gen2 plateau. Priors
+(priority, or priority + target) again push toward acting on Faeries' own turn.
