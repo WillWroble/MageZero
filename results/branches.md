@@ -133,3 +133,24 @@ Conclusion: the GNN's value advantage shrinks on the harder targets, from ≈15%
 nothing at 0.99. Most of a 0.99 label is the game's outcome noise, which neither model can reduce, so the absolute
 gaps are expected to shrink; but the relative gap shrinks too. The GNN's edge at 0.92 is mostly in matching the
 search's own root values.
+
+## Branch D without gen0 (GNN, one seed)
+
+D-gnn's training set minus every gen0 shard (gen1 reg, self-play, PIMC and the rest: 0.80M states vs 2.34M), same
+settings, 6 epochs (≈ a third of D's steps per epoch). Log: `/workspace/runs/nogen0`. Epoch 6 vs ver7 (D-gnn);
+value / prio KL / prio top-1 (non-pass / pass) / tgt acc.
+
+| holdout | ver7 (with gen0) | no gen0 |
+|---|---|---|
+| self-play | 0.039 / 0.069 / 0.760 (0.61 / 0.86) / 0.754 | 0.041 / **0.058** / **0.775** (0.60 / 0.89) / **0.773** |
+| reg | 0.043 / 0.064 / 0.784 (0.64 / 0.88) / 0.781 | 0.046 / 0.061 / 0.789 (0.60 / 0.91) / 0.785 |
+| PIMC | 0.043 / 0.089 / 0.689 (0.63 / 0.77) / 0.754 | 0.044 / 0.085 / 0.704 (0.63 / 0.81) / 0.755 |
+| gen0 mirror | 0.032 / 0.049 / 0.805 (0.82 / 0.79) / 0.797 | 0.042 / 0.070 / 0.751 (0.72 / 0.79) / 0.758 |
+| self-play, Faeries' seat | 0.037 / 0.058 / 0.776 (0.64 / 0.86) / 0.766 | 0.038 / **0.048** / **0.795** (0.61 / 0.90) / 0.785 |
+
+Value is level at its best epoch (epoch 4: 0.039 / 0.043 / 0.044 on self-play / reg / PIMC).
+
+Conclusion: gen0 hurts the policy on gen1 games. Without it, priority KL on held-out self-play drops 0.069 → 0.058
+(Faeries' seat 0.058 → 0.048) and targets improve, while value is unchanged. The no-gen0 priors pass more: pass
+accuracy rises 0.03–0.04 and non-pass falls 0–0.04, so ver7's priors lean toward gen0's act-first play, as the
+priors-on games suggested. Only the gen0 mirror gets worse, as expected.
