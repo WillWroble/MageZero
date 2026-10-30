@@ -1,5 +1,5 @@
-# Self-play data generation on a GPU pod: serves $MODEL (a model directory under the repo) for both seats on port
-# 50052 and runs (a local copy of) the XMage distribution at /workspace/xmage/$MAGE_COMMIT (built first if missing) with each config
+# Data generation on a GPU pod: serves $MODEL (a model directory under the repo) on port 50052, for each seat that
+# isn't offline, and runs (a local copy of) the XMage distribution at /workspace/xmage/$MAGE_COMMIT (built first if missing) with each config
 # in $CONFIG (space-separated files in the repo), one after another. Each config's output_file paths say where its
 # shards go; its game log tail and sims/s lines land in $OUT. Run by launch.py --script.
 set -ex
@@ -8,10 +8,9 @@ bash runpod/build-xmage.sh  # once per mage commit
 source runpod/java.sh
 pip install -q h5py flask waitress msgpack pyyaml
 lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt
-# the model, from the volume's copy of the repo
-# (pulled only while still a pointer file: concurrent pods would otherwise race on the repo's index lock)
-[ $(stat -c %s /workspace/repo/$MODEL/model.pt.gz) -gt 1000 ] || (cd /workspace/repo && git lfs pull --include="$MODEL/model.pt.gz")
-python -u src/magezero/server.py --model /workspace/repo/$MODEL --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
+# the model, from this pod's own clone (at the launched commit)
+git lfs install --local >/dev/null && git lfs pull --include="$MODEL/model.pt.gz"
+python -u src/magezero/server.py --model $MODEL --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
 until curl -sf localhost:50052/healthz; do sleep 2; done
 # a local copy per pod, without the card database: XMage builds its own (db/) on startup. A shared or copied
 # database breaks when another pod is using it (failed connections, decks loading with cards missing)
