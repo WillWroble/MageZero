@@ -1,0 +1,92 @@
+# gen1 (MLP) vs offline: the gen0-trained MLP (/workspace/runs/mlp-gen0all/mlp) for Faeries against the heuristic search (player_b offline_mode),
+# value only, 200 games. Output: /workspace/runs/gen1mlp-offline (runpod/generate.sh).
+
+goes_first: random  # player_a, player_b, random
+
+player_a:
+  deckPath: decks/Pauper-Faeries.txt
+  type: mcts
+  output_file: /workspace/runs/gen1mlp-offline/PlayerA/Pauper-Faeries_vs_Pauper-Burn.hdf5
+
+  priors:
+    priority: false
+    target: false
+    binary: false
+    opponent: false
+    prior_temperature: 1.5
+
+  noise:
+    enabled: false
+    dirichlet_noise: 0.15 #does nothing
+    selection_temperature: 2 #does nothing
+
+  mcts:
+    search_budget: 300
+    timeout_ms: 60000
+    td_discount: 0.92
+    offline_mode: false
+    prune_duplicate_states: true
+    max_pending: 4
+    c_puct: 1.0
+    pimc: false
+
+  gameplay:
+    mulligans_enabled: false
+    manual_tapping: false
+
+
+  hiddenInfo:
+    see_opponent_hand: true
+
+player_b:
+  deckPath: decks/Pauper-Burn.txt
+  type: mcts
+  output_file: /workspace/runs/gen1mlp-offline/PlayerB/Pauper-Burn_vs_Pauper-Faeries.hdf5
+
+  priors:
+    priority: false
+    target: false
+    binary: false
+    opponent: false
+    prior_temperature: 1.5
+
+  noise:
+    enabled: false
+    dirichlet_noise: 0.15 #does nothing
+    selection_temperature: 2 #does nothing
+
+  mcts:
+    search_budget: 300
+    timeout_ms: 60000
+    td_discount: 0.92
+    offline_mode: true
+    prune_duplicate_states: true
+    max_pending: 4
+    c_puct: 1.0
+    pimc: false
+
+  gameplay:
+    mulligans_enabled: false
+    manual_tapping: false
+
+
+  hiddenInfo:
+    see_opponent_hand: true
+
+training:
+  games: 200
+  threads: 64
+  max_turns: 50 #does nothing
+  max_minutes: 120
+
+server:
+  host: localhost
+  port: 50052 #50052
+  opponent_port: 50052 #50053
+
+logging:
+  sparse: false #does nothing
+  all_threads: true
+  log_feature_hash: false
+  save_final_wr: true
+  show_mcts_info: true #does nothing
