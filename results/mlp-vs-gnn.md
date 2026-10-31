@@ -354,3 +354,27 @@ Conclusion: as a distribution the MLP's value is indistinguishable from the GNN'
 win/loss separation. It disagrees with v4 state by state only slightly more than a GNN retrain does. The 7.6-point
 win-rate gap is not visible in how value is distributed over positions; it must come from how each model ranks
 the positions the search compares, which these per-state metrics only touch.
+
+### How the MLP gen1 plays vs the GNN gen1 (v4), same offline opponents
+
+`util/behaviour.py` and `results/pimc_play.py` on Faeries' seat (`runpod/behaviour.sh`), averaged over the 9 decks
+both played (Affinity, Burn, CawGates, Elves, Mono B/G/R/U/W), v4 → MLP; the direction holds on almost every deck.
+
+| | v4 (GNN) | MLP |
+|---|---|---|
+| Pass chosen when available | 0.50 | 0.44 |
+| Ninja / ninjutsu A / ninjutsu B | 0.42 / 0.32 / 0.40 | 0.51 / 0.44 / 0.47 |
+| Of One Mind / Elder / Harrier Strix / Seer | 0.29 / 0.28 / 0.28 / 0.35 | 0.44 / 0.36 / 0.34 / 0.41 |
+| Counterspell / Miscreant / Island | 0.34 / 0.51 / 0.61 | 0.34 / 0.53 / 0.58 |
+| priority choices on the opponent's turn, per game | 6.7 | 4.7 (lower on all 9 decks) |
+| flash/loot castable on the opponent's turn, states per game | 3.9 | 2.5 |
+| ... used when castable | 22% | 29% |
+| counter used when castable on the opponent's turn | 51% | 57% |
+| Spellstutter onto a spell, per game | 0.11 | 0.08 |
+| own-turn share: Elder / Strix loot | 0.74 / 0.73 | 0.79 / 0.83 |
+| top move's visit share | 0.63 | 0.63 |
+
+Conclusion: the MLP's search spends its mana on its own turn (threats and sorcery-speed plays chosen 6–15 points
+more often) and so reaches the opponent's turn with a third fewer chances to flash or counter, though it uses the
+ones it has slightly more. It is equally decisive. This is the same shift seen in gen2 and in the PIMC games, and it
+loses games each time: the GNN's edge in play is keeping mana up, which the value distribution doesn't show.
