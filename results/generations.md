@@ -476,3 +476,29 @@ Oct 30; those games are not in the repo). gen0 = heuristic vs heuristic (ver4 ge
 
 Conclusion (six decks so far): ver10 averages 55.6% against v4's 62.0% (≈3 SE), a regression from gen1, largest in
 the mirror and against Rally, where it falls back to gen0's level.
+
+### gen3 vs gen1 (v4) and vs gen2 (ver10 self-play); MLP gen1 vs offline
+
+Faeries = ver10 (value only) against a v4 or a ver10 opponent (`runpod/configs/gen3-gen{1,2}-*.yml`); reference:
+gen1 self-play (v4 on both seats). MLP gen1 = a d64 NetMLP trained like v4 on all ver4 gen0 (4 epochs, no names;
+`/workspace/runs/mlp-gen0all/mlp`: gen0 mirror value 0.041 vs v4's 0.035) playing Faeries vs offline. 200 games each.
+
+| deck | ver10 vs v4 | v4 vs v4 | ver10 vs ver10 | vs offline: MLP gen1 | v4 (GNN gen1) | ver10 |
+|---|---|---|---|---|---|---|
+| Affinity | 47.0% | 29.5% | 45.5% | 68.5% | 63.5% | 77.0% |
+| Burn | 32.5% | 34.5% | 37.0% | 48.0% | 66.5% | 61.5% |
+| CawGates | 44.0% | 37.5% | 47.0% | 67.3% | 81.1% | 74.5% |
+| Elves | 24.0% | 22.0% | 39.0% | running | 65.0% | 61.5% |
+| Faeries mirror | 36.0% | 50.5% | 50.0% | 60.0% | 72.0% | 49.5% |
+| Rally | 9.0% | 12.5% | 9.0% | 24.0% | 30.0% | 17.0% |
+| Spy | 34.2% | 42.0% | 39.5% | 58.0% | 59.0% | 54.0% |
+| Wildfire | 46.5% | 46.5% | 55.5% | 64.5% | 72.0% | 73.0% |
+| Standard-MonoB | 10.0% | 9–12% | 13.1% | | | |
+| Standard-MonoG | 11.0% | 9.0% | 11.0% | | | |
+| Standard-MonoR | 5.5% | 10.5% | 7.5% | | | |
+| Standard-MonoU | 53.0% | 54.0% | 64.0% | | | |
+| Standard-MonoW | 9.5% | 17.1% | 9.5% | | | |
+
+Conclusion: against v4, ver10 plays exactly as well as v4 does (Pauper 34.2% vs 34.4%, Mono 17.8% vs 18.3%), and
+loses the direct mirror 36–64. Against offline, the GNN gen1 (v4) beats the MLP gen1 on six of seven decks (63.4%
+vs 55.8% average, ≈3.5 SE), so the GNN's 0.006 value-MSE edge does show up in play.
