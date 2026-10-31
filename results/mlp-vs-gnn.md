@@ -341,3 +341,16 @@ on the gen1 self-play holdout are v4 −0.84 / −0.35 / +0.06 / +0.49 / +0.90, 
 (< −0.6, −0.6..−0.2, ±0.2, 0.2..0.6, > 0.6): v4 −0.98 / −0.65 / −0.17 / +0.47 / +0.95, legal −0.96 / −0.63 / −0.12 /
 +0.49 / +0.96, no names −0.97 / −0.68 / −0.13 / +0.54 / +0.97. Same shape, same calibration; the twins sit 0.02–0.05
 lower in the middle of the distribution.
+
+### GNN v4 vs the gen0 MLP (`results/v4_vs_mlp_value.png`)
+
+The MLP that played the MLP gen1 games (`mlp-gen0all`, same data as v4), on the same states. gen1 self-play holdout:
+percentiles p5 / p25 / p50 / p75 / p95: v4 −0.84 / −0.35 / +0.06 / +0.49 / +0.90, MLP −0.85 / −0.38 / +0.04 / +0.45 /
++0.91; AUC 0.895 vs 0.893; calibration bins v4 −0.98 / −0.65 / −0.17 / +0.47 / +0.95, MLP −0.96 / −0.66 / −0.12 /
++0.53 / +0.94. Per state, MLP vs v4: corr 0.964, mean |diff| 0.098 (legal GNN twin vs v4: 0.975, 0.087); on gen1 reg
+0.944 / 0.113 (twin 0.965 / 0.095). Correlation with the search's root values: MLP 0.931–0.957, GNNs 0.935–0.971.
+
+Conclusion: as a distribution the MLP's value is indistinguishable from the GNN's: same spread, calibration and
+win/loss separation. It disagrees with v4 state by state only slightly more than a GNN retrain does. The 7.6-point
+win-rate gap is not visible in how value is distributed over positions; it must come from how each model ranks
+the positions the search compares, which these per-state metrics only touch.
