@@ -509,3 +509,9 @@ loses the direct mirror 36–64. Against offline, the GNN gen1 (v4) beats the ML
 MonoB 21.2% (198 games); Rally 25.5% (200). Rally reference: gen0 15.2%, v4 30.0%, MLP gen1 24.0%, ver10 17.0%.
 ver11 never trained on Mono gen0 games, so its MonoB number is confounded; on Rally it sits between ver10 and v4,
 within noise of both (±6). The clean loss test is ver7 vs ver12 (its all-node-loss twin).
+
+### ver12 (ver7's all-node-loss twin) vs offline Rally, Will's run (Oct 31)
+
+29.0% (200 games): level with v4 (30.0%), above ver11 (25.5%) and the MLP gen1 (24.0%), and 12 points above ver10
+(17.0%, ≈2.9 SE). ver10 also differs in data (no gen0, PIMC, `_policy`), so the clean comparison still needs ver7
+(legal loss, same data as ver12) vs Rally.
