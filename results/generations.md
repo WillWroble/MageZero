@@ -509,3 +509,32 @@ loses the direct mirror 36–64. Against offline, the GNN gen1 (v4) beats the ML
 MonoB 21.2% (198 games); Rally 25.5% (200). Rally reference: gen0 15.2%, v4 30.0%, MLP gen1 24.0%, ver10 17.0%.
 ver11 never trained on Mono gen0 games, so its MonoB number is confounded; on Rally it sits between ver10 and v4,
 within noise of both (±6). The clean loss test is ver7 vs ver12 (its all-node-loss twin).
+
+### ver12 (ver7's all-node-loss twin) vs offline Rally, Will's run (Oct 31)
+
+29.0% (200 games): level with v4 (30.0%), above ver11 (25.5%) and the MLP gen1 (24.0%), and 12 points above ver10
+(17.0%, ≈2.9 SE). ver10 also differs in data (no gen0, PIMC, `_policy`), so the clean comparison still needs ver7
+(legal loss, same data as ver12) vs Rally.
+
+## Normed tests: does the legal-only loss hurt play? (Oct 31)
+
+Faeries vs the offline search, 200 games each, value only unless noted (`runpod/configs/norm-*.yml`). All but v4
+were trained on branch D (all gen0 + all gen1, 3 epochs, seed 0, names dropped); ver12 and the all-node MLP are the
+legal-loss models' twins with the policy loss over all nodes. Legality head = ver7's setup plus split legality heads
+(weight 1.0). ver7's Rally run is Will's (pending).
+
+| model | loss | mirror | MonoB | MonoW | Rally | mean of mirror, MonoB, MonoW |
+|---|---|---|---|---|---|---|
+| v4 (gen0 only, reference) | all-node | 72.0% | 31.6% | 57.5% | 30.0% | 53.7% |
+| ver7 (GNN) | legal | 68.0% | 32.0% | 51.0% | pending | 50.3% |
+| ver12 (GNN) | all-node | 72.5% | 26.0% | 50.5% | 29.0% | 49.7% |
+| GNN + legality heads | legal + BCE | 75.5% | 28.0% | 44.0% | 21.0% | 49.2% |
+| GNN + legality heads, priors on | legal + BCE | 66.0% | 25.0% | 46.7% | 23.5% | 45.9% |
+| D-mlp | legal | 65.0% | 19.0% | 42.5% | 24.5% | 42.2% |
+| MLP twin | all-node | 60.0% | 23.5% | 31.5% | 21.0% | 38.3% |
+
+Conclusion: the policy loss does not change play. ver7 and ver12 are level (50.3% vs 49.7% over three decks, each
+deck within noise), and among the MLPs the legal loss is ahead, not behind. The legality heads add nothing, and
+turning on priors from them does not help either. What does separate the models is the architecture: every GNN beats
+both MLPs by 7–12 points on average. The earlier gen2 regressions (ver9, ver10) came from cutting data (gen0, PIMC),
+not from the mask. v4 is still the best model on MonoW.

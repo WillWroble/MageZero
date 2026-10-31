@@ -23,8 +23,9 @@ fi
 mkdir -p /tmp/xmage && cp -r /workspace/xmage/$MAGE_COMMIT/{lib,decks,config} /tmp/xmage/ && X=/tmp/xmage
 for C in $CONFIG; do
   N=$(basename $C .yml)
-  cp $C $OUT/$N.yml
-  grep output_file $C | awk '{print $2}' | xargs -n1 dirname | xargs mkdir -p
+  # $TAG and $PRIORS (default: none, false) fill a config's @TAG@ / @PRIORS@ placeholders
+  sed -e "s|@TAG@|$TAG|g" -e "s|@PRIORS@|${PRIORS:-false}|g" $C > $OUT/$N.yml
+  grep output_file $OUT/$N.yml | awk '{print $2}' | xargs -n1 dirname | xargs mkdir -p
   # the game log is large: it stays on the container disk, with its tail and the sims/s lines copied to the volume
   (while sleep 60; do tail -n 500 /tmp/$N.log > $OUT/$N-java-tail.log; grep "Total: simulated" /tmp/$N.log > $OUT/$N-sims.log || true; done) &
   LOOP=$!
