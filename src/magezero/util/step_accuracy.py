@@ -12,11 +12,12 @@ STEPS = "UPKEEP DRAW PRECOMBAT_MAIN BEGIN_COMBAT DECLARE_ATTACKERS DECLARE_BLOCK
 torch.set_num_threads(4)
 model, vocab, edge_vocab = load_checkpoint(sys.argv[1])
 model.eval()
-ds = H5Graphs(sys.argv[2], vocab, edge_vocab)
+ds = H5Graphs(sys.argv[2])
 step_ids = {feature_id(s): s for s in STEPS}
 st = np.repeat(np.arange(len(ds)), np.diff(ds.offsets))
 hit = np.isin(ds.ids, list(step_ids))
 step = np.empty(len(ds), dtype=object); step[st[hit]] = [step_ids[i] for i in ds.ids[hit]]
+ds.apply_vocab(vocab, edge_vocab)  # (drops ds.ids)
 idx = np.flatnonzero(ds.row[:, 3] == ActionType.CHOOSE_TARGET.value)
 res = {}
 with torch.no_grad():

@@ -42,12 +42,24 @@ def states_of(offsets: np.ndarray) -> np.ndarray:
     return np.repeat(np.arange(len(offsets) - 1), np.diff(offsets))
 
 
+def lookup(vocab, ids, chunk=50_000_000) -> np.ndarray:
+    """vocab.lookup as int16 rows, in chunks: its int64 temporaries would be several times the data's size."""
+    assert len(vocab) < np.iinfo(np.int16).max
+    rows = np.empty(len(ids), np.int16)
+    for a in range(0, len(ids), chunk):
+        rows[a:a + chunk] = vocab.lookup(ids[a:a + chunk])
+    return rows
+
+
 def map_ids(ids, node_type, edge_label, vocab, edge_vocab):
     """(node_row, edge_row) for the network: each leaf's vocab row (-1 for typed nodes and leaves
     outside the vocab, whose edges the network drops) and each edge label's row + 1 (0 for labels
     outside the vocab). Training data and inference requests map the same way."""
-    node_row = np.where(node_type == NodeType.LEAF, vocab.lookup(ids), -1)
-    return node_row.astype(np.int32), (edge_vocab.lookup(edge_label) + 1).astype(np.int32)
+    node_row = lookup(vocab, ids)
+    node_row[node_type != NodeType.LEAF] = -1
+    edge_row = lookup(edge_vocab, edge_label)
+    edge_row += 1
+    return node_row, edge_row
 
 
 def read_split(path: str):
@@ -149,7 +161,7 @@ class H5Graphs(Dataset):
     Preloads all HDF5 shards in a directory into RAM for fast random access (LabeledStateWriter layout):
       /indices, /values             int32 [nodes]       node feature id, numeric value
       /offsets                      int64 [N+1]
-      /edge_child, /edge_parent     int32 [edges]       node index local to the state
+      /edge_child, /edge_parent     int32 [edges]       node index local to the state (kept as int16)
       /edge_label                   int32 [edges]       hashed edge label
       /edge_offsets                 int64 [N+1]
       /policy_node, /policy_visits  int32 [candidates]  node index local to the state, MCTS visits
@@ -187,7 +199,8 @@ class H5Graphs(Dataset):
             shards.append(shard)
 
         def cat(key, dtype):
-            return np.concatenate([s[key] for s in shards]).astype(dtype, copy=False) if shards else np.empty(0, dtype)
+            """One key of every shard, concatenated as dtype; each shard's own copy is freed as it goes."""
+            return np.concatenate([s.pop(key).astype(dtype, copy=False) for s in shards]) if shards else np.empty(0, dtype)
 
         def cat_offsets(key):
             parts, base = [np.zeros(1, dtype=np.int64)], 0
@@ -200,10 +213,12 @@ class H5Graphs(Dataset):
             else np.empty((0, ROW_WIDTH), dtype=np.float32)
         self.N = len(self.row)
         self.ids = cat("/indices", np.int32)
-        self.values = cat("/values", np.int32)
+        for s in shards:  # node values fit int16 (the model buckets everything past -5..61 together)
+            s["/values"] = np.clip(s["/values"], -32768, 32767)
+        self.values = cat("/values", np.int16)
         self.offsets = cat_offsets("/offsets")
-        self.edge_child = cat("/edge_child", np.int32)
-        self.edge_parent = cat("/edge_parent", np.int32)
+        self.edge_child = cat("/edge_child", np.int16)  # state-local node indices (a state has hundreds of nodes)
+        self.edge_parent = cat("/edge_parent", np.int16)
         self.edge_label = cat("/edge_label", np.int32)
         self.edge_offsets = cat_offsets("/edge_offsets")
         self.cand_node = cat("/policy_node", np.int32)
@@ -245,7 +260,7 @@ class H5Graphs(Dataset):
 
         state = states_of(self.offsets)
         offsets = np.concatenate([[0], np.cumsum(np.bincount(state[keep], minlength=self.N))])
-        local = (np.cumsum(keep) - 1 - offsets[state]).astype(np.int32)  # each kept node's new index in its state
+        local = (np.cumsum(keep) - 1 - offsets[state]).astype(np.int16)  # each kept node's new index in its state
         self.edge_child, self.edge_parent = local[child[edges]], local[parent[edges]]
         self.edge_label = self.edge_label[edges]
         self.edge_offsets = np.concatenate([[0], np.cumsum(np.bincount(e_state[edges], minlength=self.N))])
@@ -255,7 +270,9 @@ class H5Graphs(Dataset):
               f"({(~keep).mean():.1%}), {int((~edges).sum())} edges")
 
     def apply_vocab(self, vocab, edge_vocab) -> None:
+        """Maps ids to embedding rows, then drops the raw ids and edge labels (the bulk of the memory)."""
         self.node_row, self.edge_row = map_ids(self.ids, self.node_type, self.edge_label, vocab, edge_vocab)
+        del self.ids, self.edge_label
 
     def check_candidates(self) -> None:
         """Report policy candidates that aren't nodes of their head's types. The head still scores
