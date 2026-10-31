@@ -309,3 +309,28 @@ a wash. The mirror collapse (names kept) is the same as pooled.
   matches or beats the MLP on unseen opponents in every case except the Mono-trained mirror value.
 - Cheapest robust option measured: the d64 GNN (667K params), which did not take the shortcut even with names.
   One seed.
+
+## Did the legal-only loss or dropping names change value? v4 vs its twins (Oct 31)
+
+Twins of v4 (all ver4 gen0, both seats, 4 epochs, seed 0), each changing one thing: `v4-legal` (legal-only policy
+loss, names kept) and `v4-nonames` (all-node loss, names dropped). `util/value_preds.py` on every state of three sets.
+
+| set | model | MSE vs label | MSE vs result | AUC | corr root | std | mean |
+|---|---|---|---|---|---|---|---|
+| gen0 mirror test | v4 | 0.0350 | 0.608 | 0.867 | 0.955 | 0.511 | +0.111 |
+| | v4-legal | 0.0369 | 0.610 | 0.866 | 0.949 | 0.511 | +0.094 |
+| | v4-nonames | 0.0349 | 0.596 | 0.879 | 0.939 | 0.500 | +0.078 |
+| gen1 self-play held-out | v4 | 0.0467 | 0.565 | 0.895 | 0.971 | 0.536 | +0.055 |
+| | v4-legal | **0.0449** | 0.562 | 0.893 | 0.969 | 0.542 | +0.028 |
+| | v4-nonames | 0.0486 | 0.570 | 0.895 | 0.963 | 0.517 | +0.037 |
+| gen1 reg held-out | v4 | 0.0530 | 0.617 | 0.867 | 0.935 | 0.524 | +0.073 |
+| | v4-legal | **0.0482** | 0.615 | 0.865 | 0.942 | 0.531 | +0.049 |
+| | v4-nonames | 0.0542 | 0.625 | 0.864 | 0.933 | 0.509 | +0.065 |
+
+Per state, every pair (v4–legal, v4–nonames, legal–nonames) differs by the same amount: correlation 0.965–0.975,
+mean |difference| 0.086–0.095, 8–11% of states apart by > 0.2. Calibration bins are the same within ±0.08.
+
+Conclusion: the legal-only loss did not hurt value: it costs 0.002 MSE on the gen0 mirror and is better on both
+gen1 sets (0.045 vs 0.047, 0.048 vs 0.053), with the same spread, calibration and win/loss separation. Dropping the
+names changes nothing either. Each twin differs from v4 only as much as the twins differ from each other, i.e. by
+retraining noise. So neither explains the GNN gen1's lead over the MLP gen1 in play.
