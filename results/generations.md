@@ -527,6 +527,7 @@ legal-loss models' twins with the policy loss over all nodes. Legality head = ve
 |---|---|---|---|---|---|---|
 | v4 (gen0 only, reference) | all-node | 72.0% | 31.6% | 57.5% | 30.0% | 53.7% |
 | ver7 (GNN) | legal | 68.0% | 32.0% | 51.0% | pending | 50.3% |
+| ver13 (gen3 E: v4 warm start, all data, lr 3e-5) | legal | 72.0% | 31.2% | 53.5% | 26.5% | 52.2% |
 | ver12 (GNN) | all-node | 72.5% | 26.0% | 50.5% | 29.0% | 49.7% |
 | GNN + legality heads | legal + BCE | 75.5% | 28.0% | 44.0% | 21.0% | 49.2% |
 | GNN + legality heads, priors on | legal + BCE | 66.0% | 25.0% | 46.7% | 23.5% | 45.9% |
