@@ -51,46 +51,55 @@ def map_ids(ids, node_type, edge_label, vocab, edge_vocab):
 
 
 def read_split(path: str):
-    """(train, vals) from a model directory's split.txt. Each is a list of (shard path, games or None for all);
-    vals maps each val set's name to one, in file order. The file:
-        holdout 5        optional: every 5th game (games 4, 9, ...) of each train shard is the first val set, "holdout"
-        train:           regexes, one per line, each matched against the whole path of every .h5/.hdf5 file under
-        <regex>          the current directory
-        val1:            any number of named val sets; a val set may not share a shard with train
+    """(train, vals) from a model directory's split.txt. train is a list of (shard path, games or None for all);
+    vals maps each val set's name to one, in file order. The file is a list of sections, each a header line and then
+    regexes, one per line, each matched against the whole path of every .h5/.hdf5 file under the current directory:
+        train gen0 holdout 5:    a train section (header starting with "train"; its name, here gen0, is optional).
+        <regex>                  With "holdout K", every Kth game of each of its shards (games K-1, 2K-1, ...) is
+        train gen1:              left out of training and becomes the val set of the same name
         <regex>
-    # starts a comment."""
-    holdout, sections, current = None, {}, None
+        pimc:                    a val section: a named val set, never trained on; "holdout K" takes only every
+        <regex>                  Kth game of its shards (the same games a train section with that K holds out)
+    A shard may be in only one section. # starts a comment."""
+    sections, current = [], None
     for line in Path(path).read_text().splitlines():
         line = line.split("#")[0].strip()
-        if line.startswith("holdout "):
-            holdout = int(line.split()[1])
-        elif line.endswith(":"):
-            current = sections.setdefault(line[:-1].strip(), [])
+        if line.endswith(":"):
+            words = line[:-1].split()
+            holdout = int(words[-1]) if len(words) > 2 and words[-2] == "holdout" else None
+            words = words[:-2] if holdout else words
+            is_train = words[0] == "train"
+            if len(words) > (2 if is_train else 1):
+                raise SystemExit(f"{path}: bad section header: {line}")
+            current = (words[-1], is_train, holdout, [])
+            sections.append(current)
         elif line:
             if current is None:
                 raise SystemExit(f"{path}: regex before the first section: {line}")
-            current.append(re.compile(line))
+            current[3].append(re.compile(line))
     files = sorted(str(p) for p in list(Path(".").rglob("*.h5")) + list(Path(".").rglob("*.hdf5")))
 
-    def match(regexes):
-        return [f for f in files if any(r.fullmatch(f) for r in regexes)]
+    def split(f, k):
+        """(kept, held out) games of shard f with holdout k."""
+        with h5py.File(f, "r") as h:
+            games = range(len(h["/game_offsets"]) - 1)
+        return [i for i in games if i % k != k - 1], [i for i in games if i % k == k - 1]
 
-    train_files = match(sections.pop("train", []))
-    train, vals = [(f, None) for f in train_files], {}
-    if holdout:
-        train, held = [], []
-        for f in train_files:
-            with h5py.File(f, "r") as h:
-                games = range(len(h["/game_offsets"]) - 1)
-            train.append((f, [i for i in games if i % holdout != holdout - 1]))
-            held.append((f, [i for i in games if i % holdout == holdout - 1]))
-        vals["holdout"] = held
-    for name, regexes in sections.items():
-        shards = match(regexes)
-        shared = sorted(set(shards) & set(train_files))
-        if shared:
-            raise SystemExit(f"{path}: val set {name} shares shards with train: {', '.join(shared)}")
-        vals[name] = [(f, None) for f in shards]
+    train, vals, owner = [], {}, {}
+    for name, is_train, holdout, regexes in sections:
+        shards = [f for f in files if any(r.fullmatch(f) for r in regexes)]
+        for f in shards:
+            if f in owner:
+                raise SystemExit(f"{path}: {f} is in both {owner[f]} and {name}")
+            owner[f] = name
+        if holdout is None:
+            (train if is_train else vals.setdefault(name, [])).extend((f, None) for f in shards)
+            continue
+        for f in shards:
+            kept, held = split(f, holdout)
+            if is_train:
+                train.append((f, kept))
+            vals.setdefault(name, []).append((f, held))
     return train, vals
 
 

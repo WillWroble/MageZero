@@ -118,16 +118,11 @@ def print_matrix(pairs, vocab):
     print("-" * 60)
 
 
-def validate(model, dl, vocab, edge_vocab):
-    """Prints per-head validation loss and accuracy, and the priority confusion matrix. Accuracy:
-    the network's top-scored node among all nodes of the head's types (no legality mask) is one of
-    MCTS's most visited; for priority, compared by ability name. Legal accuracy and mass: see
-    legal_stats. Returns the summed per-head losses."""
+def evaluate(model, dl, edge_vocab) -> dict:
+    """Summed per-head losses (stats), legal_stats per policy head, and priority_pairs over a data loader."""
     row = int(edge_vocab.lookup([NAME_LABEL])[0])
     name_label = row + 1 if row >= 0 else -1   # edge rows are vocab row + 1
-    stats = {}
-    pairs = []
-    legal = {name: torch.zeros(4) for name in ("priority", "choose_target")}
+    result = {"stats": {}, "pairs": [], "legal": {name: torch.zeros(4) for name in ("priority", "choose_target")}}
     legal_only = model.arch.get("policy_domain") == "legal"
     model.eval()
     with torch.no_grad():
@@ -135,12 +130,33 @@ def validate(model, dl, vocab, edge_vocab):
             g, t = graphs.to(DEVICE), targets.to(DEVICE)
             with torch.amp.autocast(DEVICE.type, enabled=AMP):
                 out = model(g)
-                accumulate(stats, losses(out, g, t, legal_only))
-            legal["priority"] += legal_stats(out[0], g, t, ActionType.PRIORITY, PRIORITY_TYPES)
-            legal["choose_target"] += legal_stats(out[1], g, t, ActionType.CHOOSE_TARGET, TARGET_TYPES)
-            pairs += priority_pairs(out[0].float().cpu().numpy(), Graphs(*(np.asarray(x) for x in graphs)),
-                                    Targets(*(np.asarray(x) for x in targets)), name_label)
+                accumulate(result["stats"], losses(out, g, t, legal_only))
+            result["legal"]["priority"] += legal_stats(out[0], g, t, ActionType.PRIORITY, PRIORITY_TYPES)
+            result["legal"]["choose_target"] += legal_stats(out[1], g, t, ActionType.CHOOSE_TARGET, TARGET_TYPES)
+            result["pairs"] += priority_pairs(out[0].float().cpu().numpy(), Graphs(*(np.asarray(x) for x in graphs)),
+                                              Targets(*(np.asarray(x) for x in targets)), name_label)
+    return result
 
+
+def merge(results) -> dict:
+    """evaluate's results of several data sets as one."""
+    merged = {"stats": {}, "pairs": [], "legal": {name: torch.zeros(4) for name in ("priority", "choose_target")}}
+    for r in results:
+        for name, (total, n, correct) in r["stats"].items():
+            s = merged["stats"].setdefault(name, [0.0, 0, 0])
+            s[0] += total; s[1] += n; s[2] += correct
+        merged["pairs"] += r["pairs"]
+        for name in merged["legal"]:
+            merged["legal"][name] += r["legal"][name]
+    return merged
+
+
+def report(result, vocab) -> float:
+    """Prints per-head validation loss and accuracy, and the priority confusion matrix. Accuracy:
+    the network's top-scored node among all nodes of the head's types (no legality mask) is one of
+    MCTS's most visited; for priority, compared by ability name. Legal accuracy and mass: see
+    legal_stats. Returns the summed per-head losses."""
+    stats, pairs, legal = result["stats"], result["pairs"], result["legal"]
     avg = averages(stats)
     avg_combined_loss = sum(avg.values())
     print(f"Validation loss:  priority_loss={avg['priority']:.3f}  choose_target_loss={avg['choose_target']:.3f}  "
@@ -174,6 +190,41 @@ def validate(model, dl, vocab, edge_vocab):
 
     return avg_combined_loss
 
+
+def shard_line(shard, result) -> str:
+    """One shard's held-out metrics: states, value loss, priority legal KL and top-1, target legal top-1."""
+    (n, hits, _, kl), (tn, thits, _, _) = result["legal"]["priority"], result["legal"]["choose_target"]
+    value, states = averages(result["stats"])["value"], result["stats"].get("value", (0, 0, 0))[1]
+    return (f"  {'/'.join(shard.split('/')[-2:])}: states={states}  value={value:.3f}  prio_kl={kl / max(n, 1):.3f}  "
+            f"prio_top1={hits / max(n, 1):.3f}  tgt_top1={thits / max(tn, 1):.3f}")
+
+
+def val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand=False, td=None) -> dict:
+    """val set name -> [(shard path, DataLoader)], from read_split's vals; shards without states left out."""
+    loaders = {}
+    for name, shards in val_shards.items():
+        for path, games in shards:
+            ds = H5Graphs([(path, games)], vocab, edge_vocab, hide_opponent_hand, td)
+            if len(ds) > 0:
+                loaders.setdefault(name, []).append((path, DataLoader(
+                    ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, collate_fn=collate_batch,
+                    pin_memory=AMP, persistent_workers=False)))
+    return loaders
+
+
+def validate_sets(model, loaders, vocab, edge_vocab, suffix="") -> dict:
+    """For each val set: one line per shard, then its full report. Returns val set name -> summed per-head losses."""
+    losses_by_set = {}
+    for name, shard_loaders in loaders.items():
+        print(f"Testing on {name}{suffix}")
+        results = []
+        for path, dl in shard_loaders:
+            results.append(evaluate(model, dl, edge_vocab))
+            print(shard_line(path, results[-1]))
+        losses_by_set[name] = report(merge(results), vocab)
+    return losses_by_set
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -190,10 +241,5 @@ if __name__ == "__main__":
     print(f"Loaded checkpoint from {checkpoint_path}: {len(vocab)} leaf rows, {len(edge_vocab)} edge label rows, "
           f"hide_opponent_hand={hide_opponent_hand}")
 
-    model = model.to(DEVICE)
-    for name, shards in read_split(f"{args.model}/split.txt")[1].items():
-        print(f"Testing on {name}" + ("" if args.td is None else f" (TD {args.td})"))
-        ds = H5Graphs(shards, vocab, edge_vocab, hide_opponent_hand, args.td)
-        dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0,
-                        collate_fn=collate_batch, pin_memory=AMP, persistent_workers=False)
-        validate(model, dl, vocab, edge_vocab)
+    loaders = val_loaders(read_split(f"{args.model}/split.txt")[1], vocab, edge_vocab, hide_opponent_hand, args.td)
+    validate_sets(model.to(DEVICE), loaders, vocab, edge_vocab, "" if args.td is None else f" (TD {args.td})")

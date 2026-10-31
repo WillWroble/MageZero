@@ -40,7 +40,7 @@ def train(
         raise SystemExit(f"no training data in {out}/split.txt: {found}")
     vocab, edge_vocab, model = prepare_vocab(out, use_checkpoint, ds, arch or {}, drop_player_names)
     ds.apply_vocab(vocab, edge_vocab)
-    val_sets = {name: H5Graphs(shards, vocab, edge_vocab, hide_opponent_hand, td) for name, shards in val_shards.items()}
+    val_sets = test.val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand, td)
 
     train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr)
 
@@ -102,13 +102,11 @@ def save_checkpoint(path, epoch, model, opt, vocab, edge_vocab, avg, hide_oppone
 
 
 def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr=1e-4):
-    """val_sets: name -> H5Graphs, each validated after every epoch; the first picks best.pt.gz."""
+    """val_sets: test.val_loaders's name -> [(shard, DataLoader)], each validated after every epoch (per shard and as
+    a whole); the first picks best.pt.gz."""
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
-
-    dl_vals = {name: DataLoader(v, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, collate_fn=collate_batch,
-                                pin_memory=AMP, persistent_workers=False) for name, v in val_sets.items() if len(v) > 0}
 
     #test.SHOW_CONFUSION_MATRIX = False
 
@@ -149,12 +147,10 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
               + (f"legality_loss={stats['legality'][0] / max(stats['legality'][1], 1):.3f}  " if "legality" in stats else "")
               + f"decision_states={decision_states(stats)}  steps={step}  time={time.perf_counter() - start:.0f}s")
 
-        for i, (name, dl_val) in enumerate(dl_vals.items()):
-            print(f"Testing on {name}")
-            val_loss = test.validate(model, dl_val, vocab, edge_vocab)
-            if i == 0 and val_loss < best_val_loss:
-                best_val_loss = val_loss
-                save_checkpoint(f"{out}/best.pt.gz", epoch, model, opt, vocab, edge_vocab, avg, hide_opponent_hand)
+        val_losses = list(test.validate_sets(model, val_sets, vocab, edge_vocab).values())
+        if val_losses and val_losses[0] < best_val_loss:
+            best_val_loss = val_losses[0]
+            save_checkpoint(f"{out}/best.pt.gz", epoch, model, opt, vocab, edge_vocab, avg, hide_opponent_hand)
 
         #TODO: make validation based checkpoint schedule
         save_checkpoint(f"{out}/model.pt.gz", epoch, model, opt, vocab, edge_vocab, avg, hide_opponent_hand)
