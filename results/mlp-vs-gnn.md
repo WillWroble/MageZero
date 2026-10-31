@@ -334,3 +334,10 @@ Conclusion: the legal-only loss did not hurt value: it costs 0.002 MSE on the ge
 gen1 sets (0.045 vs 0.047, 0.048 vs 0.053), with the same spread, calibration and win/loss separation. Dropping the
 names changes nothing either. Each twin differs from v4 only as much as the twins differ from each other, i.e. by
 retraining noise. So neither explains the GNN gen1's lead over the MLP gen1 in play.
+
+Distribution and calibration (`results/v4_twins_value.png`): predicted-value percentiles p5 / p25 / p50 / p75 / p95
+on the gen1 self-play holdout are v4 −0.84 / −0.35 / +0.06 / +0.49 / +0.90, legal −0.87 / −0.40 / +0.04 / +0.47 /
++0.89, no names −0.83 / −0.35 / +0.04 / +0.44 / +0.88 (the other sets look the same). Mean result per predicted bin
+(< −0.6, −0.6..−0.2, ±0.2, 0.2..0.6, > 0.6): v4 −0.98 / −0.65 / −0.17 / +0.47 / +0.95, legal −0.96 / −0.63 / −0.12 /
++0.49 / +0.96, no names −0.97 / −0.68 / −0.13 / +0.54 / +0.97. Same shape, same calibration; the twins sit 0.02–0.05
+lower in the middle of the distribution.
