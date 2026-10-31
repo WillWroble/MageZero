@@ -61,6 +61,8 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop
         checkpoint_path = f"{out}/model.pt.gz"
         try:
             model, vocab, edge_vocab = load_checkpoint(checkpoint_path)
+            # a resumed model keeps the checkpoint's architecture; only the loss's policy domain can change
+            model.arch.update({k: arch[k] for k in ("policy_domain",) if k in arch})
             print(f"Successfully loaded checkpoint from {checkpoint_path}")
         except FileNotFoundError:
             print(f"INFO: Checkpoint file not found at {checkpoint_path}. Starting from scratch.")
