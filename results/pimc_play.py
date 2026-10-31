@@ -57,7 +57,7 @@ for path in sys.argv[1:]:
     cal = "  ".join(f"{name} {row[m, 1].mean():+.2f} vs {result[m].mean():+.2f}"
                     for name, m in (("early", pos < 1 / 3), ("mid", (pos >= 1 / 3) & (pos < 2 / 3)), ("late", pos >= 2 / 3)))
     g = lambda k: c[k] / games
-    print(f"== {path.split('/ver')[1]}  games {games}  WR {won.mean():.1%}")
+    print(f"== {'/'.join(path.split('/')[-3:])}  games {games}  WR {won.mean():.1%}")
     print(f"  priority choices per game: own turn {g('choices own'):.1f} (acts {c['acted own'] / c['choices own']:.0%}), "
           f"opp turn {g('choices opp'):.1f} (acts {c['acted opp'] / c['choices opp']:.0%})")
     print(f"  Spellstutter per game: own turn {g('Spellstutter own turn'):.2f}, opp turn onto a spell {g('Spellstutter opp turn, stack non-empty'):.2f}, "
