@@ -468,13 +468,13 @@ Oct 30; those games are not in the repo). gen0 = heuristic vs heuristic (ver4 ge
 | Affinity | 40% (100) | 63.5% | 77.0% | +13.5 |
 | Burn | 56% (100) | 66.5% | 61.5% | −5.0 |
 | CawGates | 61.8% | 81.1% | 74.5% | −6.6 |
-| Elves | 35.5% | 65.0% | running | |
+| Elves | 35.5% | 65.0% | 61.5% | −3.5 |
 | Faeries mirror | 50.9% | 72.0% | 49.5% | −22.5 |
 | Rally | 15.2% | 30.0% | 17.0% | −13.0 |
 | Spy | 46.7% | 59.0% | 54.0% | −5.0 |
-| Wildfire | 57.7% | 72.0% | running | |
+| Wildfire | 57.7% | 72.0% | 73.0% | +1.0 |
 
-Conclusion (six decks so far): ver10 averages 55.6% against v4's 62.0% (≈3 SE), a regression from gen1, largest in
+Conclusion: ver10 averages 58.5% against v4's 63.6% over the 8 decks (≈3 SE), a regression from gen1, largest in
 the mirror and against Rally, where it falls back to gen0's level.
 
 ### gen3 vs gen1 (v4) and vs gen2 (ver10 self-play); MLP gen1 vs offline
@@ -500,5 +500,5 @@ gen1 self-play (v4 on both seats). MLP gen1 = a d64 NetMLP trained like v4 on al
 | Standard-MonoW | 9.5% | 17.1% | 9.5% | 36.0% | 57.5% | |
 
 Conclusion: against v4, ver10 plays exactly as well as v4 does (Pauper 34.2% vs 34.4%, Mono 17.8% vs 18.3%), and
-loses the direct mirror 36–64. Against offline, the GNN gen1 (v4) beats the MLP gen1 on 10 of 13 decks (Pauper 64.1% vs 55.6%, Mono
+loses the direct mirror 36–64. Against offline, the GNN gen1 (v4) beats the MLP gen1 on 11 of 13 decks (Pauper 64.1% vs 55.6%, Mono
 39.6% vs 34.5%; ≈4 SE overall), so the GNN's 0.006 value-MSE edge does show up in play.
