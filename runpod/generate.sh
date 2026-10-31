@@ -25,14 +25,18 @@ for C in $CONFIG; do
   N=$(basename $C .yml)
   # $TAG and $PRIORS (default: none, false) fill a config's @TAG@ / @PRIORS@ placeholders
   sed -e "s|@TAG@|$TAG|g" -e "s|@PRIORS@|${PRIORS:-false}|g" $C > $OUT/$N.yml
-  grep output_file $OUT/$N.yml | awk '{print $2}' | xargs -n1 dirname | xargs mkdir -p
+  # shards are written on the container disk and copied to the volume when the run is done, so a stalled or
+  # restarted volume can't leave a partial shard where a finished one should be
+  sed "s|output_file: /|output_file: /tmp/shards/|" $OUT/$N.yml > /tmp/$N.yml
+  grep output_file /tmp/$N.yml | awk '{print $2}' | xargs -n1 dirname | xargs mkdir -p
   # the game log is large: it stays on the container disk, with its tail and the sims/s lines copied to the volume
   (while sleep 60; do tail -n 500 /tmp/$N.log > $OUT/$N-java-tail.log; grep "Total: simulated" /tmp/$N.log > $OUT/$N-sims.log || true; done) &
   LOOP=$!
   (cd $X && java -Xms2g -Xmx48g -XX:+UseParallelGC --add-opens=java.base/java.lang=ALL-UNNAMED \
-    -Dlog4j.configuration=file:config/log4j.properties -jar lib/mage-magezero-1.4.58.jar $OUT/$N.yml > /tmp/$N.log 2>&1)
+    -Dlog4j.configuration=file:config/log4j.properties -jar lib/mage-magezero-1.4.58.jar /tmp/$N.yml > /tmp/$N.log 2>&1)
   kill $LOOP || true  # (set -e)
   tail -n 2000 /tmp/$N.log > $OUT/$N-java-tail.log
   grep "Total: simulated" /tmp/$N.log > $OUT/$N-sims.log || true
   grep -E "Successful:|Failed:|win rate" /tmp/$N.log > $OUT/$N-result.txt || true
+  for f in $(grep output_file $OUT/$N.yml | awk '{print $2}'); do mkdir -p $(dirname $f) && cp /tmp/shards$f $f; done
 done

@@ -118,6 +118,8 @@ def main():
                 try:
                     with urllib.request.urlopen(urllib.request.Request(done, headers={"User-Agent": "magezero"})) as r:
                         written = email.utils.parsedate_to_datetime(r.headers["Last-Modified"])
+                        if not r.read().strip():  # DONE holds the exit code; an empty one was cut off, not written
+                            continue
                 except urllib.error.HTTPError:
                     continue
                 started = datetime.fromisoformat(p["lastStartedAt"].replace(" +0000 UTC", "+00:00"))
