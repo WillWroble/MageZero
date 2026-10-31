@@ -456,10 +456,11 @@ Conclusion: the search barely separates its options. The best and worst option o
 noise of 300 simulations. Which move is played is then close to a coin flip at many decisions, whichever model
 evaluates them, which fits every gen2 model landing at the same win rate.
 
-## gen3 data vs the Pauper pool: the gen2 model (ver10) against the offline heuristic search
+## More gen2 data: the gen2 model (ver10) against the offline heuristic search, Pauper pool
 
-RunPod (`runpod/configs/gen3-offline-*.yml`, value only, 300 sims, 200 games each; shards in
-`/workspace/runs/gen3-offline`). gen1 = v4 vs offline: Affinity, Burn, CawGates, Elves from the repo's gen1 shards;
+RunPod (`runpod/configs/gen2-offline-*.yml`, value only, 300 sims, 200 games each; shards in
+`ver4/training/gen2`, first written to `/workspace/runs/gen3-offline`: named gen3 at first, moved to gen2 on Oct 31
+to match the folder convention, folder genN = games of the gen N model). gen1 = v4 vs offline: Affinity, Burn, CawGates, Elves from the repo's gen1 shards;
 mirror, Rally, Spy, Wildfire from Will's `Mage.MageZero/WinRates.txt` lines 542–547 (v4 vs offline, confirmed
 Oct 30; those games are not in the repo). gen0 = heuristic vs heuristic (ver4 gen0 shards).
 
@@ -477,9 +478,9 @@ Oct 30; those games are not in the repo). gen0 = heuristic vs heuristic (ver4 ge
 Conclusion: ver10 averages 58.5% against v4's 63.6% over the 8 decks (≈3 SE), a regression from gen1, largest in
 the mirror and against Rally, where it falls back to gen0's level.
 
-### gen3 vs gen1 (v4) and vs gen2 (ver10 self-play); MLP gen1 vs offline
+### gen2 data vs gen1 (v4) and self-play (ver10 vs ver10); MLP gen1 vs offline
 
-Faeries = ver10 (value only) against a v4 or a ver10 opponent (`runpod/configs/gen3-gen{1,2}-*.yml`); reference:
+Faeries = ver10 (value only) against a v4 or a ver10 opponent (`runpod/configs/gen2-{vsgen1,selfplay}-*.yml`); reference:
 gen1 self-play (v4 on both seats). MLP gen1 = a d64 NetMLP trained like v4 on all ver4 gen0 (4 epochs, no names;
 `/workspace/runs/mlp-gen0all/mlp`: gen0 mirror value 0.041 vs v4's 0.035) playing Faeries vs offline. 200 games each.
 
