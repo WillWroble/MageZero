@@ -503,3 +503,9 @@ gen1 self-play (v4 on both seats). MLP gen1 = a d64 NetMLP trained like v4 on al
 Conclusion: against v4, ver10 plays exactly as well as v4 does (Pauper 34.2% vs 34.4%, Mono 17.8% vs 18.3%), and
 loses the direct mirror 36–64. Against offline, the GNN gen1 (v4) beats the MLP gen1 on 11 of 13 decks (Pauper 64.1% vs 55.6%, Mono
 39.6% vs 34.5%; ≈4 SE overall), so the GNN's 0.006 value-MSE edge does show up in play.
+
+### ver11 (all-node policy loss, gen0 Pauper + Oct 28 gen1, names kept) vs offline, Will's runs (Oct 31)
+
+MonoB 21.2% (198 games); Rally 25.5% (200). Rally reference: gen0 15.2%, v4 30.0%, MLP gen1 24.0%, ver10 17.0%.
+ver11 never trained on Mono gen0 games, so its MonoB number is confounded; on Rally it sits between ver10 and v4,
+within noise of both (±6). The clean loss test is ver7 vs ver12 (its all-node-loss twin).
