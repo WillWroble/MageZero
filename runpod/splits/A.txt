@@ -1,0 +1,24 @@
+# A: gen2 data only, from scratch. Paths from the repo root. Untrained blocks are val sets on the same held-out games.
+gen0 holdout 5:
+experiment_data/Pauper-Faeries/ver4/training/gen0/PlayerA/.*
+experiment_data/Pauper-Faeries/ver4/training/gen0/PlayerB/(?!Pauper-Faeries_vs_Standard-MonoW\.hdf5).*  # PlayerB's copy of PlayerA's MonoW shard left out
+gen1-reg holdout 5:
+experiment_data/Pauper-Faeries/ver4/training/gen1/Player[AB]/(?!.*(_selfplay|_pimc|_policy)).*
+experiment_data/Pauper-Faeries/ver5/training/gen1/.*  # v5 (Mono-only model) games
+gen1-selfplay holdout 5:
+experiment_data/Pauper-Faeries/ver4/training/gen1/Player[AB]/.*_selfplay2?\.hdf5
+train gen2-offline holdout 5:
+experiment_data/Pauper-Faeries/ver4/training/gen2/Player[AB]/(?!.*(policy|_selfplay\.hdf5|_gen1\.hdf5|_gen2\.hdf5)).*  # incl. _gen1only (ver9), _gen1nopimconly (ver10)
+train gen2-vsgen1 holdout 5:
+experiment_data/Pauper-Faeries/ver4/training/gen2/Player[AB]/.*_gen1\.hdf5
+experiment_data/Pauper-Faeries/ver4/training/gen2/PlayerB/Standard-MonoB_gen1_vs_Pauper-Faeries_gen2\.hdf5
+train gen2-selfplay holdout 5:
+experiment_data/Pauper-Faeries/ver4/training/gen2/Player[AB]/.*_selfplay\.hdf5
+pimc:
+experiment_data/Pauper-Faeries/ver4/training/gen1/Player[AB]/.*_pimc.*
+policy:
+experiment_data/Pauper-Faeries/ver4/training/gen[12]/Player[AB]/.*policy.*  # priors on: _policy, _ppolicy*, _ptpolicy*
+gen0-test:
+experiment_data/Pauper-Faeries/ver4/testing/gen0/.*  # the gen0 mirror test set
+ub:
+experiment_data/Pauper-Faeries/ver4/testing/gen1/.*  # Standard16-UB, an opponent never trained on
