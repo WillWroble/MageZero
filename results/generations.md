@@ -539,3 +539,20 @@ deck within noise), and among the MLPs the legal loss is ahead, not behind. The 
 turning on priors from them does not help either. What does separate the models is the architecture: every GNN beats
 both MLPs by 7–12 points on average. The earlier gen2 regressions (ver9, ver10) came from cutting data (gen0, PIMC),
 not from the mask. v4 is still the best model on MonoW.
+
+### ver13 against model opponents (Oct 31)
+
+Faeries = ver13, value only, vs each deck played by v4 or ver10 (value only, `runpod/configs/normvs-*.yml`), 200
+games each. References: the same opponent model playing Faeries itself (gen1 / gen2 self-play), and ver10 vs v4.
+
+| deck | ver13 vs v4 | v4 vs v4 | ver10 vs v4 | ver13 vs ver10 | ver10 vs ver10 |
+|---|---|---|---|---|---|
+| mirror | **57.5%** | 50.5% | 36.0% | **65.0%** | 50.0% |
+| MonoW | 13.0% | 17.1% | 9.5% | 21.5% | 9.5% |
+| Rally | 14.0% | 12.5% | 9.0% | 16.0% | 9.0% |
+| MonoB | 15.0% | 9–12% | 10.0% | 16.5% | 13.1% |
+| mean | 24.9% | ≈22.2% | 16.1% | 29.8% | 20.4% |
+
+Conclusion: ver13 beats v4 head to head in the mirror (57.5%, ≈2 SE) and does at least as well as v4 against v4's
+other decks (24.9% vs ≈22.2% mean); it clearly beats ver10 (65% in the mirror, +9 points on average over ver10's
+self-play). Against model opponents, gen3 (ver13) is the first model to come out ahead of gen1.
