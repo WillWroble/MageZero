@@ -556,3 +556,31 @@ games each. References: the same opponent model playing Faeries itself (gen1 / g
 Conclusion: ver13 beats v4 head to head in the mirror (57.5%, ≈2 SE) and does at least as well as v4 against v4's
 other decks (24.9% vs ≈22.2% mean); it clearly beats ver10 (65% in the mirror, +9 points on average over ver10's
 self-play). Against model opponents, gen3 (ver13) is the first model to come out ahead of gen1.
+
+## gen3 data: ver13 against every earlier model and the offline search (Nov 1)
+
+Faeries = ver13 (value only), 200 games per deck. Columns: vs offline, vs v4 (gen1 model), vs ver10 (gen2 model),
+self-play; in brackets the earlier model in the same seat for reference (v4 vs offline / v4 self-play / ver10 self-play).
+Shards in `ver4/training/gen3` (normed-test and head-to-head runs included; second runs of a matchup carry a 2 after
+the deck, e.g. `Pauper-Faeries_vs_Pauper-Rally2.hdf5`).
+
+| deck | vs offline (v4) | vs v4 (v4 vs v4) | vs ver10 (ver10 vs ver10) | self-play |
+|---|---|---|---|---|
+| Affinity | 77.0 (63.5) | 49.0 (29.5) | 54.0 (45.5) | 42.5 |
+| Burn | 69.5 (66.5) | 39.0 (34.5) | 44.0 (37.0) | 34.5 |
+| CawGates | 83.0 (81.1) | 53.3 (37.5) | 56.5 (47.0) | 42.5 |
+| Elves | 75.0 (65.0) | 31.5 (22.0) | 34.5 (39.0) | 26.0 |
+| mirror | 68.5 / 72.0 (72.0) | 57.5 (50.5) | 63.0 / 65.0 (50.0) | 55.0 |
+| Rally | 27.0 / 26.5 (30.0) | 14.0 (12.5) | 21.5 / 16.0 (9.0) | 16.0 |
+| Spy | 71.5 (59.0) | 43.5 (42.0) | 49.0 (39.5) | 38.5 |
+| Wildfire | 78.5 (72.0) | 62.5 (46.5) | 60.5 (55.5) | 47.0 |
+| MonoB | 31.2 (31.6) | 15.0 (9–12) | 17.0 / 16.5 (13.1) | 14.0 |
+| MonoG | 25.5 (16.0) | 15.5 (9.0) | 19.5 (11.0) | 13.0 |
+| MonoR | 25.0 (17.5) | 10.5 (10.5) | 13.5 (7.5) | 11.5 |
+| MonoU | 79.0 (75.4) | 63.5 (54.0) | 67.5 (64.0) | 62.0 |
+| MonoW | 53.5 (57.5) | 13.0 (17.1) | 26.5 / 21.5 (9.5) | 15.0 |
+| mean | 58.8 (54.3) | 36.0 (≈29.4) | 40.6 (32.9) | 32.1 |
+
+Conclusion: ver13 is the first model to beat v4: +4.5 points against the offline search over all 13 decks (≈3 SE),
+and against a v4 opponent it wins +6.6 points more than v4 does against itself (better on 10 of 13 decks). It beats
+ver10 by more still. MonoW is the one deck where v4 stays ahead both against offline and head to head.
