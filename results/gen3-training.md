@@ -65,3 +65,22 @@ Conclusion: the GNN–MLP gaps do not grow with the extra generation. Policy and
 ≈0.008, top-1 ≈0.02, targets ≈0.03 on every block, as in E); the value gap on the gen2 blocks shrank (≈0.004 vs up
 to 0.009 in E) because the MLP gained more from the new data, and on the new gen3 blocks it is 0.002–0.007. The MLP
 still fails on PIMC states. F-gnn improves on E-gnn mainly on gen1-reg, gen2-offline and PIMC value.
+
+### F in play: vs the offline search (Nov 1)
+
+Faeries = F-gnn (ver14) or F-mlp, value only, 200 games per deck (`runpod/configs/norm-*.yml`, 4090 pods,
+`/workspace/runs/normF4*`). ver13 and v4 from `generations.md`.
+
+| deck | F-gnn (ver14) | F-mlp | ver13 | v4 |
+|---|---|---|---|---|
+| mirror | 72.5% | 73.0% | 72.0% | 72.0% |
+| Burn | 62.5% | 59.5% | 69.5% | 66.5% |
+| MonoB | 26.0% | 28.0% | 31.2% | 31.6% |
+| MonoW | 47.0% | 41.0% | 53.5% | 57.5% |
+| Rally | 27.0% | 26.5% | 27.0% | 30.0% |
+| MonoG | 20.5% | 24.0% | 25.5% | 16.0% |
+| mean | 42.6% | 42.0% | 46.5% | 45.6% |
+
+Conclusion: F-gnn (epoch 3) is below its warm start ver13 on Burn, MonoB, MonoW and MonoG (−5 to −7 points, ≈1.5–2 SE
+each) and level with F-mlp; with its value loss best at epoch 1 on the model-vs-model blocks, F-gnn overfit. The
+F2 retrains (per-10K-step checkpoints) are for picking each model's best point.
