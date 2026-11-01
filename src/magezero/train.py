@@ -31,6 +31,7 @@ def train(
         lr: float = 1e-4,
         drop_player_names: bool = False,
         td: float = None,
+        val_every: int = None,
 ):
     train_shards, val_shards = read_split(f"{out}/split.txt")
     ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand, td=td)
@@ -42,7 +43,7 @@ def train(
     ds.apply_vocab(vocab, edge_vocab)
     val_sets = test.val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand, td)
 
-    train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr)
+    train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every)
 
 
 def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop_player_names: bool = False):
@@ -103,9 +104,11 @@ def save_checkpoint(path, epoch, model, opt, vocab, edge_vocab, avg, hide_oppone
     os.remove(temp_path)
 
 
-def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr=1e-4):
+def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr=1e-4,
+               val_every=None):
     """val_sets: test.val_loaders's name -> [(shard, DataLoader)], each validated after every epoch (per shard and as
-    a whole); the first picks best.pt.gz."""
+    a whole); the first picks best.pt.gz. With val_every, they're also validated every val_every steps, each time
+    saving model-e<epoch>-s<step>.pt.gz."""
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
@@ -142,6 +145,11 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
             step += 1
             if step >= steps:
                 break
+            if val_every and step % val_every == 0:
+                test.validate_sets(model, val_sets, vocab, edge_vocab, f" (epoch {epoch}, step {step})")
+                save_checkpoint(f"{out}/model-e{epoch}-s{step}.pt.gz", epoch, model, opt, vocab, edge_vocab,
+                                averages(stats), hide_opponent_hand)
+                model.train()
 
         avg = averages(stats)
         print(f"Epoch {epoch}  priority_loss={avg['priority']:.3f}  choose_target_loss={avg['choose_target']:.3f}  "
@@ -175,10 +183,11 @@ if __name__ == "__main__":
                         help="leave the PlayerA/PlayerB name leaves out of the vocab, so the model never sees them")
     parser.add_argument("--td", type=float, help="train and validate on value labels rebuilt with this TD discount "
                                                  "(dataset.td_labels) instead of the stored ones")
+    parser.add_argument("--val-every", type=int, help="also validate every N steps and save model-e<epoch>-s<step>.pt.gz")
 
     args = parser.parse_args()
     test.log_to(f"{args.model}/train.log")
     if args.seed is not None:
         torch.manual_seed(args.seed)
     train(args.model, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand, args.lr,
-          args.drop_player_names, args.td)
+          args.drop_player_names, args.td, args.val_every)
