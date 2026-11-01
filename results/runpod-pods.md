@@ -14,3 +14,8 @@ threads and JVM heap scaled to the pod: `THREADS` / `HEAP` in `runpod/generate.s
 Conclusion: the RTX 4090 makes games about 38% cheaper than the PRO 6000, at half the speed per pod; the PRO 4000 is
 next (+27%) but 3.5× slower. Win rates agree across pods, so play is the same. Use 4090s (twice the pods for the same
 wall-clock time) when cost matters, PRO 6000s when time does. Game speed tracks fast cores more than core count.
+
+Search timeouts: the 60 s timeout almost never cuts a search short. Share of Faeries decisions (with a choice)
+below 290 visits: PRO 6000 0.1% (MonoB), 0.1% (gen3 offline Elves), 0.0% (gen3 self-play CawGates); RTX 4090 0.0%
+(MonoB). On 4090s, generation runs use `TIMEOUT_MS=120000` anyway (`runpod/generate.sh`) so long games can't start
+timing out on the slower pods.
