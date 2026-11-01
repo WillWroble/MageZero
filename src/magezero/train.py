@@ -156,6 +156,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
 
         #TODO: make validation based checkpoint schedule
         save_checkpoint(f"{out}/model.pt.gz", epoch, model, opt, vocab, edge_vocab, avg, hide_opponent_hand)
+        shutil.copyfile(f"{out}/model.pt.gz", f"{out}/model-e{epoch}.pt.gz")  # every epoch's model, to pick from later
 
 if __name__ == "__main__":
     import argparse
