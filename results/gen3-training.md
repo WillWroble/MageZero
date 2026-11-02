@@ -109,12 +109,21 @@ therefore one data order, not a property of 3 epochs: run-to-run noise is ≈0.0
 capacity-bound rather than slow. At each model's best point the GNN leads by .003–.007 value, .006–.011 priority
 loss and .008–.015 target loss on every block except ub (MLP better) and PIMC (MLP value ≈2×).
 
-F2-gnn e3 end vs the offline search (200 games, value only, `/workspace/runs/normF2e3-gnn-*`):
+F2-gnn e3 end (ver15) and F2-mlp e6 end vs the offline search (200 games, value only,
+`/workspace/runs/normF2e3-gnn-*`, `normF2-{gnn,mlp}-*`):
 
-| deck | F2-gnn e3 | F-gnn (ver14) | ver13 | v4 |
-|---|---|---|---|---|
-| Burn | 68.5% | 62.5% | 69.5% | 66.5% |
-| MonoW | 53.5% | 47.0% | 53.5% | 57.5% |
+| deck | F2-gnn (ver15) | F2-mlp | F-gnn (ver14) | F-mlp | ver13 | v4 |
+|---|---|---|---|---|---|---|
+| mirror | 72.0% | 73.0% | 72.5% | 73.0% | 72.0% | 72.0% |
+| Burn | 68.5% | 59.5% | 62.5% | 59.5% | 69.5% | 66.5% |
+| MonoB | 36.0% | 29.5% | 26.0% | 28.0% | 31.2% | 31.6% |
+| MonoW | 53.5% | 45.5% | 47.0% | 41.0% | 53.5% | 57.5% |
+| Rally | 31.0% | 17.0% | 27.0% | 26.5% | 27.0% | 30.0% |
+| MonoG | 32.0% | 22.5% | 20.5% | 24.0% | 25.5% | 16.0% |
+| mean | 48.8% | 41.2% | 42.6% | 42.0% | 46.5% | 45.6% |
 
-Conclusion: the second F-gnn run plays at ver13's level where ver14 was 6 points behind on both decks; ver14's
-weakness came with its data order, not with the recipe. Single-run comparisons carry this much noise.
+Conclusion: the second F-gnn run (ver15) is the best model on these decks (+2.3 over ver13, +6.2 over ver14), so
+ver14's weakness came with its data order, not the recipe; single-run comparisons carry this much noise. The
+F2 GNN–MLP gap (value .0058, 7.6 points of win rate) is far larger than the F gap (value .0026, 0.6 points):
+small value-loss differences carry large win-rate differences. F2-mlp ≈ F-mlp (same value loss) except Rally
+(17.0% vs 26.5%, ≈2.7 SE).
