@@ -84,3 +84,37 @@ Faeries = F-gnn (ver14) or F-mlp, value only, 200 games per deck (`runpod/config
 Conclusion: F-gnn (epoch 3) is below its warm start ver13 on Burn, MonoB, MonoW and MonoG (−5 to −7 points, ≈1.5–2 SE
 each) and level with F-mlp; with its value loss best at epoch 1 on the model-vs-model blocks, F-gnn overfit. The
 F2 retrains (per-10K-step checkpoints) are for picking each model's best point.
+
+## F2: F retrained with a validation and checkpoint every 10K steps (Nov 1–2)
+
+Same runs as F (same split, warm starts, lr, seed) plus `--val-every 10000`, 7 points per epoch; checkpoints
+`model-e<N>-s<step>.pt.gz` in `/workspace/runs/gen4-F2-{gnn,mlp}/F`. Value loss averaged over the five
+model-vs-model blocks (gen2-vsgen1, gen2-selfplay, gen3-vsgen1/vsgen2/selfplay):
+
+| point | F2-gnn | F2-mlp | F-gnn |
+|---|---|---|---|
+| e1 10K | .0428 | .0474 | |
+| e1 end | .0394 | .0464 | .0392 |
+| e2 end | .0388 | .0472 | .0398 |
+| e3 30K | **.0384** | .0456 | |
+| e3 end | .0386 | .0448 | .0422 |
+| e4 50K | | .0444 | |
+| e6 60K | | **.0436** | |
+| e6 end | | .0444 | |
+
+F2 matches F through epoch 1 and diverges after: every DataLoader iteration (the val loaders' too) draws from
+torch's global RNG, so F2's extra validations changed the shuffle order of epochs 2–3. F's epoch-3 rise is
+therefore one data order, not a property of 3 epochs: run-to-run noise is ≈0.004 here. The MLP is flat from epoch 3
+(≈.0445, ±.001 between points); its training loss barely moves (value .043 → .040 over 6 epochs), so it is
+capacity-bound rather than slow. At each model's best point the GNN leads by .003–.007 value, .006–.011 priority
+loss and .008–.015 target loss on every block except ub (MLP better) and PIMC (MLP value ≈2×).
+
+F2-gnn e3 end vs the offline search (200 games, value only, `/workspace/runs/normF2e3-gnn-*`):
+
+| deck | F2-gnn e3 | F-gnn (ver14) | ver13 | v4 |
+|---|---|---|---|---|
+| Burn | 68.5% | 62.5% | 69.5% | 66.5% |
+| MonoW | 53.5% | 47.0% | 53.5% | 57.5% |
+
+Conclusion: the second F-gnn run plays at ver13's level where ver14 was 6 points behind on both decks; ver14's
+weakness came with its data order, not with the recipe. Single-run comparisons carry this much noise.
