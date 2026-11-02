@@ -127,3 +127,21 @@ ver14's weakness came with its data order, not the recipe; single-run comparison
 F2 GNN–MLP gap (value .0058, 7.6 points of win rate) is far larger than the F gap (value .0026, 0.6 points):
 small value-loss differences carry large win-rate differences. F2-mlp ≈ F-mlp (same value loss) except Rally
 (17.0% vs 26.5%, ≈2.7 SE).
+
+### F2-mlp256: is the MLP capacity-bound? (Nov 2)
+
+`NetMLP` d256, 2 blocks (2.26M params vs 0.21M for d64 and 9.11M for the GNN), cold start on the F split,
+lr 3e-4, legal-only loss, names dropped, 6 epochs, `--val-every 20000`; `/workspace/runs/gen4-F2-mlp256/F`.
+Mean over the five model-vs-model blocks:
+
+| model | point | value | priority | target | pimc value | ub value |
+|---|---|---|---|---|---|---|
+| mlp256 | e6 end | .0428 | .0584 | .0496 | .118 | .039 |
+| mlp d64 (F2) | e6 end | .0444 | .0604 | .0512 | .114 | .044 |
+| gnn (F2, ver15) | e3 end | .0386 | .0532 | .0424 | .060 | .050 |
+
+mlp256 value per epoch end: .0516, .0478, .0458, .0446, .0428, .0428 (flat over epoch 6).
+
+Conclusion: at 4.37M states width helps the MLP (unlike on gen0 alone): ≈.0015 on value, .002 on priority and
+target over the d64. It closes about a third of the value gap to the GNN and little of the policy gap, and does
+not fix PIMC value, so most of the GNN's lead is architectural, not size. Not tested in play.
