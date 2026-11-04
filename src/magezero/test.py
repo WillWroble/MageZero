@@ -130,7 +130,7 @@ def evaluate(model, dl, edge_vocab) -> dict:
             g, t = graphs.to(DEVICE), targets.to(DEVICE)
             with torch.amp.autocast(DEVICE.type, enabled=AMP):
                 out = model(g)
-                accumulate(result["stats"], losses(out, g, t, legal_only))
+                accumulate(result["stats"], losses(out, g, t, legal_only, value_loss=model.arch.get("value_loss", "mse")))
             result["legal"]["priority"] += legal_stats(out[0], g, t, ActionType.PRIORITY, PRIORITY_TYPES)
             result["legal"]["choose_target"] += legal_stats(out[1], g, t, ActionType.CHOOSE_TARGET, TARGET_TYPES)
             result["pairs"] += priority_pairs(out[0].float().cpu().numpy(), Graphs(*(np.asarray(x) for x in graphs)),

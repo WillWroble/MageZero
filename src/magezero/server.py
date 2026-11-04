@@ -11,7 +11,7 @@ from flask import Flask, request, Response
 
 from cache import NodeCache
 from dataset import map_ids, node_types
-from model import Graphs, NetGraph, load_checkpoint, AMP, DEVICE, NodeType
+from model import Graphs, NetGraph, load_checkpoint, value_estimate, AMP, DEVICE, NodeType
 
 # Threading config
 TORCH_THREADS = 1 #max(1, os.cpu_count() // 2)
@@ -147,7 +147,8 @@ def worker_loop():
                     out = server_model(g, plan, None if cached is None else CACHE.table)
             if cached is not None:
                 computed = f"{int(cached[1].sum())}/{int((cached[0] >= 0).sum())}"
-            priority, target, use, value = (t.float().cpu().numpy() for t in out[:4])
+            out = out[:3] + (value_estimate(out[3], server_model.arch),)
+            priority, target, use, value = (t.float().cpu().numpy() for t in out)
             t_forward = time.perf_counter()
 
             # Split results back to individual requests: per-node scores in the order each state was sent

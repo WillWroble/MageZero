@@ -10,7 +10,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 import test
-from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states,
+from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states, to_ce_value,
                    AMP, DEVICE, GLOBAL_MAX)
 from dataset import H5Graphs, collate_batch, read_split, BATCH_SIZE
 from vocab import FeatureVocab, feature_id, initial_rows, kept_feature_ids
@@ -62,8 +62,11 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop
         checkpoint_path = f"{out}/model.pt.gz"
         try:
             model, vocab, edge_vocab = load_checkpoint(checkpoint_path)
-            # a resumed model keeps the checkpoint's architecture; only the loss's policy domain can change
+            # a resumed model keeps the checkpoint's architecture; only the loss's policy domain and an MSE value
+            # head's switch to CE can change
             model.arch.update({k: arch[k] for k in ("policy_domain",) if k in arch})
+            if arch.get("value_loss") == "ce":
+                to_ce_value(model)
             print(f"Successfully loaded checkpoint from {checkpoint_path}")
         except FileNotFoundError:
             print(f"INFO: Checkpoint file not found at {checkpoint_path}. Starting from scratch.")
@@ -118,6 +121,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
     opt = optim.Adam(model.parameters(), lr=lr)
     legal_only = model.arch.get("policy_domain") == "legal"
     legality_weight = model.arch.get("legality_weight", 0.0)
+    value_loss = model.arch.get("value_loss", "mse")
     scaler = torch.amp.GradScaler(enabled=AMP)
 
     best_val_loss = float('inf')
@@ -133,7 +137,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
             graphs, targets = graphs.to(DEVICE), targets.to(DEVICE)
 
             with torch.amp.autocast(DEVICE.type, enabled=AMP):
-                heads = losses(model(graphs), graphs, targets, legal_only, legality_weight)
+                heads = losses(model(graphs), graphs, targets, legal_only, legality_weight, value_loss)
                 loss = sum(head[0] for head in heads.values())
 
             opt.zero_grad()
@@ -155,6 +159,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
         print(f"Epoch {epoch}  priority_loss={avg['priority']:.3f}  choose_target_loss={avg['choose_target']:.3f}  "
               f"choose_use_loss={avg['choose_use']:.3f}  value_loss={avg['value']:.3f}  "
               + (f"legality_loss={stats['legality'][0] / max(stats['legality'][1], 1):.3f}  " if "legality" in stats else "")
+              + (f"value_ce_loss={stats['value_ce'][0] / max(stats['value_ce'][1], 1):.4f}  " if "value_ce" in stats else "")
               + f"decision_states={decision_states(stats)}  steps={step}  time={time.perf_counter() - start:.0f}s")
 
         val_losses = list(test.validate_sets(model, val_sets, vocab, edge_vocab).values())
