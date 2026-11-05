@@ -145,3 +145,22 @@ mlp256 value per epoch end: .0516, .0478, .0458, .0446, .0428, .0428 (flat over 
 Conclusion: at 4.37M states width helps the MLP (unlike on gen0 alone): ≈.0015 on value, .002 on priority and
 target over the d64. It closes about a third of the value gap to the GNN and little of the policy gap, and does
 not fix PIMC value, so most of the GNN's lead is architectural, not size. Not tested in play.
+
+### F2-ce: cross-entropy value loss (Nov 4–5)
+
+`arch value_loss: "ce"` (value logit, BCE toward (label + 1) / 2; `fff4670`), otherwise identical to F2-gnn
+(ver13 warm start, head converted exactly) and F2-mlp256 (cold). `/workspace/runs/gen4-F2ce-{gnn,mlp256}/F`.
+Value MSE (of tanh(x/2)) and priority loss, mean over the five model-vs-model blocks, CE / MSE twin:
+
+| point | GNN value | GNN priority | MLP d256 value | MLP d256 priority |
+|---|---|---|---|---|
+| e1 end | .0400 / .0394 | .0554 / .0558 | .0538 / .0516 | .0666 / .0664 |
+| e2 end | .0392 / .0388 | .0540 / .0542 | .0482 / .0478 | .0632 / .0628 |
+| e3 end | .0390 / .0386 | .0532 / .0532 | .0472 / .0458 | .0614 / .0614 |
+| e6 end | | | .0436 / .0428 | .0590 / .0584 |
+| best | .0388 / .0384 | | .0436 / .0426 | |
+
+Conclusion: CE gives no gain. On value MSE it is level to slightly worse (GNN −.0004, MLP −.001 at the best
+points; every block within ±.001 except the MLP's gen3-offline and ub, .003–.004 worse), PIMC slightly better
+(GNN .057 vs .060). With soft TD labels both losses have the same optimum (the expected label), so no gain is
+the expected outcome; the MSE metric also favours the MSE runs. Not tested in play.
