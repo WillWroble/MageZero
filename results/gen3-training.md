@@ -164,3 +164,27 @@ Conclusion: CE gives no gain. On value MSE it is level to slightly worse (GNN �
 points; every block within ±.001 except the MLP's gen3-offline and ub, .003–.004 worse), PIMC slightly better
 (GNN .057 vs .060). With soft TD labels both losses have the same optimum (the expected label), so no gain is
 the expected outcome; the MSE metric also favours the MSE runs. Not tested in play.
+
+### F2-gnn128: GNN vs MLP at matched parameters (Nov 6)
+
+`NetGraph` d128, FF 256 (2.46M params) vs F2-mlp256 (2.26M), both cold on the F split, 6 epochs, seed 0, names
+dropped, MSE value, `--val-every 20000`; GNN lr 1e-4, MLP 3e-4. `/workspace/runs/gen4-F2-gnn128/F`. Mean over the
+five model-vs-model blocks; F2-gnn (9.1M, ver13 warm start, 3 epochs) for reference:
+
+| point | value gnn128 / mlp256 | priority | target |
+|---|---|---|---|
+| e1 end | .0474 / .0516 | .0620 / .0664 | .0520 / .0604 |
+| e2 end | .0440 / .0478 | .0592 / .0628 | .0492 / .0560 |
+| e3 end | .0412 / .0458 | .0588 / .0614 | .0478 / .0530 |
+| e4 end | .0412 / .0446 | .0580 / .0602 | .0454 / .0524 |
+| e5 end | .0392 / .0428 | .0564 / .0604 | .0454 / .0500 |
+| e6 end | .0400 / .0428 | .0556 / .0584 | .0438 / .0496 |
+| best | **.0392 / .0426** | **.0556 / .0580** | **.0438 / .0494** |
+| F2-gnn 9.1M best | .0384 | .0528 | .0420 |
+
+PIMC value at e6: gnn128 .105, mlp256 .113 (9.1M GNN: .060); ub: .035 vs .040.
+
+Conclusion: at equal size the GNN keeps most of its lead: value .0034 (80% of the full-size gap of .0042),
+priority .0024 (about half), targets .0056 (about three quarters). Most of the GNN's advantage is the
+architecture, not its parameter count. Only PIMC value needs the size: the small GNN is barely better than the MLP
+there. Not tested in play.
