@@ -93,8 +93,8 @@ def main():
         if ref == "HEAD":  # the working tree, uncommitted changes included
             buf = io.BytesIO()
             with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-                for f in SRC.glob("*.py"):
-                    tar.add(f, arcname=f.name)
+                for f in SRC.rglob("*.py"):  # util/ included: dataset.py imports from it
+                    tar.add(f, arcname=f.relative_to(SRC))
             code[ref] = base64.b64encode(buf.getvalue()).decode()
         else:
             tar = subprocess.run(["git", "archive", "--format=tar.gz", f"{ref}:src/magezero"],

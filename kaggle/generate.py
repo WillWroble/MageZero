@@ -50,8 +50,8 @@ def main():
 
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-        for f in SRC.glob("*.py"):
-            tar.add(f, arcname=f"src/{f.name}")
+        for f in SRC.rglob("*.py"):  # util/ included: dataset.py imports from it
+            tar.add(f, arcname=f"src/{f.relative_to(SRC)}")
         tar.add(ROOT / "kaggle" / "generate.sh", arcname="generate.sh")
         tar.add(ROOT / args.config, arcname="config.yml")
     code = base64.b64encode(buf.getvalue()).decode()
