@@ -1,0 +1,27 @@
++ W=/kaggle/working
++ nproc
+4
++ lscpu
++ free -g
++ nvidia-smi
++ T=/tmp/tools
++ mkdir -p /tmp/tools/jdk
++ curl -sSL https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse
++ tar xz -C /tmp/tools/jdk --strip-components=1
++ export JAVA_HOME=/tmp/tools/jdk PATH=/tmp/tools/jdk/bin:/opt/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/tools/node/bin:/tools/google-cloud-sdk/bin
++ JAVA_HOME=/tmp/tools/jdk
++ PATH=/tmp/tools/jdk/bin:/opt/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/tools/node/bin:/tools/google-cloud-sdk/bin
++ X=/tmp/xmage
++ mkdir -p /tmp/xmage
+++ find /kaggle/input -name xmage.tar.gz
+++ head -1
++ PREBUILT=
++ '[' -n '' ']'
++ mkdir -p /tmp/tools/maven
++ curl -sSL https://archive.apache.org/dist/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz
++ tar xz -C /tmp/tools/maven --strip-components=1
+curl: (35) Recv failure: Connection reset by peer
+
+gzip: stdin: unexpected end of file
+tar: Child returned status 1
+tar: Error is not recoverable: exiting now
