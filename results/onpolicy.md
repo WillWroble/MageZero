@@ -12,6 +12,7 @@ Reference: the same model with value-only search (300 sims, priors off), from `r
 | MonoB | `a800f4fe` (priors.opponent true) | 12.5% (25/200) | 36.0% |
 | mirror | `3ae6456e` | 44.0% (88/200) | 72.0% |
 | Burn | `3ae6456e` | 52.0% (104/200) | 68.5% |
+| Rally | `3ae6456e` | 10.0% (20/200) | 31.0% |
 
 - MonoB: the run needed `priors.opponent: true`. With it false, every game failed at `a800f4fe` on a null
   `node.policy` in `bestAction` (logs in the first commit of `results/kaggle/onpolicy-monob`). Faeries plays its
@@ -21,6 +22,10 @@ Reference: the same model with value-only search (300 sims, priors off), from `r
   Spellstutter, Counterspell, Ninja, Humbling Elder and Snap.
 - Burn: `priors.opponent: false`; no errors. Faeries casts Faerie Seer, Spellstutter, Harrier Strix and Ninja and
   uses ninjutsu in the policy player's log lines.
+- Rally: `priors.opponent: false`; no errors. 0 wins in the first 26 games, then 20 over 200. The policy player logs
+  as many casts as against the mirror and Burn (32 vs 40 and 30 in the last 2,000 log lines), including
+  Spellstutter, Snap, Of One Mind and Moon-Circuit Hacker, so it isn't passing. Faeries' shard records 199.5
+  states per game, Rally's 56.3.
 
 ## Will's local runs (Nov 7, `experiment_data/Pauper-Faeries/ver15/*_{policy,priority}_only*.hdf5`)
 
