@@ -1,0 +1,3 @@
+INFO  2026-11-07 17:28:51,126 Successful: 200                                                                            =>[main] ParallelDataGenerator.runSimulations 
+INFO  2026-11-07 17:28:51,126 Failed: 0                                                                                  =>[main] ParallelDataGenerator.runSimulations 
+INFO  2026-11-07 17:28:51,127 Player A win rate: 44.00% (88/200)                                                         =>[main] ParallelDataGenerator.runSimulations 

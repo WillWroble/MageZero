@@ -10,11 +10,14 @@ Reference: the same model with value-only search (300 sims, priors off), from `r
 | deck | XMage commit | policy only | ver15 with search |
 |---|---|---|---|
 | MonoB | `a800f4fe` (priors.opponent true) | 12.5% (25/200) | 36.0% |
+| mirror | `3ae6456e` | 44.0% (88/200) | 72.0% |
 
 - MonoB: the run needed `priors.opponent: true`. With it false, every game failed at `a800f4fe` on a null
   `node.policy` in `bestAction` (logs in the first commit of `results/kaggle/onpolicy-monob`). Faeries plays its
   spells (Humbling Elder, Spellstutter, ninjutsu, Of One Mind and Strix loot appear in the game log), so the result
   isn't the player passing. One error line in the game log.
+- mirror: `priors.opponent: false`; no errors in the game log. The policy player's own log lines show it casting
+  Spellstutter, Counterspell, Ninja, Humbling Elder and Snap.
 
 ## Will's local runs (Nov 7, `experiment_data/Pauper-Faeries/ver15/*_{policy,priority}_only*.hdf5`)
 
