@@ -6,8 +6,8 @@
 + nvidia-smi
 + T=/tmp/tools
 + mkdir -p /tmp/tools/jdk
-+ curl -sSL https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse
-+ tar xz -C /tmp/tools/jdk --strip-components=1
++ curl -sSL --retry 5 --retry-all-errors -o /tmp/tools/jdk.tar.gz https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse
++ tar xzf /tmp/tools/jdk.tar.gz -C /tmp/tools/jdk --strip-components=1
 + export JAVA_HOME=/tmp/tools/jdk PATH=/tmp/tools/jdk/bin:/opt/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/tools/node/bin:/tools/google-cloud-sdk/bin
 + JAVA_HOME=/tmp/tools/jdk
 + PATH=/tmp/tools/jdk/bin:/opt/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/tools/node/bin:/tools/google-cloud-sdk/bin
@@ -15,13 +15,105 @@
 + mkdir -p /tmp/xmage
 ++ find /kaggle/input -name xmage.tar.gz
 ++ head -1
-+ PREBUILT=
-+ '[' -n '' ']'
-+ mkdir -p /tmp/tools/maven
-+ curl -sSL https://archive.apache.org/dist/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz
-+ tar xz -C /tmp/tools/maven --strip-components=1
-curl: (35) Recv failure: Connection reset by peer
-
-gzip: stdin: unexpected end of file
-tar: Child returned status 1
-tar: Error is not recoverable: exiting now
++ PREBUILT=/kaggle/input/notebooks/willwroble/mz-onpolicy-monob/xmage.tar.gz
++ '[' -n /kaggle/input/notebooks/willwroble/mz-onpolicy-monob/xmage.tar.gz ']'
++ tar xzf /kaggle/input/notebooks/willwroble/mz-onpolicy-monob/xmage.tar.gz -C /tmp/xmage
++ pip install -q flask waitress msgpack
++ M=/tmp/model
++ mkdir -p /tmp/model
+++ find /kaggle/input -name 'model.pt*'
+++ head -1
++ F=/kaggle/input/datasets/willwroble/mz-faeries-ver15-model/model.pt
++ case $F in
++ gzip -c /kaggle/input/datasets/willwroble/mz-faeries-ver15-model/model.pt
++ SERVER=58
++ trap 'kill 58 2>/dev/null || true' EXIT
++ python -u /tmp/mz/src/server.py --model /tmp/model --port 50052
++ set +x
++ set +x
+++ grep --line-buffered -v '^\[REQ'
+[server] [INIT] model=/tmp/model port=50052 device=cuda leaf_rows=1556 edge_rows=20
+ok++ nproc
++ sed 's|^  threads: .*|  threads: 8|' /tmp/mz/config.yml
++ grep output_file /kaggle/working/config.yml
++ awk '{print $2}'
++ xargs -n1 dirname
++ xargs mkdir -p
+++ free -g
+++ awk '/^Mem:/ {print $2}'
++ HEAP=23
++ PROGRESS=109
++ set +x
++ cd /tmp/xmage
++ timeout 39600 java -Xms2g -Xmx23g -XX:+UseParallelGC --add-opens=java.base/java.lang=ALL-UNNAMED -Dlog4j.configuration=file:config/log4j.properties -jar lib/mage-magezero-1.4.58.jar /kaggle/working/config.yml
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
+[server] 
++ kill 109
++ tail -n 2000 /tmp/game.log
++ grep -E 'Successful:|Failed:|win rate|WR with' /tmp/game.log
++ grep -c ERROR /tmp/game.log
++ cp /tmp/xmage/WinRates.txt /kaggle/working/
++ kill 58

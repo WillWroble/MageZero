@@ -1,0 +1,245 @@
+[INIT] model=/tmp/model port=50052 device=cuda leaf_rows=1556 edge_rows=20
+[BATCH] size=1, total_states=7, queued=10.6ms collate=8.9ms forward=6269.4ms split=0.2ms computed=133/352
+[BATCH] size=1, total_states=1, queued=6255.9ms collate=0.6ms forward=97.5ms split=0.2ms computed=5/58
+[BATCH] size=1, total_states=3, queued=3.8ms collate=0.7ms forward=15.0ms split=0.1ms computed=0/154[REQ 3] done: 19.5ms
+
+[BATCH] size=1, total_states=1, queued=4.5ms collate=0.5ms forward=53.6ms split=0.1ms computed=10/52[REQ 4] done: 58.7ms
+
+[BATCH] size=1, total_states=3, queued=26.1ms collate=0.7ms forward=38.3ms split=0.1ms computed=19/165
+[BATCH] size=1, total_states=2, queued=3.8ms collate=0.6ms forward=133.7ms split=6.2ms computed=15/101
+[BATCH] size=2, total_states=2, queued=114.8ms collate=0.6ms forward=51.4ms split=0.2ms computed=8/106[REQ 7] done: 166.9ms[REQ 8] done: 123.9ms
+
+
+[BATCH] size=1, total_states=1, queued=28.7ms collate=0.5ms forward=35.9ms split=0.1ms computed=5/54
+[BATCH] size=2, total_states=3, queued=30.4ms collate=0.6ms forward=21.6ms split=0.2ms computed=15/152[REQ 11] done: 49.4ms
+
+[BATCH] size=1, total_states=1, queued=16.0ms collate=0.5ms forward=13.6ms split=0.1ms computed=0/51
+[BATCH] size=1, total_states=1, queued=3.0ms collate=0.5ms forward=55.1ms split=0.1ms computed=3/52
+[BATCH] size=2, total_states=4, queued=54.3ms collate=0.6ms forward=80.1ms split=0.1ms computed=28/209[REQ 14] done: 135.1ms[REQ 15] done: 106.2ms
+
+
+[BATCH] size=1, total_states=3, queued=85.5ms collate=0.6ms forward=43.3ms split=0.1ms computed=15/165[REQ 16] done: 129.6ms
+
+[BATCH] size=1, total_states=2, queued=0.6ms collate=0.4ms forward=147.0ms split=0.1ms computed=9/109
+[BATCH] size=1, total_states=3, queued=78.9ms collate=0.6ms forward=73.6ms split=0.1ms computed=10/161
+[BATCH] size=2, total_states=2, queued=54.1ms collate=0.5ms forward=46.6ms split=3.2ms computed=10/101
+[BATCH] size=1, total_states=1, queued=34.5ms collate=0.5ms forward=62.3ms split=0.1ms computed=5/48
+[BATCH] size=2, total_states=4, queued=48.4ms collate=0.5ms forward=46.7ms split=0.2ms computed=10/222
+[BATCH] size=1, total_states=2, queued=34.0ms collate=0.5ms forward=40.3ms split=0.1ms computed=9/103
+[BATCH] size=2, total_states=2, queued=34.9ms collate=0.4ms forward=66.6ms split=0.1ms computed=10/107[REQ 26] done: 74.1ms
+
+[BATCH] size=1, total_states=1, queued=46.7ms collate=1.6ms forward=41.5ms split=0.1ms computed=3/57
+[BATCH] size=1, total_states=2, queued=42.7ms collate=0.6ms forward=26.0ms split=0.1ms computed=5/109
+[BATCH] size=1, total_states=3, queued=17.9ms collate=0.5ms forward=34.3ms split=0.1ms computed=15/151
+[BATCH] size=1, total_states=1, queued=28.4ms collate=0.4ms forward=41.4ms split=0.1ms computed=5/55
+[BATCH] size=1, total_states=2, queued=37.2ms collate=0.4ms forward=25.0ms split=0.1ms computed=6/104
+[BATCH] size=1, total_states=4, queued=28.6ms collate=0.4ms forward=58.1ms split=2.5ms computed=10/210
+[BATCH] size=1, total_states=2, queued=27.5ms collate=0.5ms forward=51.3ms split=0.1ms computed=10/110[REQ 33] done: 79.4ms
+
+[BATCH] size=1, total_states=1, queued=0.6ms collate=0.5ms forward=28.3ms split=0.1ms computed=4/55
+[BATCH] size=1, total_states=1, queued=9.3ms collate=0.4ms forward=31.6ms split=0.1ms computed=5/53
+[BATCH] size=1, total_states=1, queued=10.5ms collate=0.4ms forward=56.4ms split=0.1ms computed=3/49
+[BATCH] size=2, total_states=4, queued=33.9ms collate=0.5ms forward=52.0ms split=0.1ms computed=18/198
+[BATCH] size=1, total_states=1, queued=24.6ms collate=0.4ms forward=24.4ms split=0.1ms computed=5/56
+[BATCH] size=1, total_states=2, queued=17.6ms collate=0.5ms forward=24.5ms split=0.1ms computed=10/108[REQ 40] done: 42.6ms
+
+[BATCH] size=1, total_states=1, queued=11.5ms collate=0.6ms forward=59.6ms split=0.1ms computed=5/53
+[BATCH] size=1, total_states=1, queued=40.0ms collate=0.4ms forward=14.4ms split=2.7ms computed=0/47
+[BATCH] size=1, total_states=2, queued=0.6ms collate=0.4ms forward=22.6ms split=0.1ms computed=10/108
+[BATCH] size=1, total_states=3, queued=12.8ms collate=0.5ms forward=54.2ms split=0.1ms computed=14/155
+[BATCH] size=1, total_states=1, queued=5.8ms collate=0.4ms forward=43.7ms split=2.5ms computed=5/50
+[BATCH] size=1, total_states=2, queued=28.7ms collate=0.5ms forward=47.4ms split=0.1ms computed=5/110
+[BATCH] size=2, total_states=4, queued=43.8ms collate=0.6ms forward=53.0ms split=0.2ms computed=15/211
+[BATCH] size=1, total_states=2, queued=32.5ms collate=0.4ms forward=39.2ms split=0.1ms computed=10/105
+[BATCH] size=1, total_states=2, queued=8.6ms collate=0.4ms forward=15.1ms split=0.1ms computed=0/110[REQ 50] done: 24.1ms
+
+[BATCH] size=1, total_states=2, queued=0.7ms collate=0.5ms forward=25.4ms split=0.1ms computed=5/115
+[BATCH] size=1, total_states=3, queued=20.1ms collate=0.6ms forward=62.7ms split=0.1ms computed=7/156[REQ 52] done: 83.5ms
+
+[BATCH] size=1, total_states=3, queued=18.9ms collate=0.5ms forward=46.5ms split=0.1ms computed=15/153
+[BATCH] size=2, total_states=3, queued=45.3ms collate=0.5ms forward=30.1ms split=0.1ms computed=3/165
+[BATCH] size=1, total_states=3, queued=0.6ms collate=0.4ms forward=39.3ms split=0.1ms computed=9/152
+[BATCH] size=1, total_states=2, queued=7.2ms collate=0.5ms forward=78.7ms split=2.5ms computed=5/110[REQ 57] done: 86.5ms
+
+[BATCH] size=2, total_states=5, queued=59.2ms collate=0.6ms forward=96.3ms split=0.1ms computed=16/267[REQ 59] done: 122.4ms
+
+[BATCH] size=1, total_states=1, queued=39.8ms collate=1.2ms forward=51.4ms split=3.2ms computed=5/51
+[BATCH] size=2, total_states=2, queued=46.3ms collate=0.5ms forward=50.1ms split=0.1ms computed=5/108
+[BATCH] size=1, total_states=1, queued=45.3ms collate=2.4ms forward=27.7ms split=0.1ms computed=0/56
+[BATCH] size=2, total_states=5, queued=9.4ms collate=0.5ms forward=60.3ms split=0.1ms computed=15/264
+[BATCH] size=1, total_states=1, queued=41.7ms collate=0.4ms forward=48.0ms split=0.1ms computed=5/53
+[BATCH] size=1, total_states=2, queued=32.3ms collate=0.4ms forward=20.8ms split=3.2ms computed=0/113
+[BATCH] size=1, total_states=3, queued=17.8ms collate=0.5ms forward=68.3ms split=0.1ms computed=8/158
+[BATCH] size=2, total_states=4, queued=53.8ms collate=0.5ms forward=53.8ms split=0.1ms computed=10/215
+[BATCH] size=1, total_states=1, queued=42.2ms collate=0.5ms forward=13.8ms split=0.1ms computed=0/57
+[BATCH] size=1, total_states=2, queued=8.5ms collate=0.4ms forward=43.0ms split=0.1ms computed=3/107[REQ 72] done: 52.0ms
+
+[BATCH] size=1, total_states=4, queued=6.3ms collate=0.5ms forward=39.9ms split=0.1ms computed=5/220
+[BATCH] size=1, total_states=3, queued=17.7ms collate=0.4ms forward=42.8ms split=0.1ms computed=8/166[REQ 74] done: 61.1ms
+
+[BATCH] size=1, total_states=1, queued=32.9ms collate=1.4ms forward=57.2ms split=0.1ms computed=5/55
+[BATCH] size=2, total_states=4, queued=58.9ms collate=0.5ms forward=33.9ms split=0.2ms computed=3/221[REQ 77] done: 58.3ms
+
+
+[BATCH] size=1, total_states=2, queued=29.1ms collate=0.5ms forward=24.6ms split=0.1ms computed=5/118
+[BATCH] size=1, total_states=2, queued=19.7ms collate=0.4ms forward=22.0ms split=0.1ms computed=3/104[REQ 79] done: 42.2ms
+
+[BATCH] size=1, total_states=3, queued=0.7ms collate=0.5ms forward=19.9ms split=0.1ms computed=0/170[REQ 80] done: 21.2ms
+
+[BATCH] size=1, total_states=4, queued=0.8ms collate=0.5ms forward=24.5ms split=0.1ms computed=10/230[REQ 81] done: 25.8ms
+
+[BATCH] size=1, total_states=3, queued=13.8ms collate=0.4ms forward=52.8ms split=0.1ms computed=5/170[REQ 82] done: 67.1ms
+
+[BATCH] size=2, total_states=2, queued=44.2ms collate=1.1ms forward=26.8ms split=2.6ms computed=1/114
+[BATCH] size=1, total_states=1, queued=8.1ms collate=0.4ms forward=17.3ms split=0.1ms computed=0/56
+[BATCH] size=1, total_states=3, queued=1.2ms collate=0.5ms forward=32.5ms split=0.1ms computed=11/166
+[BATCH] size=1, total_states=4, queued=0.9ms collate=0.7ms forward=33.2ms split=0.1ms computed=8/235
+[BATCH] size=1, total_states=2, queued=7.9ms collate=0.5ms forward=57.7ms split=0.1ms computed=9/103[REQ 88] done: 66.2ms
+
+[BATCH] size=1, total_states=2, queued=57.0ms collate=0.7ms forward=30.4ms split=0.1ms computed=4/109
+[BATCH] size=1, total_states=1, queued=5.9ms collate=0.5ms forward=34.2ms split=0.1ms computed=4/63
+[BATCH] size=1, total_states=3, queued=28.4ms collate=0.5ms forward=30.7ms split=0.1ms computed=5/177[REQ 91] done: 59.7ms
+
+[BATCH] size=1, total_states=4, queued=8.0ms collate=1.5ms forward=70.0ms split=2.9ms computed=18/214
+[BATCH] size=1, total_states=2, queued=11.1ms collate=0.5ms forward=32.5ms split=3.2ms computed=0/122
+[BATCH] size=1, total_states=1, queued=0.7ms collate=0.6ms forward=36.2ms split=0.1ms computed=5/60[REQ 94] done: 37.6ms
+
+[BATCH] size=2, total_states=7, queued=28.1ms collate=1.1ms forward=64.7ms split=0.2ms computed=14/395[REQ 95] done: 94.0ms[REQ 96] done: 71.4ms
+
+
+[BATCH] size=1, total_states=1, queued=0.7ms collate=0.5ms forward=90.0ms split=3.5ms computed=5/52
+[BATCH] size=2, total_states=5, queued=22.2ms collate=0.6ms forward=30.9ms split=0.2ms computed=12/282
+[BATCH] size=1, total_states=2, queued=1.7ms collate=0.4ms forward=29.1ms split=0.1ms computed=10/100[REQ 100] done: 31.4ms
+
+[BATCH] size=1, total_states=1, queued=4.3ms collate=0.4ms forward=54.6ms split=0.2ms computed=5/54
+[BATCH] size=1, total_states=1, queued=24.8ms collate=0.6ms forward=31.8ms split=0.1ms computed=5/54
+[BATCH] size=1, total_states=5, queued=25.4ms collate=0.6ms forward=37.5ms split=0.1ms computed=11/272
+[BATCH] size=1, total_states=1, queued=32.9ms collate=0.6ms forward=59.8ms split=0.1ms computed=4/62[REQ 104] done: 93.4ms
+
+[BATCH] size=2, total_states=5, queued=26.3ms collate=0.6ms forward=28.6ms split=0.1ms computed=16/260[REQ 105] done: 55.7ms
+
+[BATCH] size=1, total_states=2, queued=0.7ms collate=0.4ms forward=57.7ms split=0.1ms computed=5/106
+[BATCH] size=1, total_states=1, queued=1.5ms collate=0.5ms forward=19.6ms split=0.1ms computed=0/59
+[BATCH] size=1, total_states=4, queued=0.8ms collate=0.6ms forward=41.4ms split=0.1ms computed=19/213[REQ 109] done: 42.9ms
+
+[BATCH] size=2, total_states=4, queued=20.4ms collate=1.0ms forward=51.1ms split=0.2ms computed=5/213
+[BATCH] size=1, total_states=2, queued=1.2ms collate=0.6ms forward=24.4ms split=0.1ms computed=0/109[REQ 112] done: 26.2ms
+
+[BATCH] size=1, total_states=5, queued=1.0ms collate=0.7ms forward=33.4ms split=0.1ms computed=14/270[REQ 113] done: 35.2ms
+
+[BATCH] size=2, total_states=3, queued=15.1ms collate=1.6ms forward=27.3ms split=0.2ms computed=9/160[REQ 114] done: 44.1ms
+
+[BATCH] size=1, total_states=1, queued=0.6ms collate=0.5ms forward=26.6ms split=0.1ms computed=3/60
+[BATCH] size=1, total_states=1, queued=0.6ms collate=0.5ms forward=66.0ms split=0.1ms computed=5/64[REQ 117] done: 67.3ms
+
+[BATCH] size=1, total_states=3, queued=59.1ms collate=1.5ms forward=79.8ms split=2.7ms computed=10/163
+[BATCH] size=2, total_states=5, queued=83.9ms collate=0.6ms forward=74.4ms split=0.2ms computed=20/276[REQ 120] done: 119.5ms
+
+[BATCH] size=1, total_states=1, queued=40.6ms collate=0.6ms forward=31.1ms split=0.1ms computed=0/56[REQ 121] done: 72.4ms
+
+[BATCH] size=1, total_states=2, queued=31.0ms collate=0.5ms forward=56.5ms split=3.1ms computed=9/103[REQ 122] done: 91.2ms
+
+[BATCH] size=2, total_states=3, queued=37.4ms collate=2.8ms forward=11.2ms split=0.2ms computed=0/173[REQ 123] done: 51.5ms
+
+[BATCH] size=1, total_states=3, queued=0.7ms collate=0.5ms forward=47.1ms split=0.2ms computed=15/159
+[BATCH] size=1, total_states=2, queued=3.2ms collate=0.5ms forward=36.9ms split=0.1ms computed=4/110
+[BATCH] size=2, total_states=4, queued=31.4ms collate=0.6ms forward=65.2ms split=0.2ms computed=12/212[REQ 127] done: 97.3ms
+
+[BATCH] size=1, total_states=2, queued=11.8ms collate=0.5ms forward=47.3ms split=0.1ms computed=10/102
+[BATCH] size=1, total_states=1, queued=0.6ms collate=0.4ms forward=77.9ms split=0.1ms computed=4/55[REQ 130] done: 79.0ms
+
+[BATCH] size=2, total_states=3, queued=56.9ms collate=0.6ms forward=29.7ms split=0.2ms computed=10/162[REQ 131] done: 87.2ms[REQ 132] done: 46.8ms
+
+
+[BATCH] size=1, total_states=1, queued=0.6ms collate=0.4ms forward=25.3ms split=0.1ms computed=5/51
+[BATCH] size=1, total_states=3, queued=15.8ms collate=0.5ms forward=25.8ms split=0.1ms computed=14/172
+[BATCH] size=1, total_states=2, queued=3.4ms collate=0.5ms forward=61.1ms split=0.1ms computed=8/100[REQ 135] done: 65.1ms
+
+[BATCH] size=2, total_states=3, queued=40.2ms collate=0.4ms forward=32.8ms split=0.1ms computed=15/159
+[BATCH] size=1, total_states=4, queued=9.3ms collate=0.5ms forward=28.5ms split=0.1ms computed=15/213[REQ 138] done: 38.3ms
+
+[BATCH] size=1, total_states=1, queued=10.9ms collate=1.1ms forward=30.7ms split=0.1ms computed=5/53
+[BATCH] size=1, total_states=3, queued=1.3ms collate=0.5ms forward=37.5ms split=0.1ms computed=13/160
+[BATCH] size=1, total_states=1, queued=1.4ms collate=0.4ms forward=45.5ms split=0.1ms computed=5/47
+[BATCH] size=1, total_states=4, queued=23.1ms collate=0.5ms forward=33.4ms split=0.1ms computed=20/203
+[BATCH] size=1, total_states=2, queued=14.0ms collate=0.4ms forward=47.7ms split=0.1ms computed=10/100[REQ 143] done: 62.1ms
+
+[BATCH] size=2, total_states=3, queued=39.4ms collate=0.5ms forward=25.9ms split=0.1ms computed=5/155
+[BATCH] size=1, total_states=2, queued=2.5ms collate=0.4ms forward=57.2ms split=0.1ms computed=5/100[REQ 148] nodes=758, kept=758, states=5
+
+[BATCH] size=2, total_states=6, queued=31.1ms collate=1.0ms forward=63.3ms split=0.2ms computed=26/316[REQ 147] done: 95.6ms
+
+[BATCH] size=1, total_states=1, queued=34.8ms collate=1.3ms forward=41.7ms split=0.1ms computed=3/49
+[BATCH] size=1, total_states=1, queued=32.9ms collate=0.5ms forward=28.0ms split=0.1ms computed=3/48
+[BATCH] size=1, total_states=2, queued=10.7ms collate=0.5ms forward=31.4ms split=0.1ms computed=4/107
+[BATCH] size=1, total_states=3, queued=0.7ms collate=0.5ms forward=33.2ms split=0.2ms computed=8/160
+[BATCH] size=1, total_states=5, queued=26.4ms collate=0.6ms forward=55.8ms split=0.1ms computed=22/268[REQ 153] done: 82.8ms
+
+[BATCH] size=1, total_states=1, queued=23.7ms collate=0.4ms forward=20.3ms split=0.1ms computed=0/52
+[BATCH] size=1, total_states=1, queued=14.9ms collate=0.4ms forward=30.1ms split=0.1ms computed=5/49[REQ 155] done: 45.5ms
+
+[BATCH] size=1, total_states=2, queued=17.9ms collate=0.5ms forward=39.8ms split=0.1ms computed=5/112
+[BATCH] size=1, total_states=4, queued=0.8ms collate=0.6ms forward=63.5ms split=0.2ms computed=20/221[REQ 157] done: 64.9ms
+
+[BATCH] size=2, total_states=3, queued=56.1ms collate=0.6ms forward=35.3ms split=0.6ms computed=6/157
+[BATCH] size=1, total_states=1, queued=29.9ms collate=0.5ms forward=43.2ms split=2.8ms computed=5/57
+[BATCH] size=2, total_states=3, queued=38.8ms collate=0.6ms forward=52.1ms split=0.2ms computed=8/160[REQ 161] done: 91.6ms
+
+[BATCH] size=2, total_states=5, queued=42.6ms collate=0.5ms forward=31.6ms split=0.1ms computed=15/261
+[BATCH] size=1, total_states=1, queued=13.2ms collate=0.9ms forward=37.9ms split=0.1ms computed=3/58
+[BATCH] size=1, total_states=1, queued=21.3ms collate=0.4ms forward=52.7ms split=0.1ms computed=5/49[REQ 166] done: 74.6ms
+
+[BATCH] size=1, total_states=3, queued=43.9ms collate=0.6ms forward=33.7ms split=0.1ms computed=13/156[REQ 167] done: 78.3ms
+
+[BATCH] size=2, total_states=4, queued=14.5ms collate=0.6ms forward=64.5ms split=0.2ms computed=17/222[REQ 168] done: 79.8ms
+
+[BATCH] size=1, total_states=1, queued=50.4ms collate=0.4ms forward=32.5ms split=0.1ms computed=5/51
+[BATCH] size=2, total_states=3, queued=29.7ms collate=0.7ms forward=41.5ms split=0.2ms computed=14/168
+[BATCH] size=1, total_states=2, queued=32.4ms collate=0.7ms forward=29.5ms split=0.1ms computed=0/118
+[BATCH] size=1, total_states=3, queued=27.5ms collate=0.5ms forward=25.6ms split=0.1ms computed=15/152
+[BATCH] size=1, total_states=5, queued=0.9ms collate=0.5ms forward=29.8ms split=0.1ms computed=13/282
+[BATCH] size=1, total_states=1, queued=0.8ms collate=0.5ms forward=35.4ms split=0.1ms computed=3/53
+[BATCH] size=2, total_states=7, queued=26.6ms collate=0.8ms forward=30.6ms split=0.2ms computed=26/394
+[BATCH] size=1, total_states=1, queued=2.5ms collate=0.5ms forward=50.6ms split=0.1ms computed=5/57
+[BATCH] size=1, total_states=1, queued=14.3ms collate=0.5ms forward=19.9ms split=0.1ms computed=1/62
+[BATCH] size=1, total_states=3, queued=11.6ms collate=0.5ms forward=62.7ms split=0.1ms computed=9/170
+[BATCH] size=1, total_states=2, queued=0.6ms collate=0.4ms forward=32.7ms split=0.1ms computed=10/102
+[BATCH] size=2, total_states=3, queued=11.8ms collate=0.5ms forward=30.7ms split=0.2ms computed=14/172[REQ 183] done: 43.1ms
+
+[BATCH] size=1, total_states=3, queued=16.0ms collate=0.5ms forward=42.0ms split=0.1ms computed=8/150
+[BATCH] size=1, total_states=1, queued=26.0ms collate=0.5ms forward=34.8ms split=0.1ms computed=5/50[REQ 188] nodes=718, kept=718, states=5
+
+[BATCH] size=1, total_states=1, queued=30.7ms collate=0.4ms forward=24.3ms split=0.2ms computed=5/51
+[BATCH] size=1, total_states=5, queued=25.8ms collate=0.6ms forward=27.1ms split=0.1ms computed=18/250
+[BATCH] size=1, total_states=1, queued=18.7ms collate=0.4ms forward=39.1ms split=0.1ms computed=3/57[REQ 189] done: 58.3ms
+
+[BATCH] size=1, total_states=1, queued=28.2ms collate=0.5ms forward=28.4ms split=0.1ms computed=5/53
+[BATCH] size=1, total_states=3, queued=22.2ms collate=0.5ms forward=65.6ms split=0.1ms computed=11/160
+[BATCH] size=2, total_states=5, queued=60.2ms collate=0.6ms forward=26.2ms split=0.1ms computed=18/263
+[BATCH] size=1, total_states=1, queued=4.9ms collate=0.6ms forward=29.8ms split=0.1ms computed=0/54
+[BATCH] size=1, total_states=2, queued=4.5ms collate=0.5ms forward=32.4ms split=0.1ms computed=3/107
+[BATCH] size=1, total_states=4, queued=1.2ms collate=0.6ms forward=29.7ms split=1.6ms computed=11/213[REQ 196] done: 31.6ms
+
+[BATCH] size=1, total_states=3, queued=22.9ms collate=0.5ms forward=30.5ms split=0.1ms computed=15/156[REQ 197] done: 54.1ms
+
+[BATCH] size=1, total_states=2, queued=3.4ms collate=0.7ms forward=30.5ms split=0.1ms computed=6/107
+[BATCH] size=2, total_states=6, queued=11.4ms collate=0.6ms forward=47.3ms split=0.2ms computed=24/319
+[BATCH] size=1, total_states=1, queued=0.7ms collate=0.5ms forward=25.5ms split=0.1ms computed=4/53
+[BATCH] size=1, total_states=2, queued=17.6ms collate=0.6ms forward=47.8ms split=0.1ms computed=9/109
+[BATCH] size=1, total_states=1, queued=43.9ms collate=0.5ms forward=36.3ms split=0.1ms computed=5/49
+[BATCH] size=2, total_states=5, queued=9.6ms collate=0.5ms forward=25.9ms split=0.1ms computed=25/269[REQ 205] done: 29.2ms
+
+[BATCH] size=1, total_states=1, queued=10.8ms collate=1.0ms forward=12.4ms split=2.4ms computed=0/52
+[BATCH] size=1, total_states=1, queued=2.9ms collate=0.4ms forward=31.3ms split=0.1ms computed=5/49
+[BATCH] size=1, total_states=5, queued=5.0ms collate=0.6ms forward=24.3ms split=0.1ms computed=13/256
+[BATCH] size=1, total_states=1, queued=3.9ms collate=0.8ms forward=14.8ms split=0.1ms computed=0/49[REQ 209] done: 19.5ms
+
+[BATCH] size=1, total_states=1, queued=0.7ms collate=0.4ms forward=24.4ms split=0.1ms computed=3/57[REQ 210] done: 25.6ms
+
+[BATCH] size=1, total_states=2, queued=16.3ms collate=0.4ms forward=39.9ms split=0.1ms computed=6/108
+[BATCH] size=1, total_states=1, queued=33.9ms collate=0.4ms forward=29.2ms split=0.1ms computed=5/52
+[BATCH] size=1, total_states=1, queued=32.1ms collate=0.4ms forward=9.0ms split=0.1ms computed=0/57
+[BATCH] size=1, total_states=3, queued=0.8ms collate=0.6ms forward=25.1ms split=0.1ms computed=10/171
+[BATCH] size=1, total_states=1, queued=0.6ms collate=0.5ms forward=23.9ms split=0.1ms computed=3/57[REQ 215] done: 25.1ms
+
+[BATCH] size=1, total_states=1, queued=0.6ms collate=0.5ms forward=22.3ms split=0.1ms computed=4/56

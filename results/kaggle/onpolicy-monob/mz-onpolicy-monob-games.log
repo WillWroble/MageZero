@@ -1,0 +1,126 @@
+[{"stream_name":"stdout","time":0.698066256,"data":"+ W=/kaggle/working\n"}
+,{"stream_name":"stdout","time":0.698107264,"data":"+ nproc\n"}
+,{"stream_name":"stdout","time":0.700929392,"data":"4\n"}
+,{"stream_name":"stdout","time":0.701102197,"data":"+ lscpu\n"}
+,{"stream_name":"stdout","time":0.72637688,"data":"+ free -g\n"}
+,{"stream_name":"stdout","time":0.743345918,"data":"+ nvidia-smi\n"}
+,{"stream_name":"stdout","time":1.164247633,"data":"+ T=/tmp/tools\n"}
+,{"stream_name":"stdout","time":1.164276905,"data":"+ mkdir -p /tmp/tools/jdk\n"}
+,{"stream_name":"stdout","time":1.181250087,"data":"+ curl -sSL --retry 5 --retry-all-errors -o /tmp/tools/jdk.tar.gz https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse\n"}
+,{"stream_name":"stdout","time":2.319082464,"data":"+ tar xzf /tmp/tools/jdk.tar.gz -C /tmp/tools/jdk --strip-components=1\n"}
+,{"stream_name":"stdout","time":5.858694273,"data":"+ export JAVA_HOME=/tmp/tools/jdk PATH=/tmp/tools/jdk/bin:/opt/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/tools/node/bin:/tools/google-cloud-sdk/bin\n"}
+,{"stream_name":"stdout","time":5.858756542,"data":"+ JAVA_HOME=/tmp/tools/jdk\n"}
+,{"stream_name":"stdout","time":5.858763257,"data":"+ PATH=/tmp/tools/jdk/bin:/opt/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/tools/node/bin:/tools/google-cloud-sdk/bin\n"}
+,{"stream_name":"stdout","time":5.858768823,"data":"+ X=/tmp/xmage\n"}
+,{"stream_name":"stdout","time":5.858773507,"data":"+ mkdir -p /tmp/xmage\n"}
+,{"stream_name":"stdout","time":5.861443753,"data":"++ find /kaggle/input -name xmage.tar.gz\n"}
+,{"stream_name":"stdout","time":5.861593856,"data":"++ head -1\n"}
+,{"stream_name":"stdout","time":6.10342148,"data":"+ PREBUILT=/kaggle/input/notebooks/willwroble/mz-onpolicy-monob/xmage.tar.gz\n"}
+,{"stream_name":"stdout","time":6.103506368,"data":"+ '[' -n /kaggle/input/notebooks/willwroble/mz-onpolicy-monob/xmage.tar.gz ']'\n"}
+,{"stream_name":"stdout","time":6.103610741,"data":"+ tar xzf /kaggle/input/notebooks/willwroble/mz-onpolicy-monob/xmage.tar.gz -C /tmp/xmage\n"}
+,{"stream_name":"stdout","time":12.517172339,"data":"+ pip install -q flask waitress msgpack\n"}
+,{"stream_name":"stdout","time":16.573446685,"data":"+ M=/tmp/model\n"}
+,{"stream_name":"stdout","time":16.573502315,"data":"+ mkdir -p /tmp/model\n"}
+,{"stream_name":"stdout","time":16.576031445,"data":"++ find /kaggle/input -name 'model.pt*'\n"}
+,{"stream_name":"stdout","time":16.576138832,"data":"++ head -1\n"}
+,{"stream_name":"stdout","time":16.578838973,"data":"+ F=/kaggle/input/datasets/willwroble/mz-faeries-ver15-model/model.pt\n"}
+,{"stream_name":"stdout","time":16.578860081,"data":"+ case $F in\n"}
+,{"stream_name":"stdout","time":16.578866607,"data":"+ gzip -c /kaggle/input/datasets/willwroble/mz-faeries-ver15-model/model.pt\n"}
+,{"stream_name":"stdout","time":22.805860678,"data":"+ SERVER=58\n"}
+,{"stream_name":"stdout","time":22.805889592,"data":"+ trap 'kill 58 2\u003e/dev/null || true' EXIT\n"}
+,{"stream_name":"stdout","time":22.805895584,"data":"+ python -u /tmp/mz/src/server.py --model /tmp/model --port 50052\n"}
+,{"stream_name":"stdout","time":22.806941286,"data":"+ set +x\n"}
+,{"stream_name":"stdout","time":22.807682244,"data":"+ set +x\n"}
+,{"stream_name":"stdout","time":22.80769863,"data":"++ grep --line-buffered -v '^\\[REQ'\n"}
+,{"stream_name":"stdout","time":35.452446578,"data":"[server] [INIT] model=/tmp/model port=50052 device=cuda leaf_rows=1556 edge_rows=20\n"}
+,{"stream_name":"stdout","time":36.892248656,"data":"ok++ nproc\n"}
+,{"stream_name":"stdout","time":36.893697415,"data":"+ sed 's|^  threads: .*|  threads: 8|' /tmp/mz/config.yml\n"}
+,{"stream_name":"stdout","time":36.896697292,"data":"+ grep output_file /kaggle/working/config.yml\n"}
+,{"stream_name":"stdout","time":36.896897683,"data":"+ awk '{print $2}'\n"}
+,{"stream_name":"stdout","time":36.897540363,"data":"+ xargs -n1 dirname\n"}
+,{"stream_name":"stdout","time":36.898789591,"data":"+ xargs mkdir -p\n"}
+,{"stream_name":"stdout","time":36.906141117,"data":"++ free -g\n"}
+,{"stream_name":"stdout","time":36.906505265,"data":"++ awk '/^Mem:/ {print $2}'\n"}
+,{"stream_name":"stdout","time":36.908817567,"data":"+ HEAP=23\n"}
+,{"stream_name":"stdout","time":36.909199075,"data":"+ PROGRESS=109\n"}
+,{"stream_name":"stdout","time":36.909265905,"data":"+ set +x\n"}
+,{"stream_name":"stdout","time":36.909753252,"data":"+ cd /tmp/xmage\n"}
+,{"stream_name":"stdout","time":36.909885122,"data":"+ timeout 39600 java -Xms2g -Xmx23g -XX:+UseParallelGC --add-opens=java.base/java.lang=ALL-UNNAMED -Dlog4j.configuration=file:config/log4j.properties -jar lib/mage-magezero-1.4.58.jar /kaggle/working/config.yml\n"}
+,{"stream_name":"stdout","time":80.621006433,"data":"[server] \n"}
+,{"stream_name":"stdout","time":80.753466686,"data":"[server] \n"}
+,{"stream_name":"stdout","time":80.987742419,"data":"[server] \n"}
+,{"stream_name":"stdout","time":80.987771318,"data":"[server] \n"}
+,{"stream_name":"stdout","time":81.047394369,"data":"[server] \n"}
+,{"stream_name":"stdout","time":81.297163137,"data":"[server] \n"}
+,{"stream_name":"stdout","time":81.297253307,"data":"[server] \n"}
+,{"stream_name":"stdout","time":81.346063762,"data":"[server] \n"}
+,{"stream_name":"stdout","time":81.864484668,"data":"[server] \n"}
+,{"stream_name":"stdout","time":82.150274953,"data":"[server] \n"}
+,{"stream_name":"stdout","time":82.433994654,"data":"[server] \n"}
+,{"stream_name":"stdout","time":82.804103733,"data":"[server] \n"}
+,{"stream_name":"stdout","time":82.964965384,"data":"[server] \n"}
+,{"stream_name":"stdout","time":83.192089396,"data":"[server] \n"}
+,{"stream_name":"stdout","time":83.286191325,"data":"[server] \n"}
+,{"stream_name":"stdout","time":83.742282305,"data":"[server] \n"}
+,{"stream_name":"stdout","time":83.829130885,"data":"[server] \n"}
+,{"stream_name":"stdout","time":83.924585515,"data":"[server] \n"}
+,{"stream_name":"stdout","time":83.931744962,"data":"[server] \n"}
+,{"stream_name":"stdout","time":83.973422543,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.017081982,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.082044406,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.133259754,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.350076592,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.449051337,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.635026911,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.703097105,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.706016719,"data":"[server] \n"}
+,{"stream_name":"stdout","time":84.888391674,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.080119595,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.112126615,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.288863878,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.397931414,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.475707079,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.506474534,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.659743362,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.822679397,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.856869707,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.918293226,"data":"[server] \n"}
+,{"stream_name":"stdout","time":85.932546198,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.121063743,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.260071773,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.289011666,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.289884873,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.433401542,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.495110294,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.722036047,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.806503891,"data":"[server] \n"}
+,{"stream_name":"stdout","time":86.871195921,"data":"[server] \n"}
+,{"stream_name":"stdout","time":87.087695695,"data":"[server] \n"}
+,{"stream_name":"stdout","time":87.145077899,"data":"[server] \n"}
+,{"stream_name":"stdout","time":87.2572222,"data":"[server] \n"}
+,{"stream_name":"stdout","time":87.398135613,"data":"[server] \n"}
+,{"stream_name":"stdout","time":87.5204681,"data":"[server] \n"}
+,{"stream_name":"stdout","time":87.55521005,"data":"[server] \n"}
+,{"stream_name":"stdout","time":87.625433974,"data":"[server] \n"}
+,{"stream_name":"stdout","time":88.135084118,"data":"[server] \n"}
+,{"stream_name":"stdout","time":88.21508034,"data":"[server] \n"}
+,{"stream_name":"stdout","time":88.308229669,"data":"[server] \n"}
+,{"stream_name":"stdout","time":88.569093508,"data":"[server] \n"}
+,{"stream_name":"stdout","time":88.600265813,"data":"[server] \n"}
+,{"stream_name":"stdout","time":88.898371413,"data":"[server] \n"}
+,{"stream_name":"stdout","time":89.002175943,"data":"[server] \n"}
+,{"stream_name":"stdout","time":89.072234801,"data":"[server] \n"}
+,{"stream_name":"stdout","time":89.261680101,"data":"[server] \n"}
+,{"stream_name":"stdout","time":89.603643623,"data":"+ kill 109\n"}
+,{"stream_name":"stdout","time":89.60369349,"data":"+ tail -n 2000 /tmp/game.log\n"}
+,{"stream_name":"stdout","time":89.606530829,"data":"+ grep -E 'Successful:|Failed:|win rate|WR with' /tmp/game.log\n"}
+,{"stream_name":"stdout","time":89.616401187,"data":"+ grep -c ERROR /tmp/game.log\n"}
+,{"stream_name":"stdout","time":89.620303756,"data":"+ cp /tmp/xmage/WinRates.txt /kaggle/working/\n"}
+,{"stream_name":"stdout","time":89.625526777,"data":"+ kill 58\n"}
+,{"stream_name":"stderr","time":338.893333323,"data":"/usr/local/lib/python3.13/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":338.893401291,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":339.13787563,"data":"/usr/local/lib/python3.13/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":339.137908913,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":339.898250113,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":340.805081776,"data":"[NbConvertApp] Writing 345693 bytes to __results__.html\n"}
+]
