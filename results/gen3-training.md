@@ -188,3 +188,20 @@ Conclusion: at equal size the GNN keeps most of its lead: value .0034 (80% of th
 priority .0024 (about half), targets .0056 (about three quarters). Most of the GNN's advantage is the
 architecture, not its parameter count. Only PIMC value needs the size: the small GNN is barely better than the MLP
 there. Not tested in play.
+
+### F2-gnnvalue: value loss only (Nov 6–7)
+
+`train.py --value-only` (`fe34feb`): the full 9.1M GNN trains on the value loss alone (policy losses reported, not
+trained). Cold start, lr 1e-4, F split, seed 0, names dropped, `--val-every 10000`; stopped at e6 40K.
+`/workspace/runs/gen4-F2-gnnvalue/F`. Value, mean over the five model-vs-model blocks:
+
+| | e1 | e2 | e3 | e4 | e5 | e6 40K |
+|---|---|---|---|---|---|---|
+| train value loss | .047 | .035 | .031 | .028 | .026 | – |
+| val, epoch end | .0410 | .0394 | .0406 | .0418 | .0418 | .0446 |
+
+Best .0384 at e2 40K, the same as F2-gnn (all heads, ver13 warm start) and below gnn128 (.0392).
+
+Conclusion: dropping the policy losses does not improve value; it reaches the all-heads GNN's best faster (from
+a cold start, within 2 epochs) and then overfits (train .026 vs val ≈.042 by epoch 5, against a ≈.005 gap with all
+heads). The policy losses regularize the value head; keep training them jointly.
