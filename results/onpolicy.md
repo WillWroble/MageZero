@@ -50,3 +50,23 @@ below value search with the same model, and more search still helps (+8.6 at 100
 toward this much weaker policy, which fits them not helping. The policy-only Faeries shards record ≈180–235 states
 per game against ≈70–80 in search games (the opponent's seat is unchanged), so they hold many more decisions per
 game; check what they contain before training on them.
+
+### Pauper pool (Will, Nov 7, `experiment_data/Pauper-Faeries/ver15/policy_only/`)
+
+ver15 policy only vs the offline search, 200 games each (Elves 197). Win rates from PlayerA's shards; PlayerB's
+agree. gen0 / v4 / ver13 vs offline from `generations.md` (ver13: first run of the mirror and Rally).
+
+| deck | policy only | gen0 | v4 (gen1) | ver13 (gen3) |
+|---|---|---|---|---|
+| Affinity | 66.5% | 40.0% | 63.5% | 77.0% |
+| Burn | 45.5% | 56.0% | 66.5% | 69.5% |
+| CawGates | 67.0% | 61.8% | 81.1% | 83.0% |
+| Elves | 55.3% | 35.5% | 65.0% | 75.0% |
+| mirror | 39.0% | 50.9% | 72.0% | 68.5% |
+| Rally | 13.5% | 15.2% | 30.0% | 27.0% |
+| Spy | 55.0% | 46.7% | 59.0% | 71.5% |
+| mean | 48.8% | 43.7% | 62.4% | 67.4% |
+
+Conclusion: as on the Mono decks, the policy alone is about level with or above gen0's heuristic search (+5.1 on
+average; ahead on Affinity, CawGates, Elves, Spy; behind on Burn, the mirror, Rally) and ≈19 points below value
+search (ver13). Its weakest decks are the interactive ones: the mirror (−11.9 vs gen0) and Burn (−10.5).
