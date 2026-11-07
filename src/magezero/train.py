@@ -10,7 +10,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 import test
-from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states, to_ce_value,
+from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states, to_ce_value, POLICY_HEADS,
                    AMP, DEVICE, GLOBAL_MAX)
 from dataset import H5Graphs, collate_batch, read_split, BATCH_SIZE
 from vocab import FeatureVocab, feature_id, initial_rows, kept_feature_ids
@@ -32,7 +32,7 @@ def train(
         drop_player_names: bool = False,
         td: float = None,
         val_every: int = None,
-        value_only: bool = False,
+        only: str = None,
 ):
     train_shards, val_shards = read_split(f"{out}/split.txt")
     ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand, td=td)
@@ -44,7 +44,7 @@ def train(
     ds.apply_vocab(vocab, edge_vocab)
     val_sets = test.val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand, td)
 
-    train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every, value_only)
+    train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every, only)
 
 
 def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop_player_names: bool = False):
@@ -109,10 +109,10 @@ def save_checkpoint(path, epoch, model, opt, vocab, edge_vocab, avg, hide_oppone
 
 
 def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr=1e-4,
-               val_every=None, value_only=False):
+               val_every=None, only=None):
     """val_sets: test.val_loaders's name -> [(shard, DataLoader)], each validated after every epoch (per shard and as
     a whole); the first picks best.pt.gz. With val_every, they're also validated every val_every steps, each time
-    saving model-e<epoch>-s<step>.pt.gz. value_only: only the value loss trains (the others are still reported)."""
+    saving model-e<epoch>-s<step>.pt.gz. only: "value" or "policy" trains only those losses (the others are still reported)."""
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
@@ -139,7 +139,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
 
             with torch.amp.autocast(DEVICE.type, enabled=AMP):
                 heads = losses(model(graphs), graphs, targets, legal_only, legality_weight, value_loss)
-                loss = sum(head[0] for name, head in heads.items() if not value_only or name.startswith("value"))
+                loss = sum(head[0] for name, head in heads.items() if only is None or (name in POLICY_HEADS) == (only == "policy"))
 
             opt.zero_grad()
             scaler.scale(loss).backward()
@@ -189,7 +189,7 @@ if __name__ == "__main__":
                         help="leave the PlayerA/PlayerB name leaves out of the vocab, so the model never sees them")
     parser.add_argument("--td", type=float, help="train and validate on value labels rebuilt with this TD discount "
                                                  "(dataset.td_labels) instead of the stored ones")
-    parser.add_argument("--value-only", action="store_true", help="train the value loss only (policy losses still reported)")
+    parser.add_argument("--only", choices=("value", "policy"), help="train only the value or only the policy losses (all still reported)")
     parser.add_argument("--val-every", type=int, help="also validate every N steps and save model-e<epoch>-s<step>.pt.gz")
 
     args = parser.parse_args()
@@ -197,4 +197,4 @@ if __name__ == "__main__":
     if args.seed is not None:
         torch.manual_seed(args.seed)
     train(args.model, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand, args.lr,
-          args.drop_player_names, args.td, args.val_every, args.value_only)
+          args.drop_player_names, args.td, args.val_every, args.only)
