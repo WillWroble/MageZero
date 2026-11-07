@@ -12,7 +12,7 @@ player_a:
     priority: true
     target: true
     binary: true
-    opponent: false
+    opponent: true
     prior_temperature: 1.5
 
   noise:
