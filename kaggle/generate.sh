@@ -7,7 +7,8 @@ nproc; lscpu > $W/cpu.txt; free -g > $W/mem.txt; nvidia-smi > $W/gpu.txt || true
 
 # Java 21 (Temurin), as in runpod/java.sh
 T=/tmp/tools && mkdir -p $T/jdk
-curl -sSL "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse" | tar xz -C $T/jdk --strip-components=1
+curl -sSL --retry 5 --retry-all-errors -o $T/jdk.tar.gz "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"
+tar xzf $T/jdk.tar.gz -C $T/jdk --strip-components=1
 export JAVA_HOME=$T/jdk PATH=$T/jdk/bin:$PATH
 
 # XMage, as in runpod/build-xmage.sh; the build is saved as xmage.tar.gz for later kernels (--xmage)
@@ -16,8 +17,9 @@ PREBUILT=$(find /kaggle/input -name xmage.tar.gz | head -1)
 if [ -n "$PREBUILT" ]; then
   tar xzf $PREBUILT -C $X
 else
-  mkdir -p $T/maven && curl -sSL https://archive.apache.org/dist/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz \
-    | tar xz -C $T/maven --strip-components=1
+  mkdir -p $T/maven && curl -sSL --retry 5 --retry-all-errors -o $T/maven.tar.gz \
+    https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.tar.gz
+  tar xzf $T/maven.tar.gz -C $T/maven --strip-components=1
   git clone -q --filter=blob:none https://github.com/WillWroble/mage /tmp/mage && git -C /tmp/mage checkout -q $MAGE_COMMIT
   (cd /tmp/mage && MAVEN_OPTS=-Xmx12g $T/maven/bin/mvn -B -q -T 1C install -DskipTests -Dmaven.repo.local=/tmp/m2 -pl Mage.MageZero -am)
   unzip -q -o /tmp/mage/Mage.MageZero/target/mage-magezero.zip -d $X
