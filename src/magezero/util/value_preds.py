@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from dataset import H5Graphs, collate_batch, BATCH_SIZE
-from model import load_checkpoint, AMP, DEVICE
+from model import load_checkpoint, value_estimate, AMP, DEVICE
 
 out_path, data, models = sys.argv[1], sys.argv[2], sys.argv[3:]
 results = H5Graphs(data, td=1.0).row[:, 0]  # td 1: each state's label is its game's result
@@ -20,7 +20,7 @@ for path in models:
     preds = []
     with torch.no_grad(), torch.amp.autocast(DEVICE.type, enabled=AMP):
         for g, _ in DataLoader(ds, batch_size=BATCH_SIZE, collate_fn=collate_batch):
-            preds.append(model(g.to(DEVICE))[3].float().cpu().numpy())
+            preds.append(value_estimate(model(g.to(DEVICE))[3], model.arch).float().cpu().numpy())
     pred = saved["-".join(path.rstrip("/").split("/")[-2:])] = np.concatenate(preds)
     print(path, "MSE vs label", float(((pred - ds.row[:, 0]) ** 2).mean()))
 np.savez(out_path, label=ds.row[:, 0], root=ds.row[:, 1], result=results, **saved)

@@ -169,6 +169,28 @@ def mlp(d_model: int, out_dim: int, *tail: nn.Module) -> nn.Sequential:
     return nn.Sequential(nn.Linear(d_model, HIDDEN_MLP), nn.ReLU(), nn.Linear(HIDDEN_MLP, out_dim), *tail)
 
 
+def value_tail(value_loss: str) -> tuple:
+    """The value head's last module: tanh (MSE), or none: a CE head outputs a logit (value_estimate)."""
+    return () if value_loss == "ce" else (nn.Tanh(),)
+
+
+def value_estimate(value: torch.Tensor, arch: dict) -> torch.Tensor:
+    """The value head's output as a value in -1..1. A CE head's logit gives the win probability
+    sigmoid(x) = (value + 1) / 2, i.e. value = tanh(x / 2)."""
+    return torch.tanh(value.float() / 2) if arch.get("value_loss") == "ce" else value
+
+
+def to_ce_value(model: nn.Module) -> None:
+    """Turn an MSE (tanh) value head into a CE one with the same outputs: tanh(x) = tanh(2x / 2)."""
+    if model.arch.get("value_loss") == "ce":
+        return
+    with torch.no_grad():
+        model.value_head[-2].weight.mul_(2)
+        model.value_head[-2].bias.mul_(2)
+    model.value_head = model.value_head[:-1]
+    model.arch["value_loss"] = "ce"
+
+
 class NetGraph(nn.Module):
     """Architecture options (saved in checkpoints as `arch`):
       local: "sequential"  one layer per type, run bottom-up in STAGES order (children earlier in the
@@ -185,16 +207,21 @@ class NetGraph(nn.Module):
       legality_weight: > 0 adds an auxiliary head that classifies each node of a policy head's types as a legal
                        candidate or not (BCE, this weight in the total loss), returned as a fifth output
       legality_heads: "shared"  one legality head for every node type
-                      "split"   one read at ABILITY nodes and one at the target types, like the policy heads"""
+                      "split"   one read at ABILITY nodes and one at the target types, like the policy heads
+      value_loss: "mse"  tanh value, MSE to the label
+                  "ce"   value logit, binary cross-entropy to the label as a win probability (label + 1) / 2;
+                         value_estimate turns it into a value"""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
-                 policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared"):
+                 policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared",
+                 value_loss: str = "mse"):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
-                         policy_domain=policy_domain, legality_weight=legality_weight, legality_heads=legality_heads)
+                         policy_domain=policy_domain, legality_weight=legality_weight, legality_heads=legality_heads,
+                         value_loss=value_loss)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -215,7 +242,7 @@ class NetGraph(nn.Module):
         self.priority_head = mlp(d_model, 1)
         self.target_head = mlp(d_model, 1)
         self.binary_head = mlp(d_model, 2)
-        self.value_head = mlp(d_model, 1, nn.Tanh())
+        self.value_head = mlp(d_model, 1, *value_tail(value_loss))
         if legality_weight > 0:
             self.legality_head = mlp(d_model, 1)
             if legality_heads == "split":
@@ -350,9 +377,9 @@ class NetMLP(nn.Module):
     Policy heads are meant to be trained over legal candidates only (policy_domain "legal"), as the MLP was."""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = 64, blocks: int = 1,
-                 policy_domain: str = "legal", net: str = "mlp"):
+                 policy_domain: str = "legal", net: str = "mlp", value_loss: str = "mse"):
         super().__init__()
-        self.arch = dict(net=net, d_model=d_model, blocks=blocks, policy_domain=policy_domain)
+        self.arch = dict(net=net, d_model=d_model, blocks=blocks, policy_domain=policy_domain, value_loss=value_loss)
         d = d_model
         self.embedding = nn.Embedding(num_embeddings, d)
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d, padding_idx=0)
@@ -367,7 +394,7 @@ class NetMLP(nn.Module):
         self.out_norm = nn.LayerNorm(d)
         head = lambda n_in, n_out, *tail: nn.Sequential(nn.Linear(n_in, d), nn.ReLU(), nn.Linear(d, n_out), *tail)
         self.priority_head, self.target_head = head(2 * d, 1), head(2 * d, 1)
-        self.binary_head, self.value_head = head(d, 2), head(d, 1, nn.Tanh())
+        self.binary_head, self.value_head = head(d, 2), head(d, 1, *value_tail(value_loss))
 
     resize_embedding = NetGraph.resize_embedding
 
@@ -460,9 +487,11 @@ def use_loss(logits, t: Targets):
     return loss, n, correct
 
 
-def losses(out, g: Graphs, t: Targets, legal_only: bool = False, legality_weight: float = 0.0) -> dict:
+def losses(out, g: Graphs, t: Targets, legal_only: bool = False, legality_weight: float = 0.0,
+           value_loss: str = "mse") -> dict:
     """Per head: (loss, states it covers, states where the top choice matches MCTS's).
-    Value: MSE over every state. Policy heads: over the states of their decision type that have
+    Value: MSE over every state; with value_loss "ce" the MSE (of value_estimate) is only reported and "value_ce"
+    (BCE to the win probability (label + 1) / 2) trains it. Policy heads: over the states of their decision type that have
     visits, a softmax over every node of the head's types (no legality mask; candidates are always
     included) trained toward the normalized visits. legal_only: the softmax is over the candidates only.
     legality_weight: with a fifth output (per-node legality logits), adds "legality": BCE over the nodes of each
@@ -485,6 +514,9 @@ def losses(out, g: Graphs, t: Targets, legal_only: bool = False, legality_weight
         "choose_use": use_loss(use_logits, t),
         "value": (F.mse_loss(value.float(), t.value), t.value.shape[0], 0),
     }
+    if value_loss == "ce":
+        heads["value"] = (F.mse_loss(torch.tanh(value.float() / 2), t.value).detach(), t.value.shape[0], 0)
+        heads["value_ce"] = (F.binary_cross_entropy_with_logits(value.float(), (t.value + 1) / 2), t.value.shape[0], 0)
     if legality_weight > 0 and len(out) > 4:
         def nodes(action, types):
             return torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device)) & \

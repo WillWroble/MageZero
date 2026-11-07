@@ -10,7 +10,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 import test
-from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states,
+from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states, to_ce_value,
                    AMP, DEVICE, GLOBAL_MAX)
 from dataset import H5Graphs, collate_batch, read_split, BATCH_SIZE
 from vocab import FeatureVocab, feature_id, initial_rows, kept_feature_ids
@@ -32,6 +32,7 @@ def train(
         drop_player_names: bool = False,
         td: float = None,
         val_every: int = None,
+        value_only: bool = False,
 ):
     train_shards, val_shards = read_split(f"{out}/split.txt")
     ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand, td=td)
@@ -43,7 +44,7 @@ def train(
     ds.apply_vocab(vocab, edge_vocab)
     val_sets = test.val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand, td)
 
-    train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every)
+    train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every, value_only)
 
 
 def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop_player_names: bool = False):
@@ -62,8 +63,11 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop
         checkpoint_path = f"{out}/model.pt.gz"
         try:
             model, vocab, edge_vocab = load_checkpoint(checkpoint_path)
-            # a resumed model keeps the checkpoint's architecture; only the loss's policy domain can change
+            # a resumed model keeps the checkpoint's architecture; only the loss's policy domain and an MSE value
+            # head's switch to CE can change
             model.arch.update({k: arch[k] for k in ("policy_domain",) if k in arch})
+            if arch.get("value_loss") == "ce":
+                to_ce_value(model)
             print(f"Successfully loaded checkpoint from {checkpoint_path}")
         except FileNotFoundError:
             print(f"INFO: Checkpoint file not found at {checkpoint_path}. Starting from scratch.")
@@ -105,10 +109,10 @@ def save_checkpoint(path, epoch, model, opt, vocab, edge_vocab, avg, hide_oppone
 
 
 def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr=1e-4,
-               val_every=None):
+               val_every=None, value_only=False):
     """val_sets: test.val_loaders's name -> [(shard, DataLoader)], each validated after every epoch (per shard and as
     a whole); the first picks best.pt.gz. With val_every, they're also validated every val_every steps, each time
-    saving model-e<epoch>-s<step>.pt.gz."""
+    saving model-e<epoch>-s<step>.pt.gz. value_only: only the value loss trains (the others are still reported)."""
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
@@ -118,6 +122,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
     opt = optim.Adam(model.parameters(), lr=lr)
     legal_only = model.arch.get("policy_domain") == "legal"
     legality_weight = model.arch.get("legality_weight", 0.0)
+    value_loss = model.arch.get("value_loss", "mse")
     scaler = torch.amp.GradScaler(enabled=AMP)
 
     best_val_loss = float('inf')
@@ -133,8 +138,8 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
             graphs, targets = graphs.to(DEVICE), targets.to(DEVICE)
 
             with torch.amp.autocast(DEVICE.type, enabled=AMP):
-                heads = losses(model(graphs), graphs, targets, legal_only, legality_weight)
-                loss = sum(head[0] for head in heads.values())
+                heads = losses(model(graphs), graphs, targets, legal_only, legality_weight, value_loss)
+                loss = sum(head[0] for name, head in heads.items() if not value_only or name.startswith("value"))
 
             opt.zero_grad()
             scaler.scale(loss).backward()
@@ -155,6 +160,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
         print(f"Epoch {epoch}  priority_loss={avg['priority']:.3f}  choose_target_loss={avg['choose_target']:.3f}  "
               f"choose_use_loss={avg['choose_use']:.3f}  value_loss={avg['value']:.3f}  "
               + (f"legality_loss={stats['legality'][0] / max(stats['legality'][1], 1):.3f}  " if "legality" in stats else "")
+              + (f"value_ce_loss={stats['value_ce'][0] / max(stats['value_ce'][1], 1):.4f}  " if "value_ce" in stats else "")
               + f"decision_states={decision_states(stats)}  steps={step}  time={time.perf_counter() - start:.0f}s")
 
         val_losses = list(test.validate_sets(model, val_sets, vocab, edge_vocab).values())
@@ -183,6 +189,7 @@ if __name__ == "__main__":
                         help="leave the PlayerA/PlayerB name leaves out of the vocab, so the model never sees them")
     parser.add_argument("--td", type=float, help="train and validate on value labels rebuilt with this TD discount "
                                                  "(dataset.td_labels) instead of the stored ones")
+    parser.add_argument("--value-only", action="store_true", help="train the value loss only (policy losses still reported)")
     parser.add_argument("--val-every", type=int, help="also validate every N steps and save model-e<epoch>-s<step>.pt.gz")
 
     args = parser.parse_args()
@@ -190,4 +197,4 @@ if __name__ == "__main__":
     if args.seed is not None:
         torch.manual_seed(args.seed)
     train(args.model, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand, args.lr,
-          args.drop_player_names, args.td, args.val_every)
+          args.drop_player_names, args.td, args.val_every, args.value_only)

@@ -109,12 +109,99 @@ therefore one data order, not a property of 3 epochs: run-to-run noise is ≈0.0
 capacity-bound rather than slow. At each model's best point the GNN leads by .003–.007 value, .006–.011 priority
 loss and .008–.015 target loss on every block except ub (MLP better) and PIMC (MLP value ≈2×).
 
-F2-gnn e3 end vs the offline search (200 games, value only, `/workspace/runs/normF2e3-gnn-*`):
+F2-gnn e3 end (ver15) and F2-mlp e6 end vs the offline search (200 games, value only,
+`/workspace/runs/normF2e3-gnn-*`, `normF2-{gnn,mlp}-*`):
 
-| deck | F2-gnn e3 | F-gnn (ver14) | ver13 | v4 |
+| deck | F2-gnn (ver15) | F2-mlp | F-gnn (ver14) | F-mlp | ver13 | v4 |
+|---|---|---|---|---|---|---|
+| mirror | 72.0% | 73.0% | 72.5% | 73.0% | 72.0% | 72.0% |
+| Burn | 68.5% | 59.5% | 62.5% | 59.5% | 69.5% | 66.5% |
+| MonoB | 36.0% | 29.5% | 26.0% | 28.0% | 31.2% | 31.6% |
+| MonoW | 53.5% | 45.5% | 47.0% | 41.0% | 53.5% | 57.5% |
+| Rally | 31.0% | 17.0% | 27.0% | 26.5% | 27.0% | 30.0% |
+| MonoG | 32.0% | 22.5% | 20.5% | 24.0% | 25.5% | 16.0% |
+| mean | 48.8% | 41.2% | 42.6% | 42.0% | 46.5% | 45.6% |
+
+Conclusion: the second F-gnn run (ver15) is the best model on these decks (+2.3 over ver13, +6.2 over ver14), so
+ver14's weakness came with its data order, not the recipe; single-run comparisons carry this much noise. The
+F2 GNN–MLP gap (value .0058, 7.6 points of win rate) is far larger than the F gap (value .0026, 0.6 points):
+small value-loss differences carry large win-rate differences. F2-mlp ≈ F-mlp (same value loss) except Rally
+(17.0% vs 26.5%, ≈2.7 SE).
+
+### F2-mlp256: is the MLP capacity-bound? (Nov 2)
+
+`NetMLP` d256, 2 blocks (2.26M params vs 0.21M for d64 and 9.11M for the GNN), cold start on the F split,
+lr 3e-4, legal-only loss, names dropped, 6 epochs, `--val-every 20000`; `/workspace/runs/gen4-F2-mlp256/F`.
+Mean over the five model-vs-model blocks:
+
+| model | point | value | priority | target | pimc value | ub value |
+|---|---|---|---|---|---|---|
+| mlp256 | e6 end | .0428 | .0584 | .0496 | .118 | .039 |
+| mlp d64 (F2) | e6 end | .0444 | .0604 | .0512 | .114 | .044 |
+| gnn (F2, ver15) | e3 end | .0386 | .0532 | .0424 | .060 | .050 |
+
+mlp256 value per epoch end: .0516, .0478, .0458, .0446, .0428, .0428 (flat over epoch 6).
+
+Conclusion: at 4.37M states width helps the MLP (unlike on gen0 alone): ≈.0015 on value, .002 on priority and
+target over the d64. It closes about a third of the value gap to the GNN and little of the policy gap, and does
+not fix PIMC value, so most of the GNN's lead is architectural, not size. Not tested in play.
+
+### F2-ce: cross-entropy value loss (Nov 4–5)
+
+`arch value_loss: "ce"` (value logit, BCE toward (label + 1) / 2; `fff4670`), otherwise identical to F2-gnn
+(ver13 warm start, head converted exactly) and F2-mlp256 (cold). `/workspace/runs/gen4-F2ce-{gnn,mlp256}/F`.
+Value MSE (of tanh(x/2)) and priority loss, mean over the five model-vs-model blocks, CE / MSE twin:
+
+| point | GNN value | GNN priority | MLP d256 value | MLP d256 priority |
 |---|---|---|---|---|
-| Burn | 68.5% | 62.5% | 69.5% | 66.5% |
-| MonoW | 53.5% | 47.0% | 53.5% | 57.5% |
+| e1 end | .0400 / .0394 | .0554 / .0558 | .0538 / .0516 | .0666 / .0664 |
+| e2 end | .0392 / .0388 | .0540 / .0542 | .0482 / .0478 | .0632 / .0628 |
+| e3 end | .0390 / .0386 | .0532 / .0532 | .0472 / .0458 | .0614 / .0614 |
+| e6 end | | | .0436 / .0428 | .0590 / .0584 |
+| best | .0388 / .0384 | | .0436 / .0426 | |
 
-Conclusion: the second F-gnn run plays at ver13's level where ver14 was 6 points behind on both decks; ver14's
-weakness came with its data order, not with the recipe. Single-run comparisons carry this much noise.
+Conclusion: CE gives no gain. On value MSE it is level to slightly worse (GNN −.0004, MLP −.001 at the best
+points; every block within ±.001 except the MLP's gen3-offline and ub, .003–.004 worse), PIMC slightly better
+(GNN .057 vs .060). With soft TD labels both losses have the same optimum (the expected label), so no gain is
+the expected outcome; the MSE metric also favours the MSE runs. Not tested in play.
+
+### F2-gnn128: GNN vs MLP at matched parameters (Nov 6)
+
+`NetGraph` d128, FF 256 (2.46M params) vs F2-mlp256 (2.26M), both cold on the F split, 6 epochs, seed 0, names
+dropped, MSE value, `--val-every 20000`; GNN lr 1e-4, MLP 3e-4. `/workspace/runs/gen4-F2-gnn128/F`. Mean over the
+five model-vs-model blocks; F2-gnn (9.1M, ver13 warm start, 3 epochs) for reference:
+
+| point | value gnn128 / mlp256 | priority | target |
+|---|---|---|---|
+| e1 end | .0474 / .0516 | .0620 / .0664 | .0520 / .0604 |
+| e2 end | .0440 / .0478 | .0592 / .0628 | .0492 / .0560 |
+| e3 end | .0412 / .0458 | .0588 / .0614 | .0478 / .0530 |
+| e4 end | .0412 / .0446 | .0580 / .0602 | .0454 / .0524 |
+| e5 end | .0392 / .0428 | .0564 / .0604 | .0454 / .0500 |
+| e6 end | .0400 / .0428 | .0556 / .0584 | .0438 / .0496 |
+| best | **.0392 / .0426** | **.0556 / .0580** | **.0438 / .0494** |
+| F2-gnn 9.1M best | .0384 | .0528 | .0420 |
+
+PIMC value at e6: gnn128 .105, mlp256 .113 (9.1M GNN: .060); ub: .035 vs .040.
+
+Conclusion: at equal size the GNN keeps most of its lead: value .0034 (80% of the full-size gap of .0042),
+priority .0024 (about half), targets .0056 (about three quarters). Most of the GNN's advantage is the
+architecture, not its parameter count. Only PIMC value needs the size: the small GNN is barely better than the MLP
+there. Not tested in play.
+
+### F2-gnnvalue: value loss only (Nov 6–7)
+
+`train.py --value-only` (`fe34feb`): the full 9.1M GNN trains on the value loss alone (policy losses reported, not
+trained). Cold start, lr 1e-4, F split, seed 0, names dropped, `--val-every 10000`; stopped at e6 40K.
+`/workspace/runs/gen4-F2-gnnvalue/F`. Value, mean over the five model-vs-model blocks:
+
+| | e1 | e2 | e3 | e4 | e5 | e6 40K |
+|---|---|---|---|---|---|---|
+| train value loss | .047 | .035 | .031 | .028 | .026 | – |
+| val, epoch end | .0410 | .0394 | .0406 | .0418 | .0418 | .0446 |
+
+Best .0384 at e2 40K, the same as F2-gnn (all heads, ver13 warm start) and below gnn128 (.0392).
+
+Conclusion: dropping the policy losses does not improve value; it reaches the all-heads GNN's best faster (from
+a cold start, within 2 epochs) and then overfits (train .026 vs val ≈.042 by epoch 5, against a ≈.005 gap with all
+heads). The policy losses regularize the value head; keep training them jointly.
