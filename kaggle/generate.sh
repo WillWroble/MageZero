@@ -39,9 +39,15 @@ until curl -sf localhost:50052/healthz; do sleep 2; done
 sed "s|^  threads: .*|  threads: $((2 * $(nproc)))|" $CONFIG > $W/config.yml
 grep output_file $W/config.yml | awk '{print $2}' | xargs -n1 dirname | xargs mkdir -p
 HEAP=$(( $(free -g | awk '/^Mem:/ {print $2}') - 8 ))
+# every 5 minutes: games finished and the current win rate (the generator's "Game #N completed" / "Current WR" lines)
+(set +x; while sleep 300; do
+  echo "[progress] $(date -u +%H:%M) games $(grep -c 'completed successfully' /tmp/game.log) $(grep 'Current WR' /tmp/game.log | tail -1)"
+done) &
+PROGRESS=$!
 (cd $X && timeout $GEN_SECONDS java -Xms2g -Xmx${HEAP}g -XX:+UseParallelGC --add-opens=java.base/java.lang=ALL-UNNAMED \
   -Dlog4j.configuration=file:config/log4j.properties -jar lib/mage-magezero-1.4.58.jar $W/config.yml > /tmp/game.log 2>&1) \
   || echo "java exited with $?"
+kill $PROGRESS
 tail -n 2000 /tmp/game.log > $W/java-tail.log
 grep -E "Successful:|Failed:|win rate|WR with" /tmp/game.log > $W/result.txt || true
 grep -c "ERROR" /tmp/game.log > $W/error-count.txt || true
