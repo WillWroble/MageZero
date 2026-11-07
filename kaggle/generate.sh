@@ -32,8 +32,16 @@ pip install -q flask waitress msgpack
 M=/tmp/model && mkdir -p $M
 F=$(find /kaggle/input -name "model.pt*" | head -1)
 case $F in *.gz) cp $F $M/model.pt.gz;; *) gzip -c $F > $M/model.pt.gz;; esac  # Kaggle stores .gz files unpacked
-python -u $SRC/server.py --model $M --port 50052 2>&1 | grep --line-buffered -v "^\[REQ" > $W/server.log &
-until curl -sf localhost:50052/healthz; do sleep 2; done
+python -u $SRC/server.py --model $M --port 50052 > >(grep --line-buffered -v "^\[REQ" > $W/server.log) 2>&1 &
+SERVER=$!
+trap "kill $SERVER 2>/dev/null || true" EXIT  # the server's log stream below ends with it, so the kernel can finish
+(set +x; tail --pid=$SERVER -f $W/server.log | grep --line-buffered -v "^\[BATCH" | sed -u "s/^/[server] /") &
+# wait for the server; stop if it dies or isn't up within 5 minutes
+(set +x; for i in $(seq 150); do
+  curl -sf localhost:50052/healthz && exit 0
+  kill -0 $SERVER 2>/dev/null || { echo "server exited"; exit 1; }
+  sleep 2
+done; echo "server not up after 5 minutes"; exit 1)
 
 # the games: 2 threads per vCPU, the JVM heap is the RAM left after 8 GB for the server and the system
 sed "s|^  threads: .*|  threads: $((2 * $(nproc)))|" $CONFIG > $W/config.yml
