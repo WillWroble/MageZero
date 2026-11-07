@@ -1,7 +1,7 @@
 """
 Generate games in a Kaggle GPU kernel (T4, internet on): kaggle/generate.sh serves the model from --dataset and plays
 --config with XMage at --mage-commit. Outputs (shards, logs, result.txt, xmage.tar.gz on a fresh build) land in the
-kernel's output.
+kernel's output. The log, with a progress line every 5 minutes, streams live: kaggle kernels logs -f willwroble/mz-<name>
 
   python kaggle/generate.py --name onpolicy-monob --config kaggle/configs/onpolicy-MonoB.yml \
       --dataset mz-faeries-ver15-model --mage-commit 7296f0e1
@@ -28,9 +28,13 @@ import base64, io, os, subprocess, tarfile
 tarfile.open(fileobj=io.BytesIO(base64.b64decode({code!r})), mode="r:gz").extractall("/tmp/mz", filter="data")
 env = {{**os.environ, "SRC": "/tmp/mz/src", "CONFIG": "/tmp/mz/config.yml", "MAGE_COMMIT": {commit!r},
        "GEN_SECONDS": "{gen_seconds}"}}
+# the log goes to stdout as it happens (kaggle kernels logs -f) and to run.log
+p = subprocess.Popen(["bash", "/tmp/mz/generate.sh"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 with open("/kaggle/working/run.log", "w") as log:
-    subprocess.run(["bash", "/tmp/mz/generate.sh"], env=env, stdout=log, stderr=subprocess.STDOUT)
-print(open("/kaggle/working/run.log").read()[-20000:])
+    for line in p.stdout:
+        log.write(line)
+        log.flush()
+        print(line, end="", flush=True)
 '''
 
 
