@@ -205,3 +205,26 @@ Best .0384 at e2 40K, the same as F2-gnn (all heads, ver13 warm start) and below
 Conclusion: dropping the policy losses does not improve value; it reaches the all-heads GNN's best faster (from
 a cold start, within 2 epochs) and then overfits (train .026 vs val ≈.042 by epoch 5, against a ≈.005 gap with all
 heads). The policy losses regularize the value head; keep training them jointly.
+
+### G: no gen0 in training, policy only vs all heads (Nov 7–8)
+
+`runpod/splits/G.txt` = F without training on gen0 (its held-out games stay a val set); `train.py --only policy`
+(`a26b5cc`) vs its all-heads twin. Both cold, d256 GNN, lr 1e-4, 6 epochs (49K steps each), seed 0, names dropped,
+`--val-every 10000`. `/workspace/runs/G-gnn{,policy}/G`. Mean over the five model-vs-model blocks, policy-only / twin:
+
+| epoch end | priority | target | non-pass top-1 | value (twin) |
+|---|---|---|---|---|
+| 1 | .0646 / .0612 | .0574 / .0544 | .625 / .650 | .0480 |
+| 2 | .0620 / .0578 | .0524 / .0472 | .605 / .637 | .0428 |
+| 3 | .0614 / .0564 | .0524 / .0460 | .635 / .659 | .0418 |
+| 4 | .0600 / .0572 | .0500 / .0462 | .667 / .661 | .0410 |
+| 5 | .0592 / .0552 | .0488 / .0452 | .667 / .655 | .0428 |
+| 6 | .0586 / .0538 | .0494 / .0436 | .633 / .654 | .0394 |
+| best | .0586 / **.0538** | .0480 / **.0436** | .667 / **.679** | **.0386** |
+
+Reference: F2-gnn (ver13 warm start, gen0 in training) priority .0528, target .0420, non-pass .694, value .0384.
+
+Conclusion: training the policy alone gives a worse policy (≈.005 priority, ≈.005 targets) than training it with
+the value head, mirroring the value-only result: the heads regularize each other, so train them jointly. Neither
+run overfits in 6 epochs. Without gen0 (and without the ver13 warm start) the policy stays behind F2-gnn on every
+block, including gen1–gen3; value reaches F2-gnn's level (.0386 vs .0384).
