@@ -10,12 +10,15 @@ pip install -q h5py flask waitress msgpack pyyaml
 lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt
 # the model, from this pod's own clone (at the launched commit)
 git lfs install --local >/dev/null && git lfs pull --include="$MODEL/model.pt.gz"
-python -u src/magezero/server.py --model $MODEL --port 50052 2>&1 | grep -v "^\[REQ" > $OUT/server.log &
+# server logs go to the container disk (their tails are copied to the volume below): a server that logs straight to
+# the volume blocks when the volume stalls, and then fails or hangs every game
+python -u src/magezero/server.py --model $MODEL --port 50052 2>&1 | grep -v "^\[REQ" > /tmp/server.log &
+(while sleep 60; do tail -n 300 /tmp/server.log > $OUT/server.log; if [ -f /tmp/server-opp.log ]; then tail -n 300 /tmp/server-opp.log > $OUT/server-opp.log; fi; done) &
 until curl -sf localhost:50052/healthz; do sleep 2; done
 # $OPP_MODEL (optional): a second model on port 50053, for configs whose server.opponent_port points player_b there
 if [ -n "$OPP_MODEL" ]; then
   git lfs pull --include="$OPP_MODEL/model.pt.gz"
-  python -u src/magezero/server.py --model $OPP_MODEL --port 50053 2>&1 | grep -v "^\[REQ" > $OUT/server-opp.log &
+  python -u src/magezero/server.py --model $OPP_MODEL --port 50053 2>&1 | grep -v "^\[REQ" > /tmp/server-opp.log &
   until curl -sf localhost:50053/healthz; do sleep 2; done
 fi
 # a local copy per pod, without the card database: XMage builds its own (db/) on startup. A shared or copied
