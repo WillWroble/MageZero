@@ -1,0 +1,39 @@
+# P1: the first Pauper-format model. F's blocks (gen0-gen3 Faeries data) plus ver15's format-wide games: each of the 8
+# Pauper decks piloted by ver15 against the offline search of each (8x8), and ver15 self-play on all 36 matchups.
+# Warm start from ver15. Paths from /workspace: the repo checkout (repo/) and generation runs on the volume (runs/).
+# Blocks without 'train' are val sets; the first val set (pauper-offline's held-out games) picks best.pt.gz.
+train pauper-offline holdout 5:
+runs/gen5-offline/Player[AB]/.*
+train pauper-selfplay holdout 5:
+runs/gen5-selfplay/Player[AB]/.*
+train gen0 holdout 5:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen0/PlayerA/.*
+repo/experiment_data/Pauper-Faeries/ver4/training/gen0/PlayerB/(?!Pauper-Faeries_vs_Standard-MonoW\.hdf5).*  # PlayerB's copy of PlayerA's MonoW shard left out
+train gen1-reg holdout 5:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen1/Player[AB]/(?!.*(_selfplay|_pimc|_policy)).*
+repo/experiment_data/Pauper-Faeries/ver5/training/gen1/.*  # v5 (Mono-only model) games
+train gen1-selfplay holdout 5:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen1/Player[AB]/.*_selfplay2?\.hdf5
+train gen2-offline holdout 5:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen2/Player[AB]/(?!.*(policy|_selfplay\.hdf5|_gen1\.hdf5|_gen2\.hdf5)).*  # incl. _gen1only (ver9), _gen1nopimconly (ver10)
+train gen2-vsgen1 holdout 5:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen2/Player[AB]/.*_gen1\.hdf5
+repo/experiment_data/Pauper-Faeries/ver4/training/gen2/PlayerB/Standard-MonoB_gen1_vs_Pauper-Faeries_gen2\.hdf5
+train gen2-selfplay holdout 5:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen2/Player[AB]/.*_selfplay\.hdf5
+train gen3-offline holdout 5:
+runs/(gen3data-offline|norm-ver13)/Player[AB]/.*  # incl. the normed tests (MonoB, MonoW, mirror, Rally)
+train gen3-vsgen1 holdout 5:
+runs/(gen3data-vsgen1|norm-ver13-vs-v4)/Player[AB]/.*
+train gen3-vsgen2 holdout 5:
+runs/(gen3data-vsgen2|norm-ver13-vs-v10)/Player[AB]/.*
+train gen3-selfplay holdout 5:
+runs/gen3data-selfplay/Player[AB]/.*
+pimc:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen1/Player[AB]/.*_pimc.*
+policy:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen[12]/Player[AB]/.*policy.*  # priors on: _policy, _ppolicy*, _ptpolicy*
+gen0-test:
+repo/experiment_data/Pauper-Faeries/ver4/testing/gen0/.*  # the gen0 mirror test set
+ub:
+repo/experiment_data/Pauper-Faeries/ver4/testing/gen1/.*  # Standard16-UB, an opponent never trained on
