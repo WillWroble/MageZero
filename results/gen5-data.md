@@ -50,3 +50,23 @@ Incidents: a RunPod volume stall (≈06:39–07:15 UTC, Nov 8) blocked the model
 12 matchups; they were rerun (`gen5off2-*`) after `generate.sh` moved server logs to the container disk (`1cf7a62`).
 One rerun pod failed to clone and was relaunched. Cost ≈ $255–275 (≈283 RTX 4090 pod-hours from watchdog samples,
 including ≈$16 for three pods hung by the stall).
+
+## P1: the first Pauper-format model (Nov 9)
+
+Warm start from ver15 on `runpod/splits/P1.txt` (F's Faeries blocks + the two blocks above, 7.18M training states),
+lr 3e-5, 3 epochs × 112,172 steps, legal-only policy loss, MSE value, seed 0, names kept, `--val-every 20000`, RTX
+PRO 6000 (`/workspace/runs/pauper-P1b-gnn/P1`; a first attempt on an A100 SXM was ≈6–10× slower, CPU-bound, and was
+stopped at 40K steps). Held-out value / priority / target / non-pass top-1:
+
+| point | pauper-offline | pauper-selfplay | Faeries model-vs-model (mean of 5) |
+|---|---|---|---|
+| e1 20K | .043 / .055 / .060 / .559 | .052 / .074 / .063 / .539 | .0402 / .0534 / .0428 / .672 |
+| e1 end | .039 / .051 / .055 / .579 | .049 / .070 / .058 / .549 | .0390 / .0528 / .0424 / .678 |
+| e2 end | .039 / .050 / .053 / .613 | .048 / .068 / .056 / .588 | .0378 / .0532 / .0412 / .695 |
+| **e3 end** | .039 / .049 / .052 / **.621** | .048 / .068 / .056 / **.594** | .0376 / **.0524** / .0418 / .689 |
+| ver15 | – | – | .0386 / .0532 / .0424 / .687 |
+
+Conclusion: the new decks' policy improves through all 3 epochs (non-pass .559 → .621 / .539 → .594) and value
+settles by epoch 1–2; no overfitting. The Faeries blocks end at or better than ver15. End of epoch 3 is uploaded as
+**P1**: `experiment_models/Pauper/P1` (full checkpoint) and https://huggingface.co/inkling616/MZ-Pauper-P1 (weights
+and model card). Cost ≈$21 (PRO 6000) + ≈$15 (stopped A100 attempt). Not yet tested in play.
