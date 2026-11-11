@@ -43,3 +43,19 @@ land drops against Burn: 18.8% vs v4's 17.2%, both far above the heuristic's 4%.
 
 With w=0.1 and 0.25 added: Pass share 24.3 / 18.8 / 10.3 / 20.3% for w = 0.007 / 0.03 / 0.1 / 0.25, not monotone in w;
 only w=0.1 is clearly below v4 (17.2%), and it wins less (60.5% vs 66.5%). Win rate falls for w ≥ 0.1.
+
+### First 3 land drops (fewer than 3 own lands), vs first 4: Pass top, all vs offline Burn
+
+| model | win | <3 lands (states) | <4 lands |
+|---|---|---|---|
+| gen0 heuristic | 56% | 3.1% (349) | 4.1% |
+| v4 | 66.5% | 14.6% (760) | 17.2% |
+| ver10 | 61.5% | 22.8% (904) | 27.5% |
+| ver13 | 69.5% | 23.2% (880) | 23.7% |
+| ver15 (search shard, 70.5% won) | | 21.7% (864) | 26.0% |
+| first:0.007 | 62.0% | 20.9% (845) | 24.3% |
+| first:0.03 | 71.0% | 15.0% (753) | 18.8% |
+| first:0.1 | 60.5% | 7.4% (698) | 10.3% |
+| first:0.25 | 59.5% | 19.9% (791) | 20.3% |
+
+The ranking is the same as for the first 4 drops, every Pass share 0–5 points lower.
