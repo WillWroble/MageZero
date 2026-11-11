@@ -14,4 +14,21 @@ End of epoch 4 (val; value MSE is against each run's own labels, so not comparab
 | first:0.007 (≈TD 0.92 at N=70) | .527 | .261 | .049 | .053 | .664 |
 | first:0.03 (≈TD 0.95 at N=70) | .524 | .256 | .048 | .071 | .668 |
 
-Policy heads are the same within noise. Play test (early land-drop skip rate vs v4's shards) pending.
+Policy heads are the same within noise.
+
+## Play: Faeries vs offline Burn (200 games, RTX 4090, XMage `b6ca7b35`, value only, 300 sims, max_pending 4)
+
+Early land drops (fewer than 4 own lands, land play legal, priority states in own main phases). "Pass top" = the
+search's most-visited move is Pass. "Turn skipped" = CanPlayLand still set at the turn's last recorded state (has a
+floor from unrecorded land plays: the heuristic shows 30%). v4 and gen0 are Will's local games (older XMage); ver15
+from the gen5 8×8 run (`f2ce8eca`).
+
+| model | win | pass top (states) | turn skipped (turns) |
+|---|---|---|---|
+| gen0 heuristic | 56% (100 games) | 4.1% (463) | 29.7% (212) |
+| v4 (TD 0.92) | 66.5% | 17.2% (1,059) | 36.5% (433) |
+| first:0.03 | 71.0% | 18.8% (1,068) | 32.0% (419) |
+| ver15 | | 25.9% (1,231) | |
+
+Conclusion: normalizing the TD by game length (w=0.03) does not reduce the search's preference for passing on early
+land drops against Burn: 18.8% vs v4's 17.2%, both far above the heuristic's 4%.
