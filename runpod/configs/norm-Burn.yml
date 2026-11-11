@@ -1,4 +1,4 @@
-# Normed test: Faeries ($MODEL, priority and target priors @PRIORS@) vs offline Pauper-Burn, 200 games.
+# Normed test: Faeries ($MODEL, priority and target priors @PRIORS@) vs offline Burn, 200 games.
 # Output: /workspace/runs/norm-@TAG@ (runpod/generate.sh, TAG and PRIORS from the environment).
 
 goes_first: random  # player_a, player_b, random
