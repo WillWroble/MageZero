@@ -31,7 +31,15 @@ is the search shard from the earlier land-drop analysis.
 | v4 (TD 0.92) | 66.5% | 17.2% (1,059) | 36.5% (433) |
 | first:0.03 | 71.0% | 18.8% (1,068) | 32.0% (419) |
 | first:0.007 | 62.0% | 24.3% (1,172) | |
+| first:0.1 | 60.5% | 10.3% (949) | |
+| first:0.25 | 59.5% | 20.3% (1,033) | |
 | ver15 | 68.5% | 25.9% (1,231) | |
+
+w=0.1 and 0.25: w=0.1 on an RTX 4090, w=0.25 on an RTX 5090. Decisions within a game are correlated, so the
+Pass share has an error of a few points, not ±1.
 
 Conclusion: normalizing the TD by game length (w=0.03) does not reduce the search's preference for passing on early
 land drops against Burn: 18.8% vs v4's 17.2%, both far above the heuristic's 4%.
+
+With w=0.1 and 0.25 added: Pass share 24.3 / 18.8 / 10.3 / 20.3% for w = 0.007 / 0.03 / 0.1 / 0.25, not monotone in w;
+only w=0.1 is clearly below v4 (17.2%), and it wins less (60.5% vs 66.5%). Win rate falls for w ≥ 0.1.
