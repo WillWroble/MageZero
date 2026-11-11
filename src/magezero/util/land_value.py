@@ -1,7 +1,7 @@
 """Per shard (decision player's seat): one example game's value curve (search root value, row[:, 1], per state; the
 median-length game), and, for own turns with fewer than 4 own lands where a land play was legal, whether the turn ended
 with the land drop skipped (CanPlayLand still set at its last state) and the change in root value from the start of that
-turn to the start of the next own turn. Writes JSON lines to OUT.
+turn to the start of the next own turn; and the mean value curve of games with and without such a skip. Writes JSON lines to OUT.
   PYTHONPATH=. python util/land_value.py OUT.jsonl name=shard ..."""
 import json
 import sys
@@ -61,7 +61,19 @@ def analyse(path):
         for a, b in zip(segs, segs[1:]):
             if a[1] < 4 and a[2]:
                 deltas["skipped" if a[3] else "played"].append(float(row[b[0], 1] - row[a[0], 1]))
-    return {"example": example, "deltas": deltas, "games": len(go) - 1}
+    # games with at least one skipped early land drop vs none: mean root value by game progress (10 bins)
+    curves = {}
+    for key in ("skip", "noskip"):
+        tot, n = np.zeros(10), np.zeros(10)
+        for gi, segs in enumerate(turns):
+            if any(a[1] < 4 and a[2] and a[3] for a in segs[:-1]) != (key == "skip"):
+                continue
+            a, b = go[gi], go[gi + 1]
+            k = np.minimum((np.arange(b - a) / (b - a) * 10).astype(int), 9)
+            np.add.at(tot, k, row[a:b, 1]); np.add.at(n, k, 1)
+        games = sum(1 for segs in turns if any(a[1] < 4 and a[2] and a[3] for a in segs[:-1]) == (key == "skip"))
+        curves[key] = {"value": (tot / np.maximum(n, 1)).round(3).tolist(), "games": games}
+    return {"example": example, "deltas": deltas, "curves": curves, "games": len(go) - 1}
 
 
 if __name__ == "__main__":
