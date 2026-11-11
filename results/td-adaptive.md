@@ -28,6 +28,7 @@ is the search shard from the earlier land-drop analysis.
 | gen0 heuristic | 56% (100 games) | 4.1% (463) | 29.7% (212) |
 | v4 (TD 0.92) | 66.5% | 17.2% (1,059) | 36.5% (433) |
 | first:0.03 | 71.0% | 18.8% (1,068) | 32.0% (419) |
+| first:0.007 | 62.0% | 24.3% (1,172) | |
 | ver15 | 68.5% | 25.9% (1,231) | |
 
 Conclusion: normalizing the TD by game length (w=0.03) does not reduce the search's preference for passing on early
