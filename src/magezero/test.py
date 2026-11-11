@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from dataset import H5Graphs, collate_batch, read_split, BATCH_SIZE
+from dataset import H5Graphs, collate_batch, read_split, parse_td, BATCH_SIZE
 from model import (Graphs, Targets, ActionType, NodeType, load_checkpoint, load_model, losses, accumulate, averages,
                    decision_states, graph_index, segment_logsumexp, PRIORITY_TYPES, TARGET_TYPES, AMP, DEVICE)
 from vocab import feature_id
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True,
                         help="model directory (model.pt.gz): tests on each val set of its split.txt; the log goes to its test.log")
-    parser.add_argument("--td", type=float, help="test against value labels rebuilt with this TD discount "
+    parser.add_argument("--td", type=parse_td, help="test against value labels rebuilt with this TD discount "
                                                  "(dataset.td_labels; 1 = the game result) instead of the stored ones")
     args = parser.parse_args()
     log_to(f"{args.model}/test.log")
