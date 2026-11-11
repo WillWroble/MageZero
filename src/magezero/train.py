@@ -189,7 +189,7 @@ if __name__ == "__main__":
                         help="leave the PlayerA/PlayerB name leaves out of the vocab, so the model never sees them")
     parser.add_argument("--td", type=parse_td, help="train and validate on value labels rebuilt with this TD discount "
                                                  "(dataset.td_labels) instead of the stored ones; first:W = a per-game discount giving the result "
-                                                 "weight W at the first state")
+                                                 "weight W at the first state; mix:A = A * result + (1 - A) * root value, no TD")
     parser.add_argument("--only", choices=("value", "policy"), help="train only the value or only the policy losses (all still reported)")
     parser.add_argument("--val-every", type=int, help="also validate every N steps and save model-e<epoch>-s<step>.pt.gz")
 
