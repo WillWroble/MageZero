@@ -1,7 +1,7 @@
 # Runs util/land_value.py on ver15's and gen0's Faeries shards against each Pauper deck, MonoB and MonoR, straight
 # from the volume. Output: $OUT/ver15.jsonl, $OUT/gen0.jsonl.
 apt-get update -qq && apt-get install -y -qq python3 python3-pip >/dev/null
-pip3 install -q h5py numpy torch --index-url https://download.pytorch.org/whl/cpu
+pip3 install -q h5py numpy && pip3 install -q torch --index-url https://download.pytorch.org/whl/cpu
 cd src/magezero
 R=/workspace/runs; G0=/workspace/repo/experiment_data/Pauper-Faeries/ver4/training/gen0/PlayerA
 V=""; Z=""
