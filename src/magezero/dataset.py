@@ -116,18 +116,23 @@ def read_split(path: str):
 
 
 def parse_td(s: str):
-    """A --td value: a fixed discount ("0.92"), or "first:W": each game's discount is W ** (1 / its states), so the
-    result has weight W at the game's first state whatever its length."""
-    return s if s.startswith("first:") else float(s)
+    """A --td value: a fixed discount ("0.92"); "first:W": each game's discount is W ** (1 / its states), so the
+    result has weight W at the game's first state whatever its length; or "mix:A": no TD, each label is
+    A * result + (1 - A) * that state's root value."""
+    return s if s.startswith(("first:", "mix:")) else float(s)
 
 
 def td_labels(row, game_offsets, td):
     """Value labels rebuilt with discount td, as XMage's ParallelDataGenerator builds them: within each game,
     label[i] = td * label[i + 1] + (1 - td) * stateScore[i], starting from the result (+1 / -1, the sign of the game's
-    last stored label). td 1 gives the result itself; td "first:W" sets each game's discount from its length."""
+    last stored label). td 1 gives the result itself; td "first:W" sets each game's discount from its length; td "mix:A"
+    blends each state's root value with the result directly."""
     label = np.empty(len(row), np.float32)
     for a, b in zip(game_offsets[:-1], game_offsets[1:]):
         x = 1.0 if row[b - 1, 0] > 0 else -1.0
+        if isinstance(td, str) and td.startswith("mix:"):
+            label[a:b] = float(td[4:]) * x + (1 - float(td[4:])) * row[a:b, 1]
+            continue
         g = float(td[6:]) ** (1.0 / (b - a)) if isinstance(td, str) else td
         for i in range(b - 1, a - 1, -1):
             x = g * x + (1 - g) * float(row[i, 1])
