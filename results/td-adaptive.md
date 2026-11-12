@@ -62,6 +62,8 @@ only w=0.1 is clearly below v4 (17.2%), and it wins less (60.5% vs 66.5%). Win r
 | first:0.1 | 60.5% | 7.4% (698) | 10.3% |
 | first:0.25 | 59.5% | 19.9% (791) | 20.3% |
 | mix:0.5 (label = ½ result + ½ root value, no TD) | 61.0% | 7.5% (660) | 9.9% |
+| mix:0 (root value only) | 56.0% | 7.8% (676) | 9.1% |
+| mix:1 (game result only) | 39.5% | 20.3% (745) | 20.9% |
 | first:0.03, 1000 sims | 78.5% | 10.9% (716) | 13.0% |
 | first:0.03, 1000 sims, no duplicate pruning (both sides) | 77.4% (199 games) | 12.1% (728) | 14.8% |
 
