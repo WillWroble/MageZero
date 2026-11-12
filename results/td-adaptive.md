@@ -60,5 +60,9 @@ only w=0.1 is clearly below v4 (17.2%), and it wins less (60.5% vs 66.5%). Win r
 | first:0.1 | 60.5% | 7.4% (698) | 10.3% |
 | first:0.25 | 59.5% | 19.9% (791) | 20.3% |
 | mix:0.5 (label = ½ result + ½ root value, no TD) | 61.0% | 7.5% (660) | 9.9% |
+| first:0.03, 1000 sims | 78.5% | 10.9% (716) | 13.0% |
+| first:0.03, 1000 sims, no duplicate pruning (both sides) | 77.4% (199 games) | 12.1% (728) | 14.8% |
 
 The ranking is the same as for the first 4 drops, every Pass share 0–5 points lower.
+
+1000 sims (offline Burn stays at 300; XMage `b6ca7b35`, RTX 4090, `max_pending` 4): win +7.5 points over 300 sims and Pass top drops from 15.0% to 10.9% on the first 3 drops. Turning duplicate pruning off on both sides changes neither beyond noise. More search partly corrects the value net's early passing; it doesn't remove it (heuristic: 3.1%).
