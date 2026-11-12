@@ -1,4 +1,4 @@
-# Normed test, 1000 sims for the model, piloting Burn (offline Burn stays at 300), duplicate-state pruning off on both sides: Burn ($MODEL, priority and target priors @PRIORS@) vs offline Burn, 200 games.
+# Normed test, 1000 sims for the model, piloting Burn (offline Burn stays at 300), duplicate-state pruning off on both sides: Burn ($MODEL, priority and target priors @PRIORS@) vs offline Burn, 100 games.
 # Output: /workspace/runs/norm1000np-burnburn-@TAG@ (runpod/generate.sh, TAG and PRIORS from the environment).
 
 goes_first: random  # player_a, player_b, random
@@ -74,7 +74,7 @@ player_b:
     see_opponent_hand: true
 
 training:
-  games: 200
+  games: 100
   threads: 64
   max_turns: 50 #does nothing
   max_minutes: 120
