@@ -16,6 +16,8 @@ End of epoch 4 (val; value MSE is against each run's own labels, so not comparab
 | first:0.1 (≈TD 0.968) | .544 | .264 | .048 | .123 | |
 | first:0.25 (≈TD 0.98) | .556 | .262 | .047 | .206 | |
 | mix:0.5 | .533 | .264 | .049 | .157 | |
+| mix:0 (root value only) | .557 | .261 | .051 | .010 |
+| mix:1 (game result only) | .574 | .272 | .051 | .672 |
 
 Policy heads are the same within noise.
 
