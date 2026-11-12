@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import test
 from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states, to_ce_value, POLICY_HEADS,
                    AMP, DEVICE, GLOBAL_MAX)
-from dataset import H5Graphs, collate_batch, read_split, BATCH_SIZE
+from dataset import H5Graphs, collate_batch, read_split, parse_td, BATCH_SIZE
 from vocab import FeatureVocab, feature_id, initial_rows, kept_feature_ids
 
 # seat names: Faeries is always PlayerA in the data, so they identify the deck (a shortcut for the value head)
@@ -187,8 +187,9 @@ if __name__ == "__main__":
                         help="train and test on states without the non-deciding player's hand (H5Graphs.hide_opponent_hand)")
     parser.add_argument("--drop-player-names", action="store_true",
                         help="leave the PlayerA/PlayerB name leaves out of the vocab, so the model never sees them")
-    parser.add_argument("--td", type=float, help="train and validate on value labels rebuilt with this TD discount "
-                                                 "(dataset.td_labels) instead of the stored ones")
+    parser.add_argument("--td", type=parse_td, help="train and validate on value labels rebuilt with this TD discount "
+                                                 "(dataset.td_labels) instead of the stored ones; first:W = a per-game discount giving the result "
+                                                 "weight W at the first state; mix:A = A * result + (1 - A) * root value, no TD")
     parser.add_argument("--only", choices=("value", "policy"), help="train only the value or only the policy losses (all still reported)")
     parser.add_argument("--val-every", type=int, help="also validate every N steps and save model-e<epoch>-s<step>.pt.gz")
 
