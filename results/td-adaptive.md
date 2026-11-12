@@ -76,8 +76,11 @@ Will's local run: the Pauper ver1 model (`experiment_data/Pauper/ver1/Pauper-Bur
 |---|---|---|---|---|
 | Pauper ver1, 1000 sims | 55.5% | 31.7% (1,175) | 30.4% | 31.3% |
 | its opponent, offline Burn 1000 sims | 44.5% | 9.1% (996) | 8.9% | 9.6% |
+| first:0.03, 1000 sims (offline 300), 100 games | 56% | 30.0% (534) | 32.9% | 35.0% |
+| first:0.1, 1000 sims (offline 300), 100 games | 55% | 19.5% (497) | 18.4% | 19.4% |
 | ver15 vs offline Burn | 47% | 54.6% | | 53.0% |
 | offline Burn vs ver15 | 53% | 8.9% | | 9.2% |
 | ver15 self-play | | | | 43.0% |
 
 Pauper ver1 skips early land drops about half as often as ver15 piloting Burn, still about 3.5x the heuristic.
+The v4-recipe twins (trained on Faeries gen0, which includes the Burn seat's perspective) at 1000 sims: w=0.03 passes as often as Pauper ver1 (30%), w=0.1 about 10 points less (19.5%); both win 55–56%, level with Pauper ver1 (±10 at 100 games). Pilot RTX 4090, XMage `b6ca7b35`, `max_pending` 4.
