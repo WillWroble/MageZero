@@ -15,6 +15,7 @@ End of epoch 4 (val; value MSE is against each run's own labels, so not comparab
 | first:0.03 (≈TD 0.95 at N=70) | .524 | .256 | .048 | .071 | .668 |
 | first:0.1 (≈TD 0.968) | .544 | .264 | .048 | .123 | |
 | first:0.25 (≈TD 0.98) | .556 | .262 | .047 | .206 | |
+| mix:0.5 | .533 | .264 | .049 | .157 | |
 
 Policy heads are the same within noise.
 
@@ -58,5 +59,6 @@ only w=0.1 is clearly below v4 (17.2%), and it wins less (60.5% vs 66.5%). Win r
 | first:0.06 | 63.5% | 13.4% (746) | 18.7% |
 | first:0.1 | 60.5% | 7.4% (698) | 10.3% |
 | first:0.25 | 59.5% | 19.9% (791) | 20.3% |
+| mix:0.5 (label = ½ result + ½ root value, no TD) | 61.0% | 7.5% (660) | 9.9% |
 
 The ranking is the same as for the first 4 drops, every Pass share 0–5 points lower.
