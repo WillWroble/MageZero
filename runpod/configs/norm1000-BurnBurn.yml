@@ -1,12 +1,12 @@
-# Normed test, 1000 sims for the model, piloting Burn (offline Burn stays at 300), duplicate-state pruning off on both sides: Burn ($MODEL, priority and target priors @PRIORS@) vs offline Burn, 100 games.
-# Output: /workspace/runs/norm1000np-burnburn-@TAG@ (runpod/generate.sh, TAG and PRIORS from the environment).
+# Normed test, 1000 sims for the model, piloting Burn (offline Burn stays at 300): Burn ($MODEL, priority and target priors @PRIORS@) vs offline Burn, 100 games.
+# Output: /workspace/runs/norm1000-burnburn-@TAG@ (runpod/generate.sh, TAG and PRIORS from the environment).
 
 goes_first: random  # player_a, player_b, random
 
 player_a:
   deckPath: decks/Pauper-Burn.txt
   type: mcts
-  output_file: /workspace/runs/norm1000np-burnburn-@TAG@/PlayerA/Pauper-Burn_vs_Pauper-Burn.hdf5
+  output_file: /workspace/runs/norm1000-burnburn-@TAG@/PlayerA/Pauper-Burn_vs_Pauper-Burn.hdf5
 
   priors:
     priority: @PRIORS@
@@ -25,7 +25,7 @@ player_a:
     timeout_ms: 60000
     td_discount: 0.92
     offline_mode: false
-    prune_duplicate_states: false
+    prune_duplicate_states: true
     max_pending: 4
     c_puct: 1.0
     pimc: false
@@ -41,7 +41,7 @@ player_a:
 player_b:
   deckPath: decks/Pauper-Burn.txt
   type: mcts
-  output_file: /workspace/runs/norm1000np-burnburn-@TAG@/PlayerB/Pauper-Burn_vs_Pauper-Burn.hdf5
+  output_file: /workspace/runs/norm1000-burnburn-@TAG@/PlayerB/Pauper-Burn_vs_Pauper-Burn.hdf5
 
   priors:
     priority: false
@@ -60,7 +60,7 @@ player_b:
     timeout_ms: 60000
     td_discount: 0.92
     offline_mode: true
-    prune_duplicate_states: false
+    prune_duplicate_states: true
     max_pending: 4
     c_puct: 1.0
     pimc: false
