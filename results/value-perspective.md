@@ -29,6 +29,8 @@ v4's value error comes from; the hard part is how decisive a position is. RTX 40
 | v4-playervalue | value = tanh(own PLAYER token's score − opponent's) (`value_token: players`) | .034 / .032 | .170 / .172 | .659 / .652 | 9.12M | 4090, ~$1 |
 | v4-updown | pass 1 bottom-up, pass 2 top-down (`directions: [up, down]`) | .034 / .032 | .069 / .066 | | 9.12M | 5090 (slow pod), ~$6 |
 | v4-downdown-players | down-down + per-player value | .032 / .031 | .063 / .061 | | 9.12M | 4090, ~$0.80 |
+| v4-owner-players | owner injection into the global tokens + per-player value | .033 / .031 | .138 / .126 | .682 / .685 | | 4090 |
+| v4-dd-players-td003 | down-down + per-player value, `--td first:0.03` (different labels: value MSE not comparable) | .044 / .041 | .065 / .063 | .790 / .782 | 9.12M | 4090 |
 
 Prio KL / top-1 of entityattn are not comparable with the all-node runs (legal-only loss; cf. `gnnlegal` .052 / .795
 in mlp-vs-gnn.md). Conclusions: reading value from ROOT changes nothing; dropping the player names costs nothing on
@@ -59,8 +61,30 @@ between it and the bottom-up models. The per-player value head alone doesn't cha
 | ver15 (gen5 shard) | 47% | 54.8% | 53.5% | 106 | 23% / 54% |
 | P1 (Will's run) | 37.5% | 57.5% | 55.2% | 105 | 24% / 53% |
 | v4-downdown (gen0 Faeries data only) | 43.0% | 19.3% | 17.6% | 23 | 39% / 44% |
+| v4-downdown-players (gen0 only) | 46.0% | 24.1% | 24.3% | 42 | 29% / 51% |
 
 Down-down skips a third as often as ver15 and P1, from v4's data alone. RTX 5090, ~1.3 h, ~$1.75.
 
-## Pending
-- `v15-noname` (ver15 recipe from v4-noname, `--drop-player-names`), 
+## ver15 recipe variants (warm start from the v4 variant, gen0-gen3, lr 3e-5, 3 epochs; value MSE / prio legal KL)
+
+| set | ver15 | v15-noname | v15-entityattn |
+|---|---|---|---|
+| gen0 | .037 / .060 | .039 / .062 | .039 / .070 |
+| gen1-reg | .040 / .056 | .039 / .057 | .039 / .062 |
+| gen1-selfplay | .031 / .053 | .031 / .054 | .032 / .057 |
+| gen2-offline | .040 / .048 | .040 / .049 | .042 / .053 |
+| gen2-vsgen1 | .036 / .051 | .035 / .052 | .039 / .055 |
+| gen2-selfplay | .037 / .057 | .038 / .059 | .042 / .063 |
+| gen3-offline | .035 / .045 | .035 / .046 | .037 / .052 |
+| gen3-vsgen1 | .039 / .050 | .037 / .051 | .040 / .055 |
+| gen3-vsgen2 | .041 / .053 | .041 / .055 | .044 / .059 |
+| gen3-selfplay | .040 / .055 | .042 / .057 | .046 / .061 |
+| pimc | .060 / .085 | .070 / .087 | .065 / .098 |
+| policy | .052 / .066 | .052 / .067 | .054 / .072 |
+| gen0-test | .031 / .052 | .032 / .051 | .033 / .056 |
+| ub | .050 / .078 | .041 / .076 | .045 / .070 |
+
+Dropping player names is level with ver15 except the small pimc (worse) and ub (better) sets. The entity transformer
+is .002-.006 worse on value and on policy almost everywhere. PRO 6000, ~$14 each.
+
+Still training: `v4-dd-players-legal`, `v4-dd-players-legalhead`.
