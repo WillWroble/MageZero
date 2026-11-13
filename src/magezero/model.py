@@ -211,19 +211,22 @@ class NetGraph(nn.Module):
       value_loss: "mse"  tanh value, MSE to the label
                   "ce"   value logit, binary cross-entropy to the label as a win probability (label + 1) / 2;
                          value_estimate turns it into a value
-      value_token: "cls"   the value head reads CLS after the global layers
-                   "root"  it reads the ROOT node's token instead (CLS still feeds choose_use)"""
+      value_token: "cls"      the value head reads CLS after the global layers
+                   "root"     it reads the ROOT node's token instead (CLS still feeds choose_use)
+                   "players"  it scores each PLAYER token and the value is tanh(own score - opponent's), so the two
+                              perspectives are exact negatives; the own player is the one with the IsDecisionPlayer
+                              leaf, vocab row decision_row (set by train.py)"""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
                  policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared",
-                 value_loss: str = "mse", value_token: str = "cls"):
+                 value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
                          policy_domain=policy_domain, legality_weight=legality_weight, legality_heads=legality_heads,
-                         value_loss=value_loss, value_token=value_token)
+                         value_loss=value_loss, value_token=value_token, decision_row=decision_row)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -244,7 +247,7 @@ class NetGraph(nn.Module):
         self.priority_head = mlp(d_model, 1)
         self.target_head = mlp(d_model, 1)
         self.binary_head = mlp(d_model, 2)
-        self.value_head = mlp(d_model, 1, *value_tail(value_loss))
+        self.value_head = mlp(d_model, 1, *(() if value_token == "players" else value_tail(value_loss)))
         if legality_weight > 0:
             self.legality_head = mlp(d_model, 1)
             if legality_heads == "split":
@@ -359,8 +362,17 @@ class NetGraph(nn.Module):
             return torch.full((N,), float("-inf"), device=h.device).index_copy(
                 0, internal, head(z).squeeze(-1).float())
 
-        v = z[g.node_type[internal] == NodeType.ROOT] if self.arch["value_token"] == "root" else cls
-        out = per_node(self.priority_head), per_node(self.target_head), self.binary_head(cls), self.value_head(v).squeeze(-1)
+        if self.arch["value_token"] == "players":
+            player = g.node_type[internal] == NodeType.PLAYER
+            dec = (g.node_type[g.edge_child] == NodeType.LEAF) & (g.node_row[g.edge_child] == self.arch["decision_row"])
+            own = torch.zeros(N, dtype=torch.bool, device=h.device)
+            own[g.edge_parent[dec]] = True
+            score = self.value_head(z[player]).squeeze(-1).float() * torch.where(own[internal[player]], 1.0, -1.0)
+            value = torch.zeros(B, device=h.device).index_add(0, gi[player], score)
+            value = value if self.arch["value_loss"] == "ce" else torch.tanh(value)
+        else:
+            value = self.value_head(z[g.node_type[internal] == NodeType.ROOT] if self.arch["value_token"] == "root" else cls).squeeze(-1)
+        out = per_node(self.priority_head), per_node(self.target_head), self.binary_head(cls), value
         if self.arch["legality_weight"] <= 0:
             return out
         legality = per_node(self.legality_head)
