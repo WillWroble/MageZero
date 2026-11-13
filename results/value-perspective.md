@@ -28,6 +28,7 @@ v4's value error comes from; the hard part is how decisive a position is. RTX 40
 | v4-downdown | both local passes top-down (`directions: [down, down]`): each node attends over its leaves and parents | .034 / .033 | .068 / .068 | .782 / .774 | 9.12M | 4090, ~$1 |
 | v4-playervalue | value = tanh(own PLAYER token's score − opponent's) (`value_token: players`) | .034 / .032 | .170 / .172 | .659 / .652 | 9.12M | 4090, ~$1 |
 | v4-updown | pass 1 bottom-up, pass 2 top-down (`directions: [up, down]`) | .034 / .032 | .069 / .066 | | 9.12M | 5090 (slow pod), ~$6 |
+| v4-downdown-players | down-down + per-player value | .032 / .031 | .063 / .061 | | 9.12M | 4090, ~$0.80 |
 
 Prio KL / top-1 of entityattn are not comparable with the all-node runs (legal-only loss; cf. `gnnlegal` .052 / .795
 in mlp-vs-gnn.md). Conclusions: reading value from ROOT changes nothing; dropping the player names costs nothing on
@@ -50,6 +51,16 @@ from hand to battlefield (hand size -1, permanent count +1).
 
 Two top-down passes give the best land judgement, and the only one that holds in lost games; one top-down pass is
 between it and the bottom-up models. The per-player value head alone doesn't change it.
+
+## Down-down piloting Burn vs offline Burn (300 sims both seats, pruning on, XMage `b6ca7b35`, 200 games)
+
+| pilot | win | Pass top, first 3 drops | first 4 | games with a skip | won with skip / without |
+|---|---|---|---|---|---|
+| ver15 (gen5 shard) | 47% | 54.8% | 53.5% | 106 | 23% / 54% |
+| P1 (Will's run) | 37.5% | 57.5% | 55.2% | 105 | 24% / 53% |
+| v4-downdown (gen0 Faeries data only) | 43.0% | 19.3% | 17.6% | 23 | 39% / 44% |
+
+Down-down skips a third as often as ver15 and P1, from v4's data alone. RTX 5090, ~1.3 h, ~$1.75.
 
 ## Pending
 - `v15-noname` (ver15 recipe from v4-noname, `--drop-player-names`), 
