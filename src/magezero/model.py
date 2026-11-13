@@ -376,13 +376,16 @@ class NetMLP(nn.Module):
       entity  e = LN(c + ctx(sum of c over its ancestors))                           the bag-of-nodes bridge:
                                                                                      zone, owner, source card
       state   s = root(e_ROOT) + pools(0.25-sum and max of e per node type), then residual blocks, LN
+              pool "attn": s = CLS after one self-attention layer over [CLS, every entity e], its FF width set so
+              the parameter count matches the pools it replaces (not an MLP any more)
       heads   value, choose_use from s; priority and target per node from [s, e]
     Policy heads are meant to be trained over legal candidates only (policy_domain "legal"), as the MLP was."""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = 64, blocks: int = 1,
-                 policy_domain: str = "legal", net: str = "mlp", value_loss: str = "mse"):
+                 policy_domain: str = "legal", net: str = "mlp", value_loss: str = "mse", pool: str = "types"):
         super().__init__()
-        self.arch = dict(net=net, d_model=d_model, blocks=blocks, policy_domain=policy_domain, value_loss=value_loss)
+        self.arch = dict(net=net, d_model=d_model, blocks=blocks, policy_domain=policy_domain, value_loss=value_loss,
+                         pool=pool)
         d = d_model
         self.embedding = nn.Embedding(num_embeddings, d)
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d, padding_idx=0)
@@ -391,7 +394,13 @@ class NetMLP(nn.Module):
         self.register_buffer("value_bounds", torch.tensor(VALUE_BOUNDS), persistent=False)
         self.raw, self.phi, self.ctx = nn.Linear(d, d), nn.Linear(d, d), nn.Linear(d, d)
         self.norm = nn.LayerNorm(d)
-        self.root, self.pools = nn.Linear(d, d), nn.Linear(2 * len(STAGES) * d, d)
+        if pool == "attn":   # FF width: the pools' and root's parameters, less the layer's fixed ones, per FF unit
+            ff = round((2 * len(STAGES) * d * d + d * d + 2 * d - (4 * d * d + 4 * d + 6 * d + d)) / (2 * d + 1))
+            self.cls = nn.Parameter(torch.randn(d))
+            self.attn = nn.TransformerEncoderLayer(d, 4, ff, 0.0, activation="gelu", batch_first=True, norm_first=True)
+            self.attn_norm = nn.LayerNorm(d)
+        else:
+            self.root, self.pools = nn.Linear(d, d), nn.Linear(2 * len(STAGES) * d, d)
         self.blocks = nn.ModuleList(nn.Sequential(nn.LayerNorm(d), nn.Linear(d, d), nn.ReLU(), nn.Linear(d, d))
                                     for _ in range(blocks))
         self.out_norm = nn.LayerNorm(d)
@@ -427,19 +436,28 @@ class NetMLP(nn.Module):
             anc = anc.index_add(0, child[e], (c + anc)[parent[e]])
         e = self.norm(c + self.ctx(anc))
 
-        # state: root object + per-type pools
-        pools = []
-        for t in STAGES:
-            m = g.node_type == t
-            pools.append(e.new_zeros(B, e.shape[1]).index_add(0, node_graph[m], 0.25 * e[m]))
-            pools.append(e.new_zeros(B, e.shape[1]).index_reduce(0, node_graph[m], e[m], "amax", include_self=False))
-        root = g.node_type == NodeType.ROOT
-        s = self.root(e.new_zeros(B, e.shape[1]).index_add(0, node_graph[root], e[root])) + self.pools(torch.cat(pools, 1))
+        internal = (~leaf).nonzero().squeeze(1)
+        if self.arch["pool"] == "attn":  # state: CLS after self-attention over [CLS, entities], one padded row per state
+            gi = node_graph[internal]
+            counts = torch.bincount(gi, minlength=B)
+            pos = torch.arange(len(internal), device=gi.device) - (counts.cumsum(0) - counts)[gi] + 1
+            x = e.new_zeros(B, int(counts.max()) + 1, e.shape[1])
+            x[:, 0] = self.cls
+            x[gi, pos] = e[internal]
+            pad = torch.arange(x.shape[1], device=x.device) > counts.unsqueeze(1)
+            s = self.attn_norm(self.attn(x, src_key_padding_mask=pad)[:, 0])
+        else:  # state: root object + per-type pools
+            pools = []
+            for t in STAGES:
+                m = g.node_type == t
+                pools.append(e.new_zeros(B, e.shape[1]).index_add(0, node_graph[m], 0.25 * e[m]))
+                pools.append(e.new_zeros(B, e.shape[1]).index_reduce(0, node_graph[m], e[m], "amax", include_self=False))
+            root = g.node_type == NodeType.ROOT
+            s = self.root(e.new_zeros(B, e.shape[1]).index_add(0, node_graph[root], e[root])) + self.pools(torch.cat(pools, 1))
         for block in self.blocks:
             s = s + block(s)
         s = self.out_norm(s)
 
-        internal = (~leaf).nonzero().squeeze(1)
         z = torch.cat([s[node_graph[internal]], e[internal]], 1)
 
         def per_node(head):
