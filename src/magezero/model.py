@@ -224,20 +224,23 @@ class NetGraph(nn.Module):
                    "root"     it reads the ROOT node's token instead (CLS still feeds choose_use)
                    "players"  it scores each PLAYER token and the value is tanh(own score - opponent's), so the two
                               perspectives are exact negatives; the own player is the one with the IsDecisionPlayer
-                              leaf, vocab row decision_row (set by train.py)"""
+                              leaf, vocab row decision_row (set by train.py)
+      hide_decider: the network never sees the IsDecisionPlayer leaf (dropped like a leaf outside the vocab); with
+                    value_token "players" it only picks the sign, so the state is evaluated without a perspective"""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
                  policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared",
                  value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1, directions: list = None,
-                 owner_context: bool = False):
+                 owner_context: bool = False, hide_decider: bool = False):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
                          policy_domain=policy_domain, legality_weight=legality_weight, legality_heads=legality_heads,
                          value_loss=value_loss, value_token=value_token, decision_row=decision_row,
-                         directions=list(directions or ["up"] * n_passes), owner_context=owner_context)
+                         directions=list(directions or ["up"] * n_passes), owner_context=owner_context,
+                         hide_decider=hide_decider)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -291,10 +294,13 @@ class NetGraph(nn.Module):
         cached: (slot, compute) per node from NodeCache.lookup. The local layers then run only on the nodes
         to compute, store them at their slots, and read every other internal node from its slot."""
         B, N = g.node_offsets.numel() - 1, g.node_type.numel()
-        leaves = (g.node_row >= 0).nonzero().squeeze(1)
+        visible = g.node_row >= 0
+        if self.arch.get("hide_decider"):
+            visible &= g.node_row != self.arch["decision_row"]
+        leaves = visible.nonzero().squeeze(1)
 
-        # leaves outside the vocab have no embedding, so their edges are dropped
-        keep = (g.node_type[g.edge_child] != NodeType.LEAF) | (g.node_row[g.edge_child] >= 0)
+        # leaves outside the vocab (and a hidden decider leaf) have no embedding, so their edges are dropped
+        keep = (g.node_type[g.edge_child] != NodeType.LEAF) | visible[g.edge_child]
         child, parent, label = g.edge_child[keep], g.edge_parent[keep], g.edge_label[keep]
         leaf_edges = (g.node_type[child] == NodeType.LEAF).nonzero().squeeze(1)
 
@@ -343,7 +349,7 @@ class NetGraph(nn.Module):
         # global tokens: [CLS, tokens] per state
         internal = g.node_type != NodeType.LEAF
         if self.arch["global_tokens"] == "all":
-            internal |= g.node_row >= 0
+            internal |= visible
         internal = internal.nonzero().squeeze(1)
         gi = graph_index(g.node_offsets)[internal]
         counts = torch.bincount(gi, minlength=B)

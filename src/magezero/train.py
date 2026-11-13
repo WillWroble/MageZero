@@ -79,7 +79,7 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop
     d_model = model.arch["d_model"]
     model.resize_embedding(len(vocab), initial_rows(vocab.ids[prev_rows:], d_model))
     model.resize_embedding(len(edge_vocab) + 1, initial_rows(edge_vocab.ids[prev_labels:], d_model), "edge_embedding")
-    if model.arch.get("value_token") == "players":
+    if model.arch.get("value_token") == "players" or model.arch.get("hide_decider"):
         model.arch["decision_row"] = int(vocab.lookup([feature_id("IsDecisionPlayer")])[0])
     print(f"leaf vocab: {len(kept_leaves)} kept ids in this dataset, {prev_rows} rows from checkpoint -> {len(vocab)} rows")
     print(f"edge vocab: {len(kept_labels)} kept labels in this dataset, {prev_labels} rows from checkpoint -> {len(edge_vocab)} rows")
