@@ -99,3 +99,27 @@ best policy so far (KL .047). legalhead's pod was reaped before test.log was wri
 Dropping the player names removes the overfit: legal-only goes from .073 to .035 held out (legality head .035), with
 the best policy yet (KL .045). The names let the legal-only net memorise value by seat. Both ~$2 of training; the
 pods then sat idle 4.4 h while this session had no RunPod access (~$16 wasted).
+
+## Ablation of the down-down variants (P1's Burn mirror, 300 + 1000 sims, 5,000 states; `attrib.py`)
+
+Value MSE against the stored labels (TD 0.92) with nothing removed, then with one thing removed (its subtree goes
+with it). Gradient x input: share of the value attribution that sits on PLAYER nodes and their leaves.
+
+| model | baseline | − IsDecisionPlayer | − IsActivePlayer | − LifeTotal | − ZONE | − PERMANENT | − CARD | PLAYER share |
+|---|---|---|---|---|---|---|---|---|
+| P1 (trained on this matchup) | .048 | .644 | +.006 | +.314 | .207 | .132 | .083 | 38% |
+| v4-noname | .090 | .349 | +.010 | +.095 | .205 | .172 | .096 | 35% |
+| v4-downdown | .078 | .834 | +.003 | +.151 | .320 | .193 | .121 | 26% |
+| v4-downdown-players | .087 | .973 | +.010 | +.088 | .183 | .179 | .129 | 40% |
+| v4-dd-players-td003 | .088 | .991 | +.008 | +.177 | .182 | .207 | .111 | 38% |
+| v4-dd-players-legal | .314 | .827 | −.047 | +.067 | .228 | .169 | .448 | 26% |
+| v4-dd-players-legalhead | .221 | .918 | +.003 | +.199 | .188 | .126 | .381 | 32% |
+| v4-dd-players-legal-noname | .076 | .667 | +.061 | +.106 | .174 | .166 | .087 | 33% |
+| v4-dd-players-legalhead-noname | .076 | .642 | +.063 | +.104 | .208 | .158 | .094 | 37% |
+
+Removing every PLAYER node gives .281 for all per-player-value models: that is the value-0 floor (mean label²), not
+a measurement. Conclusions: the legal-loss models with player names don't transfer to this unseen matchup (.31 /
+.22 vs .076 without names). Every down-down model leans harder on IsDecisionPlayer than P1 does, except the two
+no-name legal-loss ones (.67 / .64, level with P1); those are also the only ones that use IsActivePlayer (+.06,
+6x the others). Spurious single-leaf dependencies on features absent from Burn games appear in the all-node models
+(down-down: GreenMana +.139; td003: Battlefield +.194, BlueMana +.095) but not in the no-name legal ones.
