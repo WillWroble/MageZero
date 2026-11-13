@@ -31,6 +31,8 @@ v4's value error comes from; the hard part is how decisive a position is. RTX 40
 | v4-downdown-players | down-down + per-player value | .032 / .031 | .063 / .061 | | 9.12M | 4090, ~$0.80 |
 | v4-owner-players | owner injection into the global tokens + per-player value | .033 / .031 | .138 / .126 | .682 / .685 | | 4090 |
 | v4-dd-players-td003 | down-down + per-player value, `--td first:0.03` (different labels: value MSE not comparable) | .044 / .041 | .065 / .063 | .790 / .782 | 9.12M | 4090 |
+| v4-dd-players-legal | down-down + per-player value, legal-only policy loss | .076 / .070 | .052 / .055 | .800 / .794 | 9.12M | 4090 |
+| v4-dd-players-legalhead | as legal, plus a shared legality head (weight 1.0) | .042 / (.041 both) | .047 / | .805 / | 9.12M | 4090 |
 
 Prio KL / top-1 of entityattn are not comparable with the all-node runs (legal-only loss; cf. `gnnlegal` .052 / .795
 in mlp-vs-gnn.md). Conclusions: reading value from ROOT changes nothing; dropping the player names costs nothing on
@@ -87,4 +89,7 @@ Down-down skips a third as often as ver15 and P1, from v4's data alone. RTX 5090
 Dropping player names is level with ver15 except the small pimc (worse) and ub (better) sets. The entity transformer
 is .002-.006 worse on value and on policy almost everywhere. PRO 6000, ~$14 each.
 
-Still training: `v4-dd-players-legal`, `v4-dd-players-legalhead`.
+Legal-only policy loss breaks value generalisation on down-down + per-player value: training value .032, held-out
+.072-.082 from epoch 2 on (all-node loss: .032 held out). The legality head recovers half of it (.041) and gives the
+best policy so far (KL .047). legalhead's pod was reaped before test.log was written; its numbers come from gnn.log
+(PlayerB line missing; .041 is the combined end-of-training validation).
