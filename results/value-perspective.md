@@ -54,6 +54,7 @@ from hand to battlefield (hand size -1, permanent count +1).
 | v4-playervalue | 27 / 55% | 39 / 59% | 34 / 64% | 31 / 67% | 23 / 58% | 63 / 36% | 57 / 42% |
 | v4-updown | 4 / 0% | 62 / 35% | 60 / 37% | 58 / 39% | 6 / 0% | 62 / 35% | 57 / 39% |
 | v4-downdown | 0 / 19% | 86 / 14% | 86 / 14% | 84 / 15% | 0 / 22% | 78 / 22% | 75 / 24% |
+| v4-dd-players-legal-noname | 73 / 17% | 56 / 39% | 54 / 41% | 58 / 38% | 69 / 23% | 81 / 16% | 83 / 14% |
 
 Two top-down passes give the best land judgement, and the only one that holds in lost games; one top-down pass is
 between it and the bottom-up models. The per-player value head alone doesn't change it.
