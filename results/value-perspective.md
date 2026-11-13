@@ -123,3 +123,17 @@ a measurement. Conclusions: the legal-loss models with player names don't transf
 no-name legal-loss ones (.67 / .64, level with P1); those are also the only ones that use IsActivePlayer (+.06,
 6x the others). Spurious single-leaf dependencies on features absent from Burn games appear in the all-node models
 (down-down: GreenMana +.139; td003: Battlefield +.194, BlueMana +.095) but not in the no-name legal ones.
+
+Removing IsDecisionPlayer is not a fair test of the per-player-value models: the leaf also picks which PLAYER token
+gets the + sign. Swap test instead (`swap_symmetry.py`, the flag moved to the other player, 2,000 of the same
+states): if the network used the flag only for the sign, the value would exactly negate.
+
+| model | value MSE | swapped vs −label | mean abs(v_swap + v) | mean abs(v) | corr(v_swap, −v) |
+|---|---|---|---|---|---|
+| P1 | .046 | .078 | .122 | .368 | .91 |
+| v4-downdown | .076 | .095 | .128 | .332 | .91 |
+| v4-downdown-players | .091 | .087 | .099 | .344 | .94 |
+| v4-dd-players-legal-noname | .076 | .081 | .060 | .318 | .98 |
+| v4-dd-players-legalhead-noname | .078 | .084 | .055 | .315 | .98 |
+
+The per-player value models mostly use the flag for the sign; the no-name legal-loss ones almost only for that.
