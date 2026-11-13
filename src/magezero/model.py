@@ -114,12 +114,14 @@ class Plan(NamedTuple):
     pos: torch.Tensor         # position of each global token in its state's sequence
     counts: torch.Tensor      # global tokens per state
     width: int                # padded sequence length (1 + the largest count)
+    down_stages: list = []    # top-down passes: (layer name, nodes, their leaves and parents, edge labels, each
+                              # token's node position), types in reverse STAGES order
 
     def to(self, device):
         def move(x):
             return x.to(device, non_blocking=True) if isinstance(x, torch.Tensor) else x
         return Plan(*(move(x) for x in self[:5]), [tuple(move(x) for x in st) for st in self.stages],
-                    *(move(x) for x in self[6:]))
+                    *(move(x) for x in self[6:11]), [tuple(move(x) for x in st) for st in self.down_stages])
 
 
 def graph_index(offsets: torch.Tensor) -> torch.Tensor:
@@ -211,6 +213,9 @@ class NetGraph(nn.Module):
       value_loss: "mse"  tanh value, MSE to the label
                   "ce"   value logit, binary cross-entropy to the label as a win probability (label + 1) / 2;
                          value_estimate turns it into a value
+      directions: one per local pass, "up" (default: each node attends over its children, ABILITY -> ... -> ROOT)
+                  or "down" (each node attends over its leaves and its parents, ROOT -> ... -> ABILITY, so a node
+                  learns its zone and owner; not cacheable by subtree)
       value_token: "cls"      the value head reads CLS after the global layers
                    "root"     it reads the ROOT node's token instead (CLS still feeds choose_use)
                    "players"  it scores each PLAYER token and the value is tanh(own score - opponent's), so the two
@@ -221,12 +226,13 @@ class NetGraph(nn.Module):
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
                  policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared",
-                 value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1):
+                 value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1, directions: list = None):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
                          policy_domain=policy_domain, legality_weight=legality_weight, legality_heads=legality_heads,
-                         value_loss=value_loss, value_token=value_token, decision_row=decision_row)
+                         value_loss=value_loss, value_token=value_token, decision_row=decision_row,
+                         directions=list(directions or ["up"] * n_passes))
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -300,6 +306,20 @@ class NetGraph(nn.Module):
                 stage = (name, nodes, child[edges], label[edges], torch.searchsorted(nodes, parent[edges]))
                 stages.append(stage if cached is None else stage + (slot[nodes], fill, slot[fill]))
 
+        # top-down stages: each node's tokens are its leaves and its parents
+        down_stages = []
+        if "down" in self.arch["directions"]:
+            if cached is not None:
+                raise ValueError("the node cache only supports bottom-up passes")
+            from_leaf = g.node_type[child] == NodeType.LEAF
+            for name, types in reversed(self.groups.items()):
+                run = torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device))
+                nodes = run.nonzero().squeeze(1)
+                if len(nodes):
+                    up, down = (run[parent] & from_leaf).nonzero().squeeze(1), (run[child] & ~from_leaf).nonzero().squeeze(1)
+                    down_stages.append((name, nodes, torch.cat([child[up], parent[down]]), torch.cat([label[up], label[down]]),
+                                        torch.searchsorted(nodes, torch.cat([parent[up], child[down]]))))
+
         # global tokens: [CLS, tokens] per state
         internal = g.node_type != NodeType.LEAF
         if self.arch["global_tokens"] == "all":
@@ -308,7 +328,8 @@ class NetGraph(nn.Module):
         gi = graph_index(g.node_offsets)[internal]
         counts = torch.bincount(gi, minlength=B)
         pos = torch.arange(len(internal), device=gi.device) - (counts.cumsum(0) - counts)[gi] + 1
-        return Plan(leaves, child, parent, label, leaf_edges, stages, internal, gi, pos, counts, int(counts.max()) + 1)
+        return Plan(leaves, child, parent, label, leaf_edges, stages, internal, gi, pos, counts, int(counts.max()) + 1,
+                    down_stages)
 
     def forward(self, g: Graphs, plan: "Plan" = None, cache: torch.Tensor = None):
         """Returns per-node priority and target scores [N] (-inf at leaves), choose_use logits
@@ -338,7 +359,7 @@ class NetGraph(nn.Module):
         inplace = self.arch["local"] == "sequential" and not torch.is_grad_enabled()
         for p, layers in enumerate(self.local_layers):
             src = h
-            for name, nodes, c, lbl, seg, *fill in plan.stages:
+            for name, nodes, c, lbl, seg, *fill in (plan.down_stages if self.arch["directions"][p] == "down" else plan.stages):
                 if self.arch["local"] == "sequential":
                     src = h
                 if len(nodes):
