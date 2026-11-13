@@ -176,3 +176,32 @@ Conclusions:
   use BattlefieldSize more (+.04 to +.07 vs +.01 to +.02), closer to P1 (+.08).
 - On this unseen matchup, all-node no-name (.078) and legal no-name (.076) are level; registers change nothing (.079).
   Registers give the best gen0-test value so far (.031 / .029), within the noise of one seed.
+
+## ddp (down-down + per-player value, names kept, all-node) in play and the land-skip rate
+
+Faeries vs offline, 300 sims, value only, `max_pending` 4, XMage `b6ca7b35`, RunPod 4090s (`/workspace/runs/ddp-*`).
+v4 from `generations.md` (XMage `f2ce8eca`; mirror, Rally, Spy, Wildfire from Will's machine).
+
+| | Affinity | Burn | CawGates | Elves | mirror | Rally | Spy | Wildfire | mean |
+|---|---|---|---|---|---|---|---|---|---|
+| ddp | 67.5 | 57.5 | 80.3 (198) | 72.0 | 67.5 | 30.5 | 60.0 | 75.0 | 63.8 |
+| v4 | 63.5 | 66.5 | 81.1 | 65.0 | 72.0 | 30.0 | 59.0 | 72.0 | 63.6 |
+
+Land skips (`util/land_pass.py`, `runpod/land-pass.sh`): share of the decision player's own main-phase priority
+states with a land play legal where the search's top move is Pass, at < 3 own lands (< 4 in brackets).
+gen0 = heuristic vs heuristic; v4 games exist only for the first four decks.
+
+| deck | gen0 | v4 | ddp | ver15 |
+|---|---|---|---|---|
+| Affinity | 3.7 (5.5) | 13.8 (19.7) | 7.1 (10.4) | 21.5 (26.9) |
+| Burn | 3.4 (4.1) | 14.2 (17.5) | 8.3 (10.2) | 21.8 (26.2) |
+| CawGates | 3.8 (4.3) | 5.2 (9.2) | 5.6 (6.5) | 8.3 (14.2) |
+| Elves | 4.2 (4.9) | 9.3 (11.8) | 4.6 (6.5) | 9.4 (15.3) |
+| mirror | 3.2 (4.3) | | 3.0 (3.8) | 7.0 (10.8) |
+| Rally | 3.9 (4.3) | | 4.1 (6.7) | 6.4 (9.8) |
+| Spy | 4.0 (5.8) | | 6.9 (9.5) | 12.5 (19.0) |
+| Wildfire | 5.3 (6.1) | | 6.4 (9.1) | 27.4 (33.4) |
+
+ddp is a gen1 model like v4 (trained on gen0 only). It skips about half as often as v4 on the four shared decks
+and stays near gen0 on the mirror, Rally, CawGates and Elves, while winning as often (63.8% vs 63.6% mean).
+ver15 skips most everywhere: the degeneration compounded v4 -> ver15; ddp starts from a lower point.
