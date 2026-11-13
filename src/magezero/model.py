@@ -376,16 +376,18 @@ class NetMLP(nn.Module):
       entity  e = LN(c + ctx(sum of c over its ancestors))                           the bag-of-nodes bridge:
                                                                                      zone, owner, source card
       state   s = root(e_ROOT) + pools(0.25-sum and max of e per node type), then residual blocks, LN
-              pool "attn": s = CLS after one self-attention layer over [CLS, every entity e], its FF width set so
-              the parameter count matches the pools it replaces (not an MLP any more)
+              pool "attn": s = CLS after attn_layers self-attention layers (4 heads) over [CLS, every entity e]
+              (not an MLP any more); attn_ff None sets one layer's FF width so the parameters match the pools it
+              replaces
       heads   value, choose_use from s; priority and target per node from [s, e]
     Policy heads are meant to be trained over legal candidates only (policy_domain "legal"), as the MLP was."""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = 64, blocks: int = 1,
-                 policy_domain: str = "legal", net: str = "mlp", value_loss: str = "mse", pool: str = "types"):
+                 policy_domain: str = "legal", net: str = "mlp", value_loss: str = "mse", pool: str = "types",
+                 attn_layers: int = 1, attn_ff: int = None):
         super().__init__()
         self.arch = dict(net=net, d_model=d_model, blocks=blocks, policy_domain=policy_domain, value_loss=value_loss,
-                         pool=pool)
+                         pool=pool, attn_layers=attn_layers, attn_ff=attn_ff)
         d = d_model
         self.embedding = nn.Embedding(num_embeddings, d)
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d, padding_idx=0)
@@ -394,11 +396,11 @@ class NetMLP(nn.Module):
         self.register_buffer("value_bounds", torch.tensor(VALUE_BOUNDS), persistent=False)
         self.raw, self.phi, self.ctx = nn.Linear(d, d), nn.Linear(d, d), nn.Linear(d, d)
         self.norm = nn.LayerNorm(d)
-        if pool == "attn":   # FF width: the pools' and root's parameters, less the layer's fixed ones, per FF unit
-            ff = round((2 * len(STAGES) * d * d + d * d + 2 * d - (4 * d * d + 4 * d + 6 * d + d)) / (2 * d + 1))
+        if pool == "attn":   # default FF width: the pools' and root's parameters, less the layer's fixed ones, per FF unit
+            ff = attn_ff or round((2 * len(STAGES) * d * d + d * d + 2 * d - (4 * d * d + 4 * d + 6 * d + d)) / (2 * d + 1))
             self.cls = nn.Parameter(torch.randn(d))
-            self.attn = nn.TransformerEncoderLayer(d, 4, ff, 0.0, activation="gelu", batch_first=True, norm_first=True)
-            self.attn_norm = nn.LayerNorm(d)
+            layer = nn.TransformerEncoderLayer(d, 4, ff, 0.0, activation="gelu", batch_first=True, norm_first=True)
+            self.attn = nn.TransformerEncoder(layer, attn_layers, norm=nn.LayerNorm(d), enable_nested_tensor=False)
         else:
             self.root, self.pools = nn.Linear(d, d), nn.Linear(2 * len(STAGES) * d, d)
         self.blocks = nn.ModuleList(nn.Sequential(nn.LayerNorm(d), nn.Linear(d, d), nn.ReLU(), nn.Linear(d, d))
@@ -445,7 +447,7 @@ class NetMLP(nn.Module):
             x[:, 0] = self.cls
             x[gi, pos] = e[internal]
             pad = torch.arange(x.shape[1], device=x.device) > counts.unsqueeze(1)
-            s = self.attn_norm(self.attn(x, src_key_padding_mask=pad)[:, 0])
+            s = self.attn(x, src_key_padding_mask=pad)[:, 0]
         else:  # state: root object + per-type pools
             pools = []
             for t in STAGES:
