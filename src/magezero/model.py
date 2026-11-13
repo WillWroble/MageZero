@@ -226,21 +226,23 @@ class NetGraph(nn.Module):
                               perspectives are exact negatives; the own player is the one with the IsDecisionPlayer
                               leaf, vocab row decision_row (set by train.py)
       hide_decider: the network never sees the IsDecisionPlayer leaf (dropped like a leaf outside the vocab); with
-                    value_token "players" it only picks the sign, so the state is evaluated without a perspective"""
+                    value_token "players" it only picks the sign, so the state is evaluated without a perspective
+      registers: K learned tokens added to every global sequence after CLS and read by no head, so the global
+                 layers can store state-wide information there instead of in uninformative nodes"""
 
     def __init__(self, num_embeddings: int = 0, num_edge_labels: int = 0, d_model: int = D_MODEL,
                  n_heads: int = N_HEADS, d_ff: int = D_FF, dropout: float = DROPOUT, n_passes: int = N_PASSES,
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
                  policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared",
                  value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1, directions: list = None,
-                 owner_context: bool = False, hide_decider: bool = False):
+                 owner_context: bool = False, hide_decider: bool = False, registers: int = 0):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
                          policy_domain=policy_domain, legality_weight=legality_weight, legality_heads=legality_heads,
                          value_loss=value_loss, value_token=value_token, decision_row=decision_row,
                          directions=list(directions or ["up"] * n_passes), owner_context=owner_context,
-                         hide_decider=hide_decider)
+                         hide_decider=hide_decider, registers=registers)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -253,6 +255,8 @@ class NetGraph(nn.Module):
             for _ in range(0 if local == "flat" else n_passes))
 
         self.cls = nn.Parameter(torch.randn(d_model))
+        if registers:
+            self.registers = nn.Parameter(torch.randn(registers, d_model))
         if owner_context:
             self.owner_proj = nn.Linear(d_model, d_model)
         global_layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, activation="gelu",
@@ -397,15 +401,18 @@ class NetGraph(nn.Module):
                     h = h.index_copy_(0, fill[1], cache[p][fill[2]]) if inplace else h.index_copy(0, fill[1], cache[p][fill[2]])
 
         # global layers: self-attention over [CLS, tokens], one padded sequence per state
-        internal, gi, pos = plan.internal, plan.gi, plan.pos
-        x = h.new_zeros(B, plan.width, h.shape[1])
+        R = self.arch["registers"]
+        internal, gi, pos = plan.internal, plan.gi, plan.pos + R
+        x = h.new_zeros(B, plan.width + R, h.shape[1])
         x[:, 0] = self.cls
+        if R:
+            x[:, 1:R + 1] = self.registers
         tokens = h[internal]
         if self.arch["owner_context"]:
             o = plan.owner[internal]
             tokens = tokens + self.owner_proj(h[o.clamp(min=0)]) * (o >= 0).unsqueeze(1)
         x[gi, pos] = tokens
-        pad = torch.arange(plan.width, device=h.device) > plan.counts.unsqueeze(1)
+        pad = torch.arange(plan.width + R, device=h.device) > plan.counts.unsqueeze(1) + R
         x = self.global_layers(x, src_key_padding_mask=pad)
         cls, z = x[:, 0], x[gi, pos]
 
