@@ -137,3 +137,42 @@ states): if the network used the flag only for the sign, the value would exactly
 | v4-dd-players-legalhead-noname | .078 | .084 | .055 | .315 | .98 |
 
 The per-player value models mostly use the flag for the sign; the no-name legal-loss ones almost only for that.
+
+## Sink or information? Same ablations for every model (`util/ablate.py`, `runpod/ablate.sh`, 2,000 states of P1's Burn mirror)
+
+The mana-pool leaves (WhiteMana ... ColorlessMana) are one node per state shared by both PLAYERs, value 0 in 100% of
+states (autopay: mana never floats at a decision), so they carry no information. The earlier "spurious leaves" were
+removal effects of these constant tokens. Here every model gets the same tests: PLAYER local-layer attention mass,
+removal of the mana leaves and Battlefield, and value shuffling (the token stays, its value moves to another state).
+
+gen0-test of the new runs (value MSE A / B, priority KL A): all-node no-name flag visible (`v4-dd-players-noname`)
+.035 / .030, .072; flag hidden .034 / .031, .080; flag hidden + 4 registers (`v4-dd-players-hidden-reg4`) .031 / .029, .076.
+
+| model | Burn MSE | mana attention (pass 0 / 1) | − all mana | − Battlefield | ~ LifeTotal | ~ BattlefieldSize | ~ ManaValue |
+|---|---|---|---|---|---|---|---|
+| P1 | .046 | .00 / .05 | +.001 | +.001 | +.220 | +.077 | +.007 |
+| v4-noname | .091 | .00 / .03 | +.000 | +.004 | +.129 | +.037 | +.002 |
+| downdown (names) | .076 | .13 / .01 | +.191 | +.000 | +.153 | +.008 | +.035 |
+| dd-players (names) | .091 | .02 / .01 | −.000 | +.008 | +.146 | +.013 | +.022 |
+| td003 (names) | .092 | .05 / .13 | +.182 | +.190 | +.177 | +.026 | +.013 |
+| td003, no names | .077 | .20 / .02 | +.016 | +.001 | +.207 | +.022 | +.019 |
+| all-node, no names | .078 | .03 / .11 | +.002 | +.035 | +.181 | +.013 | +.010 |
+| all-node, no names, hidden | .078 | .21 / .01 | +.004 | +.005 | +.174 | +.009 | +.014 |
+| all-node, no names, hidden, 4 registers | .079 | .04 / .08 | +.002 | +.013 | +.166 | +.017 | +.010 |
+| legal, no names | .076 | .02 / .01 | +.000 | +.000 | +.180 | +.074 | +.017 |
+| legal + legality head, no names | .078 | .03 / .05 | −.000 | +.001 | +.158 | +.064 | +.008 |
+| legal, no names, hidden | .086 | .02 / .03 | −.000 | +.002 | +.166 | +.036 | +.014 |
+
+Other shuffles (HandSize, GraveyardSize, LibrarySize, Power, Toughness) are ≤ +.02 for every model.
+
+Conclusions:
+- The big removal effects (+.13 to +.19) come only from the two named all-node models. Without names, all-node models
+  survive removing every mana leaf (≤ +.016). "All-node leans on garbage features" was wrong: it was a names effect
+  and a removal artefact.
+- No-name all-node models do park 11–21% of one pass's PLAYER attention on the constant mana leaves (legal-only:
+  ≤ 5%), so they use them as attention sinks, but harmlessly. With 4 global registers the hidden model's mana
+  attention fell from .21 to .04 in pass 0 (one seed; the registers sit in the global layers, not the local ones).
+- Information use is similar across the loss types: LifeTotal dominates everywhere (+.13 to +.22). Legal-only models
+  use BattlefieldSize more (+.04 to +.07 vs +.01 to +.02), closer to P1 (+.08).
+- On this unseen matchup, all-node no-name (.078) and legal no-name (.076) are level; registers change nothing (.079).
+  Registers give the best gen0-test value so far (.031 / .029), within the noise of one seed.
