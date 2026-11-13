@@ -33,6 +33,8 @@ v4's value error comes from; the hard part is how decisive a position is. RTX 40
 | v4-dd-players-td003 | down-down + per-player value, `--td first:0.03` (different labels: value MSE not comparable) | .044 / .041 | .065 / .063 | .790 / .782 | 9.12M | 4090 |
 | v4-dd-players-legal | down-down + per-player value, legal-only policy loss | .076 / .070 | .052 / .055 | .800 / .794 | 9.12M | 4090 |
 | v4-dd-players-legalhead | as legal, plus a shared legality head (weight 1.0) | .042 / (.041 both) | .047 / | .805 / | 9.12M | 4090 |
+| v4-dd-players-legal-noname | legal, `--drop-player-names` | .036 / .034 | .045 / .046 | .816 / .814 | 9.12M | PRO 6000 |
+| v4-dd-players-legalhead-noname | legalhead, `--drop-player-names` | .035 / .034 | .045 / .046 | .822 / .819 | 9.12M | 4090 |
 
 Prio KL / top-1 of entityattn are not comparable with the all-node runs (legal-only loss; cf. `gnnlegal` .052 / .795
 in mlp-vs-gnn.md). Conclusions: reading value from ROOT changes nothing; dropping the player names costs nothing on
@@ -93,3 +95,6 @@ Legal-only policy loss breaks value generalisation on down-down + per-player val
 .072-.082 from epoch 2 on (all-node loss: .032 held out). The legality head recovers half of it (.041) and gives the
 best policy so far (KL .047). legalhead's pod was reaped before test.log was written; its numbers come from gnn.log
 (PlayerB line missing; .041 is the combined end-of-training validation).
+Dropping the player names removes the overfit: legal-only goes from .073 to .035 held out (legality head .035), with
+the best policy yet (KL .045). The names let the legal-only net memorise value by seat. Both ~$2 of training; the
+pods then sat idle 4.4 h while this session had no RunPod access (~$16 wasted).
