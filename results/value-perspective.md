@@ -26,6 +26,7 @@ v4's value error comes from; the hard part is how decisive a position is. RTX 40
 | v4-noname | `--drop-player-names` | .037 / .032 | .173 / .171 | .654 / .647 | 9.12M | PRO 6000, ~$2.80 |
 | v4-entityattn | Dama's entity encoder (objects + ancestor context, owner-aware), 15 attention layers d256 FF512 over [CLS, entities]; legal-only policy loss | .038 / .037 | .050 / .051 | .799 / .794 | 9.04M | 4090, ~$1.20 |
 | v4-downdown | both local passes top-down (`directions: [down, down]`): each node attends over its leaves and parents | .034 / .033 | .068 / .068 | .782 / .774 | 9.12M | 4090, ~$1 |
+| v4-playervalue | value = tanh(own PLAYER token's score − opponent's) (`value_token: players`) | .034 / .032 | .170 / .172 | .659 / .652 | 9.12M | 4090, ~$1 |
 
 Prio KL / top-1 of entityattn are not comparable with the all-node runs (legal-only loss; cf. `gnnlegal` .052 / .795
 in mlp-vs-gnn.md). Conclusions: reading value from ROOT changes nothing; dropping the player names costs nothing on
@@ -33,6 +34,5 @@ held-out value; the owner-aware entity net with message passing replaced by glob
 (.001-.004 worse) and level with the legal-loss GNN on policy.
 
 ## Pending
-- `v4-playervalue` (`value_token: players`, value = tanh(own score − opponent's)),
-  `v15-noname` (ver15 recipe from v4-noname, `--drop-player-names`), `v4-updown`
+- `v15-noname` (ver15 recipe from v4-noname, `--drop-player-names`), `v4-updown`
   (`directions`).
