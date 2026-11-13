@@ -9,6 +9,8 @@ This repo holds the Python side: dataset, model, training and the inference serv
 - If a design decision is unclear, ask rather than guess.
 - The datasets are small. Prefer models that generalize over models that fit the training data hard, and judge
   every change by its test metrics.
+- Train with `--drop-player-names` by default. The names let a network memorise value by seat, so it doesn't
+  transfer to other matchups (`results/value-perspective.md`).
 - Develop on `graph-encoder-test`. Commit and push experiments there.
 - Will runs his own experiments in parallel on his machine. Work autonomously, then report back with results.
 
