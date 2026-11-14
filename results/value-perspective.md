@@ -381,3 +381,7 @@ Games: Faeries mirror vs offline, 200 games, best held-out checkpoint (`CKPT` in
   Pooled: d128 all-node 75.3%, legal 75.0%: at d128 the policy domain makes no difference.
 - Land skips vary between runs at both sizes (d128 2.5-6.6%). All-node is consistently low across its four
   independent models (2.1-3.8%); legal-only ranges 2.5-6.6%.
+
+Second d256 legal-only seed (`v4-dd-players-legal-noname-h5-s1`, seed 1): held-out value best .0381 (e4·10K), KL .065,
+train .035 at e4. d256 legal seeds .0373 / .0381 (mean .0377) vs d128 legal seeds .0370 / .0357 (mean .0364): the seed
+spread is similar at both sizes (.0008 vs .0013); d128 is ≈.0013 better.
