@@ -308,3 +308,32 @@ Same settings as the first pair; 200 games per test, head-to-head with all-node 
 Legal-only wins all four game comparisons across two independent pairs: its value head plays better despite
 all-node's ≈.001 lower held-out value MSE, and it also predicts these games better (.0393 vs .0425; legal-only's own
 vs-offline games .040 vs .051). The first pair's 2x land-skip gap did not reproduce (≈4% each): it was run-specific.
+
+## Do MLPs skip land drops too? (Nov 14)
+
+Land skips in existing MLP games vs offline (`runpod/land-pass.sh` with `SHARDS`; Pass top at < 3 own lands, < 4 in
+brackets). gen1 MLP = `mlp-gen0all` (gen0 data, as v4); F2-mlp = ver15's MLP twin (same data, e6 end).
+
+| deck | gen0 | gen1 MLP | v4 (GNN) | F2-mlp | ver15 (GNN) |
+|---|---|---|---|---|---|
+| Affinity | 3.7 (5.5) | 12.0 (18.6) | 13.8 (19.7) | | 21.5 (26.9) |
+| Burn | 3.4 (4.1) | 10.2 (14.6) | 14.2 (17.5) | 15.7 (20.2) | 21.8 (26.2) |
+| CawGates | 3.8 (4.3) | 7.3 (12.8) | 5.2 (9.2) | | 8.3 (14.2) |
+| Elves | 4.2 (4.9) | 8.1 (13.8) | 9.3 (11.8) | | 9.4 (15.3) |
+| mirror | 3.2 (4.3) | 4.7 (8.0) | | 4.2 (9.2) | 7.0 (10.8) |
+| Rally | 3.9 (4.3) | 4.8 (7.4) | | 4.7 (6.9) | 6.4 (9.8) |
+| Spy | 4.0 (5.8) | 10.7 (18.0) | | | 12.5 (19.0) |
+| Wildfire | 5.3 (6.1) | 14.4 (25.6) | | | 27.4 (33.4) |
+
+The MLPs recreate the land skipping: gen1 MLP is at v4's level (2-4x gen0), and F2-mlp is between gen1 and ver15 on
+Burn. So the behaviour comes from the data and search loop, not the GNN. F2-mlp skips ≈30% less than ver15 on the
+same data.
+
+Opponent-turn land injection test on the same MLPs (P1's Burn mirror; up / down):
+
+| network | 300: flag | played | lost | 2 lands | 1000: flag | played | lost |
+|---|---|---|---|---|---|---|---|
+| gen1 MLP | 62 / 24% | 35 / 62% | 31 / 66% | 34 / 63% | 57 / 30% | 60 / 37% | 57 / 40% |
+| F2-mlp | 69 / 16% | 76 / 20% | 74 / 22% | 76 / 20% | 64 / 21% | 94 / 6% | 92 / 8% |
+
+F2-mlp aces the injection test yet skips 15.7% of early Burn drops in play: the injection test does not predict skipping.
