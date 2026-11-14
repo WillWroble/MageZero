@@ -293,3 +293,18 @@ Neighbouring checkpoints differ by up to 20-40 points, and this run drifts the w
 epoch 2, 12-20% by epoch 4). The holdout retrain's final checkpoint (77K steps) is 85% up, where this run was at 19%
 at a similar step: the gap between the two runs is not the step count. The test is dominated by checkpoint and run
 noise; the land-skip rate in the models' own games is the statistic to use.
+
+### The holdout retrains in play (Nov 14; final checkpoints, which are also their best or within .0002 of it)
+
+Same settings as the first pair; 200 games per test, head-to-head with all-node as seat A (`mir-*-h5`, `h2h-h5`).
+
+| | all-node (-h5) | legal-only (-h5) | pooled with the first pair (600 games per test) |
+|---|---|---|---|
+| vs offline mirror | 64.0% | 72.0% | 71.2% vs 76.5% (+5.3, ≈2.1 SE) |
+| head-to-head | 44.0% | 56.0% | 46.0% vs 54.0% (≈2.0 SE) |
+| land skips, own decisions, < 3 (< 4) lands | 4.1% (8.2%) | 4.2% (7.5%) | first pair: 3.2% (4.3%) vs 6.1% (10.1%) |
+| value MSE on all 6 shards of these games (mean) | .0425 | **.0393** | |
+
+Legal-only wins all four game comparisons across two independent pairs: its value head plays better despite
+all-node's ≈.001 lower held-out value MSE, and it also predicts these games better (.0393 vs .0425; legal-only's own
+vs-offline games .040 vs .051). The first pair's 2x land-skip gap did not reproduce (≈4% each): it was run-specific.
