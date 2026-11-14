@@ -122,7 +122,11 @@ if __name__ == "__main__":
     data = {sh: variants(sh) for sh in shards}
     print(f"{'model':36} {'shard':8} {'positions':>9}  {'flag':>9}  {'played':>9}  {'lost':>9}  {'2 lands':>9}  (up / down)")
     for name, path in models:
-        model, vocab, edge_vocab = load_checkpoint(path); model.to(DEVICE).eval()
+        try:
+            model, vocab, edge_vocab = load_checkpoint(path)
+        except Exception as e:
+            print(f"{name:36} skipped: {path}: {e}", flush=True); continue
+        model.to(DEVICE).eval()
         for sh, (sets, lands, lost) in data.items():
             v = {}
             for k, ds in sets.items():
