@@ -275,3 +275,21 @@ The holdout retrain of the same all-node config (`-h5`: 80% of gen0, otherwise i
 the names explains the all-node no-name model's 12% / 85%: it is training variance. The test moves by ~70 points
 between two trainings of one config; single-model results on it (including "only legal-noname gets the flag right")
 are not evidence about an architecture.
+
+Opponent-turn land test along the original all-node run (`v4-dd-players-noname`, saved checkpoints; up / down, 300-sim
+set, 1000-sim in brackets):
+
+| checkpoint (step) | flag | played |
+|---|---|---|
+| epoch 2 end (48K) | 11 / 5% (13 / 5%) | 69 / 24% (69 / 23%) |
+| epoch 3, 10K (58K) | 3 / 0% (5 / 0%) | 27 / 67% (49 / 45%) |
+| epoch 3, 20K (68K) | 27 / 4% (28 / 6%) | 40 / 53% (61 / 31%) |
+| epoch 3 end (72K) | 15 / 0% (17 / 1%) | 19 / 75% (39 / 54%) |
+| epoch 4, 10K (82K) | 55 / 1% (52 / 1%) | 14 / 82% (34 / 60%) |
+| epoch 4, 20K (92K) | 13 / 1% (18 / 1%) | 20 / 75% (44 / 49%) |
+| epoch 4 end (97K) | 9 / 3% (11 / 3%) | 12 / 85% (38 / 57%) |
+
+Neighbouring checkpoints differ by up to 20-40 points, and this run drifts the wrong way from epoch 3 on (69% up at
+epoch 2, 12-20% by epoch 4). The holdout retrain's final checkpoint (77K steps) is 85% up, where this run was at 19%
+at a similar step: the gap between the two runs is not the step count. The test is dominated by checkpoint and run
+noise; the land-skip rate in the models' own games is the statistic to use.
