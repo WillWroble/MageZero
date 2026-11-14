@@ -241,3 +241,20 @@ Every one of the 8 shards agrees: legal-only 5.6-6.5% (8.9-11.5%), all-node 2.1-
 Each model predicts its own games about .0025 better (8 of 8 shards); on the shared head-to-head games all-node is
 .001 better (3 of 4). Legal-only skips early land drops twice as often (ver15's level, all-node stays at gen0's)
 and still won more games.
+
+### Retrained with every 5th gen0 game held out (`v4-dd-players-noname-h5`, `v4-dd-players-legal-noname-h5`, Nov 14)
+
+Same recipe as the two models above, with `train gen0 holdout 5` (80% of gen0 trained on; the held-out games are val
+set "gen0", 26 shards: every opponent, both seats). 4090 and 5090, ≈ $2.30 together.
+
+| | all-node | legal-only |
+|---|---|---|
+| gen0 held-out games, value MSE: final / mean of epochs 3-4 | .036 / .0363 | .037 / .0380 |
+| gen0-test, value MSE: final / mean of epochs 3-4 | .036 / .0345 | .036 / .0365 |
+| priority KL, final (gen0 held out / gen0-test) | .092 / .064 | .064 / .046 |
+| shards with the lower final value MSE (of 26, 1 tie) | 14 | 11 |
+
+Per shard (final): all-node is clearly lower on Elves (.034 vs .040), CawGates (.036/.040), MonoW (.040/.046) and
+MonoB (.031/.034) as Faeries; legal-only on Spy (.052 vs .063), Affinity and Burn (both seats, small shards). The
+gen0-test gap of the first pair (.032 vs .035 final) shrank to nothing here (.036 vs .036): about .001-.002 of value
+MSE is all the policy domain buys, within seed and data noise.
