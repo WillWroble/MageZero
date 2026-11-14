@@ -440,3 +440,24 @@ On the unseen Burn mirror dropout doesn't help: all-node .080 / .073 (vs .077 / 
 Dropout removes the reliance on secondary counters (HandSize, BattlefieldSize ≈ 0 for all four; legal d128 had
 +.025 / +.029); ManaValue still varies by seed (+.003 to +.023). Mana leaves draw a little more attention in pass 1 (.07-.09)
 but removing them changes nothing (≤ .001): no sink.
+
+### Land injection on the d128 runs, every epoch (`runpod/land-inject.sh`, P1's Burn mirror)
+
+Share of positions whose value goes up when the skipped Mountain is played, end-of-epoch checkpoints, 300-sim shard
+(1000-sim in brackets). `ld` = leaf dropout 0.1; e5-e8 are the `--resume` continuations.
+
+| run | e1 → e8 | mean jump between epochs |
+|---|---|---|
+| all-node s0 | 12 11 18 26 (29 25 40 54) | 5.3 (11.0) |
+| all-node s1 | 98 98 89 87 (96 96 98 98) | 3.7 (0.7) |
+| legal s0 | 61 58 74 48 (75 75 92 68) | 15.0 (13.7) |
+| legal s1 | 78 94 60 67 (91 91 84 93) | 19.0 (5.3) |
+| all-node ld s0 | 83 72 92 67 84 69 50 64 (73 60 85 64 68 60 54 56) | 17.3 (11.3) |
+| all-node ld s1 | 99 99 99 98 98 97 97 96 (99 99 100 99 99 99 96 96) | 0.4 (0.7) |
+| legal ld s0 | 94 94 87 98 98 99 98 96 (92 84 76 94 97 98 94 96) | 3.1 (6.3) |
+| legal ld s1 | 76 84 74 76 11 12 27 49 (71 82 84 83 23 37 55 72) | 17.6 (17.6) |
+
+Dropout does not make the injection test stable. Over e1-e4 the mean jump is 7.9 points with dropout against 10.8
+without, and the seeds of one config still land far apart. Legal ld s1 drops from 76% to 11% at e5, while its held-out
+value improves (.0363 → .0353). Dropout moves the level up: at e4, 67-98% against 26-98% without. Along with the earlier
+finding that the test doesn't predict skips in play, this is a property of a single run, not a training signal.
