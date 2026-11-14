@@ -55,6 +55,7 @@ from hand to battlefield (hand size -1, permanent count +1).
 | v4-updown | 4 / 0% | 62 / 35% | 60 / 37% | 58 / 39% | 6 / 0% | 62 / 35% | 57 / 39% |
 | v4-downdown | 0 / 19% | 86 / 14% | 86 / 14% | 84 / 15% | 0 / 22% | 78 / 22% | 75 / 24% |
 | v4-dd-players-legal-noname | 73 / 17% | 56 / 39% | 54 / 41% | 58 / 38% | 69 / 23% | 81 / 16% | 83 / 14% |
+| v4-dd-players-noname (all-node) | 9 / 3% | 12 / 85% | 9 / 87% | 10 / 87% | 11 / 3% | 38 / 57% | 34 / 61% |
 
 Two top-down passes give the best land judgement, and the only one that holds in lost games; one top-down pass is
 between it and the bottom-up models. The per-player value head alone doesn't change it.
@@ -258,3 +259,10 @@ Per shard (final): all-node is clearly lower on Elves (.034 vs .040), CawGates (
 MonoB (.031/.034) as Faeries; legal-only on Spy (.052 vs .063), Affinity and Burn (both seats, small shards). The
 gen0-test gap of the first pair (.032 vs .035 final) shrank to nothing here (.036 vs .036): about .001-.002 of value
 MSE is all the policy domain buys, within seed and data noise.
+
+Opponent-turn land test on the all-node model of the mirror games (`v4-dd-players-noname`, row added to the table
+above): playing the skipped Mountain lowers its value in 85% of positions (300-sim games) and 57% (1000-sim), the
+wrong way round and worse than every other model, and it barely reacts to the flag (86-88% unchanged). Its legal-only
+twin values the drop correctly. Yet in its own mirror games the all-node model skipped early drops half as often
+(3.2% vs 6.1%): this counterfactual (P1's Burn mirror, a deck neither model trained on) does not predict land play
+in the models' own games.
