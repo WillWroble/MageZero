@@ -337,3 +337,22 @@ Opponent-turn land injection test on the same MLPs (P1's Burn mirror; up / down)
 | F2-mlp | 69 / 16% | 76 / 20% | 74 / 22% | 76 / 20% | 64 / 21% | 94 / 6% | 92 / 8% |
 
 F2-mlp aces the injection test yet skips 15.7% of early Burn drops in play: the injection test does not predict skipping.
+
+## Is down-down's land-injection result real? 40 models and checkpoints (`util/land_inject.py`, Nov 14)
+
+Share of positions whose value goes up when the skipped Mountain is played ("played"), P1's Burn mirror, 300-sim
+shard (1000-sim in brackets). All final checkpoints unless noted; ver13 skipped (LFS pointer on the volume).
+
+| group | models | played up: each | mean |
+|---|---|---|---|
+| up-up | v4, v4-noname, rootvalue, playervalue, tdfirst 0007/003/006/01/025, mix0/05/1b | 44 49 60 39 44 29 42 29 17 33 89 41 (73 79 85 63 72 48 65 53 27 68 92 23) | 43% (62%) |
+| up-down | v4-updown | 62 (62) | |
+| down-down | downdown, dd-players, td003, td003-nn, noname, noname-h5, legal, legalhead, legal-nn, legalhead-nn, legal-nn-h5, hidden, legal-hidden, reg4 | 86 85 27 63 12 85 38 32 56 62 62 90 60 62 (78 76 26 59 38 81 45 33 81 81 68 84 67 66) | 59% (63%) |
+
+Along one run (epochs 1, 2, 3, 4; 300-sim): v4-noname 70 75 36 49; v4-playervalue 60 38 39 39; v4-downdown 79 75 82 86;
+v4-downdown-players 48 68 71 85.
+
+Down-down's 86% was the top of its distribution: down-down models average 59% on the 300-sim shard against up-up's
+43% (≈16 points, a real but modest shift), and nothing on the 1000-sim shard (63% vs 62%). Both groups span ≈15-90%,
+and one run can move 20-40 points between epochs (v4-downdown itself was unusually stable, 75-86%). The headline
+was mostly a lucky run.
