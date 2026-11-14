@@ -11,6 +11,10 @@ This repo holds the Python side: dataset, model, training and the inference serv
   every change by its test metrics.
 - Train with `--drop-player-names` by default. The names let a network memorise value by seat, so it doesn't
   transfer to other matchups (`results/value-perspective.md`).
+- Train with `--val-every` (every 10K steps or finer) and a held-out set broad enough to judge value on (e.g. `holdout 5`
+  on the train shards): every validated checkpoint is kept on the RunPod volume. Pick the checkpoint post hoc by
+  held-out value MSE before playing or testing a model; never use `model.pt.gz` (the last one) blind
+  (`results/gen3-training.md`, F2: ver14 was a bad final checkpoint).
 - Develop on `graph-encoder-test`. Commit and push experiments there.
 - Will runs his own experiments in parallel on his machine. Work autonomously, then report back with results.
 
