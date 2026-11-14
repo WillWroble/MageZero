@@ -10,6 +10,8 @@ pip install -q h5py flask waitress msgpack pyyaml
 lscpu > $OUT/cpu.txt; nvidia-smi > $OUT/gpu.txt
 # the model, from this pod's own clone (at the launched commit)
 git lfs install --local >/dev/null && git lfs pull --include="$MODEL/model.pt.gz"
+# $CKPT (optional): serve that checkpoint file of $MODEL (e.g. model-e4-s10000.pt.gz) instead of its model.pt.gz
+if [ -n "$CKPT" ]; then mkdir -p /tmp/ckpt && cp $MODEL/$CKPT /tmp/ckpt/model.pt.gz && MODEL=/tmp/ckpt; fi
 # server logs go to the container disk (their tails are copied to the volume below): a server that logs straight to
 # the volume blocks when the volume stalls, and then fails or hangs every game
 python -u src/magezero/server.py --model $MODEL --port 50052 2>&1 | grep -v "^\[REQ" > /tmp/server.log &
