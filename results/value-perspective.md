@@ -222,3 +222,22 @@ flag visible, no names, v4 recipe, seed 0, epoch-4 checkpoints; they differ only
 
 Legal-only wins both tests by 4-6 points, each about 1.2-1.3 SE: same direction, not significant alone. The all-node
 loss's lower held-out value MSE (.003-.005) did not turn into wins. Cost ≈ $7 (six 4090 pods).
+
+Land skips and value MSE on those 1,600 mirror games (`runpod/mirror-eval.sh`; land skips on each model's own
+decisions, pooled over its vs-offline and head-to-head shards; Pass top at < 3 own lands, < 4 in brackets):
+
+| | all-node | legal-only | gen0 | ddp | ver15 |
+|---|---|---|---|---|---|
+| land skips | 3.2% (4.3%) | 6.1% (10.1%) | 3.2% (4.3%) | 3.0% (3.8%) | 7.0% (10.8%) |
+
+Every one of the 8 shards agrees: legal-only 5.6-6.5% (8.9-11.5%), all-node 2.1-3.8% (3.4-5.4%).
+
+| value MSE (mean over shards) | all-node model | legal-only model |
+|---|---|---|
+| all-node's games vs offline (both seats, 4 shards) | **.0324** | .0335 |
+| legal-only's games vs offline (4 shards) | .0351 | **.0326** |
+| head-to-head games (4 shards) | **.0393** | .0404 |
+
+Each model predicts its own games about .0025 better (8 of 8 shards); on the shared head-to-head games all-node is
+.001 better (3 of 4). Legal-only skips early land drops twice as often (ver15's level, all-node stays at gen0's)
+and still won more games.
