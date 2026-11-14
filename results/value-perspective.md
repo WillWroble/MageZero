@@ -205,3 +205,20 @@ gen0 = heuristic vs heuristic; v4 games exist only for the first four decks.
 ddp is a gen1 model like v4 (trained on gen0 only). It skips about half as often as v4 on the four shared decks
 and stays near gen0 on the mirror, Rally, CawGates and Elves, while winning as often (63.8% vs 63.6% mean).
 ver15 skips most everywhere: the degeneration compounded v4 -> ver15; ddp starts from a lower point.
+
+## Does the policy domain change value in play? Faeries mirror, all-node vs legal-only (Nov 13)
+
+`v4-dd-players-noname` (all-node) vs `v4-dd-players-legal-noname` (legal-only): both down-down, per-player value,
+flag visible, no names, v4 recipe, seed 0, epoch-4 checkpoints; they differ only in `policy_domain`. Value-only search
+(priors off), 300 sims, `max_pending` 4, XMage `b6ca7b35`, 4090s; 400 games per test as two 200-game pods
+(`mir-*`, `h2h-*`; `runpod/configs/norm-Faeries.yml`, `h2h-Faeries.yml`).
+
+| test | all-node | legal-only |
+|---|---|---|
+| gen0-test value MSE (A / B), final checkpoint | .035 / .030 | .036 / .034 |
+| held-out value, mean over epochs 3-4 | .0323 | .0372 |
+| vs offline mirror | 74.8% (79.5, 70.0) | 78.8% (77.5, 80.0) |
+| head-to-head (seat A / seat B) | 47.0% (47.5 as A, 46.5 as B) | 53.0% |
+
+Legal-only wins both tests by 4-6 points, each about 1.2-1.3 SE: same direction, not significant alone. The all-node
+loss's lower held-out value MSE (.003-.005) did not turn into wins. Cost ≈ $7 (six 4090 pods).
