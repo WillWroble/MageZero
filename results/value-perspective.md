@@ -385,3 +385,22 @@ Games: Faeries mirror vs offline, 200 games, best held-out checkpoint (`CKPT` in
 Second d256 legal-only seed (`v4-dd-players-legal-noname-h5-s1`, seed 1): held-out value best .0381 (e4·10K), KL .065,
 train .035 at e4. d256 legal seeds .0373 / .0381 (mean .0377) vs d128 legal seeds .0370 / .0357 (mean .0364): the seed
 spread is similar at both sizes (.0008 vs .0013); d128 is ≈.0013 better.
+
+### Ablations on the d128 / d256 seeds (`runpod/ablate.sh`, best held-out checkpoints, 2,000 states of P1's Burn mirror)
+
+| model | Burn MSE | mana attention (pass 0 / 1) | − all mana | − Battlefield | ~ LifeTotal | ~ HandSize | ~ BattlefieldSize | ~ ManaValue |
+|---|---|---|---|---|---|---|---|---|
+| P1 | .046 | .00 / .05 | +.001 | +.001 | +.220 | +.012 | +.077 | +.007 |
+| all-node d256 (e3·10K) | .075 | .01 / .02 | +.000 | +.002 | +.159 | +.004 | +.010 | +.014 |
+| all-node d128 s0 | .077 | .03 / .02 | +.001 | −.000 | +.172 | +.001 | +.001 | +.017 |
+| all-node d128 s1 | .079 | .04 / .06 | +.003 | −.000 | +.160 | −.001 | +.000 | +.027 |
+| legal d256 s0 | .080 | .01 / .05 | +.000 | +.028 | +.176 | +.011 | +.077 | +.007 |
+| legal d256 s1 | .084 | .06 / .02 | +.005 | +.000 | +.169 | +.012 | +.052 | +.005 |
+| legal d128 s0 | .080 | .02 / .06 | +.001 | −.000 | +.153 | +.025 | +.008 | +.023 |
+| legal d128 s1 | .083 | .04 / .05 | +.000 | +.001 | +.156 | +.003 | +.029 | +.028 |
+
+No model uses the mana leaves as a sink at its best checkpoint (attention ≤ .06, removal ≤ .005). On this unseen
+matchup all are level (.075-.084); LifeTotal dominates everywhere. Which secondary leaves a model relies on is a
+seed effect: BattlefieldSize +.077 / +.052 for the two d256 legal seeds but +.008 / +.029 at d128, ~0 for all-node
+d128; per-leaf PLAYER attention also differs widely between seeds of one config. d128 leans more on ManaValue
+(+.017-.028 vs +.005-.014).
