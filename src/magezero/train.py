@@ -34,6 +34,7 @@ def train(
         val_every: int = None,
         only: str = None,
         resume: str = None,
+        min_lr: float = None,
 ):
     train_shards, val_shards = read_split(f"{out}/split.txt")
     ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand, td=td)
@@ -52,7 +53,7 @@ def train(
     val_sets = test.val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand, td)
 
     train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every, only,
-               start_epoch, opt_state)
+               start_epoch, opt_state, min_lr)
 
 
 def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop_player_names: bool = False,
@@ -120,11 +121,12 @@ def save_checkpoint(path, epoch, model, opt, vocab, edge_vocab, avg, hide_oppone
 
 
 def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr=1e-4,
-               val_every=None, only=None, start_epoch=0, opt_state=None):
+               val_every=None, only=None, start_epoch=0, opt_state=None, min_lr=None):
     """val_sets: test.val_loaders's name -> [(shard, DataLoader)], each validated after every epoch (per shard and as
     a whole); the first picks best.pt.gz. With val_every, they're also validated every val_every steps, each time
     saving model-e<epoch>-s<step>.pt.gz. only: "value" or "policy" trains only those losses (the others are still reported).
-    start_epoch, opt_state: a resumed run's epochs so far (numbering continues after them) and optimizer state."""
+    start_epoch, opt_state: a resumed run's epochs so far (numbering continues after them) and optimizer state.
+    min_lr: decay the learning rate from lr to min_lr over this call's steps (cosine)."""
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
@@ -134,6 +136,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
     opt = optim.Adam(model.parameters(), lr=lr)
     if opt_state:
         opt.load_state_dict(opt_state)
+    decay = min_lr is not None and optim.lr_scheduler.CosineAnnealingLR(opt, epochs * min(len(dl), steps), min_lr)
     legal_only = model.arch.get("policy_domain") == "legal"
     legality_weight = model.arch.get("legality_weight", 0.0)
     value_loss = model.arch.get("value_loss", "mse")
@@ -159,6 +162,8 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
             scaler.scale(loss).backward()
             scaler.step(opt)
             scaler.update()
+            if decay:
+                decay.step()
 
             accumulate(stats, heads)
             step += 1
@@ -175,7 +180,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
               f"choose_use_loss={avg['choose_use']:.3f}  value_loss={avg['value']:.3f}  "
               + (f"legality_loss={stats['legality'][0] / max(stats['legality'][1], 1):.3f}  " if "legality" in stats else "")
               + (f"value_ce_loss={stats['value_ce'][0] / max(stats['value_ce'][1], 1):.4f}  " if "value_ce" in stats else "")
-              + f"decision_states={decision_states(stats)}  steps={step}  time={time.perf_counter() - start:.0f}s")
+              + f"decision_states={decision_states(stats)}  steps={step}  lr={opt.param_groups[0]['lr']:.1e}  time={time.perf_counter() - start:.0f}s")
 
         val_losses = list(test.validate_sets(model, val_sets, vocab, edge_vocab).values())
         if val_losses and val_losses[0] < best_val_loss:
@@ -197,6 +202,7 @@ if __name__ == "__main__":
     parser.add_argument("--arch", type=json.loads, default={}, help='model options as JSON, e.g. \'{"n_passes": 1}\' (NetGraph) or \'{"net": "mlp"}\' (NetMLP)')
     parser.add_argument("--seed", type=int)
     parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--min-lr", type=float, help="decay the learning rate from --lr to this over the run (cosine)")
     parser.add_argument("--hide-opponent-hand", action="store_true",
                         help="train and test on states without the non-deciding player's hand (H5Graphs.hide_opponent_hand)")
     parser.add_argument("--drop-player-names", action="store_true",
@@ -214,4 +220,4 @@ if __name__ == "__main__":
     if args.seed is not None:
         torch.manual_seed(args.seed)
     train(args.model, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand, args.lr,
-          args.drop_player_names, args.td, args.val_every, args.only, args.resume)
+          args.drop_player_names, args.td, args.val_every, args.only, args.resume, args.min_lr)
