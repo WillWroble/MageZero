@@ -227,7 +227,7 @@ flag visible, no names, v4 recipe, seed 0, epoch-4 checkpoints; they differ only
 Legal-only wins both tests by 4-6 points, each about 1.2-1.3 SE: same direction, not significant alone. The all-node
 loss's lower held-out value MSE (.003-.005) did not turn into wins. Cost ≈ $7 (six 4090 pods).
 
-Land skips and value MSE on those 1,600 mirror games (`runpod/mirror-eval.sh`; land skips on each model's own
+Land skips and value MSE on those 1,200 mirror games (800 per model: its 400 vs offline and all 400 head-to-head) (`runpod/mirror-eval.sh`; land skips on each model's own
 decisions, pooled over its vs-offline and head-to-head shards; Pass top at < 3 own lands, < 4 in brackets):
 
 | | all-node | legal-only | gen0 | ddp | ver15 |
