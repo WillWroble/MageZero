@@ -56,6 +56,9 @@ from hand to battlefield (hand size -1, permanent count +1).
 | v4-downdown | 0 / 19% | 86 / 14% | 86 / 14% | 84 / 15% | 0 / 22% | 78 / 22% | 75 / 24% |
 | v4-dd-players-legal-noname | 73 / 17% | 56 / 39% | 54 / 41% | 58 / 38% | 69 / 23% | 81 / 16% | 83 / 14% |
 | v4-dd-players-noname (all-node) | 9 / 3% | 12 / 85% | 9 / 87% | 10 / 87% | 11 / 3% | 38 / 57% | 34 / 61% |
+| v4-dd-players-noname-h5 (same, 80% of gen0) | 71 / 13% | 85 / 11% | 84 / 11% | 87 / 9% | 66 / 22% | 81 / 15% | 84 / 12% |
+| v4-dd-players-legal-noname-h5 | 80 / 9% | 62 / 35% | 61 / 36% | 58 / 38% | 73 / 16% | 68 / 28% | 71 / 25% |
+| v4-downdown-players (names kept) | 1 / 0% | 85 / 12% | 85 / 12% | 82 / 14% | 1 / 0% | 76 / 18% | 78 / 16% |
 
 Two top-down passes give the best land judgement, and the only one that holds in lost games; one top-down pass is
 between it and the bottom-up models. The per-player value head alone doesn't change it.
@@ -266,3 +269,9 @@ wrong way round and worse than every other model, and it barely reacts to the fl
 twin values the drop correctly. Yet in its own mirror games the all-node model skipped early drops half as often
 (3.2% vs 6.1%): this counterfactual (P1's Burn mirror, a deck neither model trained on) does not predict land play
 in the models' own games.
+
+The holdout retrain of the same all-node config (`-h5`: 80% of gen0, otherwise identical) flips the result: played
+85% up, flag 71% up. v4-downdown-players (per-player value, names kept) is also 85% up. So neither the value head nor
+the names explains the all-node no-name model's 12% / 85%: it is training variance. The test moves by ~70 points
+between two trainings of one config; single-model results on it (including "only legal-noname gets the flag right")
+are not evidence about an architecture.
