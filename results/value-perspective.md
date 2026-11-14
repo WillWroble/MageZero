@@ -404,3 +404,39 @@ matchup all are level (.075-.084); LifeTotal dominates everywhere. Which seconda
 seed effect: BattlefieldSize +.077 / +.052 for the two d256 legal seeds but +.008 / +.029 at d128, ~0 for all-node
 d128; per-leaf PLAYER attention also differs widely between seeds of one config. d128 leans more on ManaValue
 (+.017-.028 vs +.005-.014).
+
+## Leaf-token dropout at d128 (Nov 14)
+
+`leaf_dropout: 0.1` (`ca2a2ac`): in training each leaf token and its edge is dropped with p = .1, except
+`IsDecisionPlayer`; nothing is dropped at evaluation. Otherwise the d128 `-h5` recipe, seeds 0 and 1, all-node and legal-only
+(`v4-dd-players{,-legal}-noname-h5-d128-ld01-s{0,1}`), 4 epochs, then `--resume` from `model-e4` for 4 more epochs
+with the same seed (`…-e8`). 4090s; about $8 in all (one e1-4 run landed on a slow pod, 37 min/epoch instead of 11).
+Held-out = gen0 holdout games, state-weighted value MSE, best checkpoint of every 10K-step and end-of-epoch validation.
+
+| model | no dropout, best (≤ e4) | dropout, best ≤ e4 | dropout, best ≤ e8 | prio KL at best | train value e8 |
+|---|---|---|---|---|---|
+| all-node s0 | .0351 (e4) | .0364 (e4) | .0343 (e8) | .086 | .037 |
+| all-node s1 | .0353 (e4) | .0363 (e4) | .0338 (e8·10K) | .090 | .037 |
+| legal s0 | .0370 (e4·10K) | .0375 (e4) | .0344 (e8) | .061 | .035 |
+| legal s1 | .0357 (e4) | .0363 (e4) | .0341 (e8·10K) | .060 | .035 |
+
+- At equal epochs dropout is worse on every seed (+.0005-.0013): it slows fitting, it doesn't stabilise it.
+- With 8 epochs every dropout run beats every no-dropout d128 run (≤ e4), all still improving at e8 with train ≥ held out
+  (no overfitting). Seeds agree within .0005 (.0003 per policy domain) vs .0002-.0013 without dropout. Confound: the
+  no-dropout baselines were not trained past e4, so part of the gain may be epochs alone.
+- Jumps remain: seed 1 (same data order) still spikes, e.g. legal s1 .0362 → .0393 at e6·10K and its last checkpoint
+  (.0358) is worse than its best (.0341). Checkpoint selection still matters.
+
+Ablations (`runpod/ablate.sh`, best checkpoints above, the same 2,000 Burn-mirror states as the table before):
+
+| model | Burn MSE | mana attention (pass 0 / 1) | − all mana | − Battlefield | ~ LifeTotal | ~ HandSize | ~ BattlefieldSize | ~ ManaValue |
+|---|---|---|---|---|---|---|---|---|
+| all-node ld s0 | .080 | .04 / .07 | +.001 | −.000 | +.163 | −.000 | +.001 | +.011 |
+| all-node ld s1 | .073 | .04 / .09 | −.000 | +.000 | +.154 | +.002 | −.000 | +.019 |
+| legal ld s0 | .088 | .04 / .09 | +.000 | +.000 | +.164 | +.000 | +.000 | +.003 |
+| legal ld s1 | .090 | .03 / .07 | −.001 | −.000 | +.138 | +.000 | +.004 | +.023 |
+
+On the unseen Burn mirror dropout doesn't help: all-node .080 / .073 (vs .077 / .079), legal .088 / .090 (vs .080 / .083).
+Dropout removes the reliance on secondary counters (HandSize, BattlefieldSize ≈ 0 for all four; legal d128 had
++.025 / +.029); ManaValue still varies by seed (+.003 to +.023). Mana leaves draw a little more attention in pass 1 (.07-.09)
+but removing them changes nothing (≤ .001): no sink.
