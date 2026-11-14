@@ -10,7 +10,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 import test
-from model import (build_model, NodeType, load_checkpoint, losses, accumulate, averages, decision_states, to_ce_value, POLICY_HEADS,
+from model import (build_model, NodeType, load_checkpoint, load_model, losses, accumulate, averages, decision_states, to_ce_value, POLICY_HEADS,
                    AMP, DEVICE, GLOBAL_MAX)
 from dataset import H5Graphs, collate_batch, read_split, parse_td, BATCH_SIZE
 from vocab import FeatureVocab, feature_id, initial_rows, kept_feature_ids
@@ -33,6 +33,7 @@ def train(
         td: float = None,
         val_every: int = None,
         only: str = None,
+        resume: str = None,
 ):
     train_shards, val_shards = read_split(f"{out}/split.txt")
     ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand, td=td)
@@ -40,14 +41,22 @@ def train(
         found = (f"{len(ds.files)} .hdf5/.h5 files, none with readable states (see warnings above)" if ds.files
                  else "no .hdf5/.h5 files")
         raise SystemExit(f"no training data in {out}/split.txt: {found}")
-    vocab, edge_vocab, model = prepare_vocab(out, use_checkpoint, ds, arch or {}, drop_player_names)
+    vocab, edge_vocab, model = prepare_vocab(out, use_checkpoint or bool(resume), ds, arch or {}, drop_player_names, resume)
+    start_epoch, opt_state = 0, None
+    if resume:  # continue that run: its epoch count and optimizer state (the vocab must not have grown)
+        checkpoint = load_model(resume)
+        if len(vocab) != len(FeatureVocab.from_state_dict(checkpoint["feature_vocab"])):
+            raise SystemExit(f"--resume: this data adds leaf ids to {resume}'s vocab; warm start with --checkpoint instead")
+        start_epoch, opt_state = checkpoint["epoch"], checkpoint["optimizer_dense_state_dict"]
     ds.apply_vocab(vocab, edge_vocab)
     val_sets = test.val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand, td)
 
-    train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every, only)
+    train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every, only,
+               start_epoch, opt_state)
 
 
-def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop_player_names: bool = False):
+def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop_player_names: bool = False,
+                  checkpoint_path: str = None):
     """Leaf and edge label vocabs = the previous checkpoint's (rows unchanged) + ids newly kept in
     this dataset, appended. Each embedding table has one row per vocab entry."""
     print("Building vocabs from dataset (ids seen in more than 10 states)")
@@ -60,7 +69,7 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop
     model = build_model(**arch)
     vocab, edge_vocab = FeatureVocab(feature_hash_bins=GLOBAL_MAX), FeatureVocab(feature_hash_bins=GLOBAL_MAX)
     if use_checkpoint:
-        checkpoint_path = f"{out}/model.pt.gz"
+        checkpoint_path = checkpoint_path or f"{out}/model.pt.gz"
         try:
             model, vocab, edge_vocab = load_checkpoint(checkpoint_path)
             # a resumed model keeps the checkpoint's architecture; only the loss's policy domain and an MSE value
@@ -111,10 +120,11 @@ def save_checkpoint(path, epoch, model, opt, vocab, edge_vocab, avg, hide_oppone
 
 
 def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr=1e-4,
-               val_every=None, only=None):
+               val_every=None, only=None, start_epoch=0, opt_state=None):
     """val_sets: test.val_loaders's name -> [(shard, DataLoader)], each validated after every epoch (per shard and as
     a whole); the first picks best.pt.gz. With val_every, they're also validated every val_every steps, each time
-    saving model-e<epoch>-s<step>.pt.gz. only: "value" or "policy" trains only those losses (the others are still reported)."""
+    saving model-e<epoch>-s<step>.pt.gz. only: "value" or "policy" trains only those losses (the others are still reported).
+    start_epoch, opt_state: a resumed run's epochs so far (numbering continues after them) and optimizer state."""
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
@@ -122,6 +132,8 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
     #test.SHOW_CONFUSION_MATRIX = False
 
     opt = optim.Adam(model.parameters(), lr=lr)
+    if opt_state:
+        opt.load_state_dict(opt_state)
     legal_only = model.arch.get("policy_domain") == "legal"
     legality_weight = model.arch.get("legality_weight", 0.0)
     value_loss = model.arch.get("value_loss", "mse")
@@ -130,7 +142,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
     best_val_loss = float('inf')
     print(f"arch: {model.arch}  parameters: {sum(p.numel() for p in model.parameters()):,}")
 
-    for epoch in range(1, epochs+1):
+    for epoch in range(start_epoch + 1, start_epoch + epochs + 1):
         stats = {}
         model.train()
         step = 0
@@ -193,6 +205,8 @@ if __name__ == "__main__":
                                                  "(dataset.td_labels) instead of the stored ones; first:W = a per-game discount giving the result "
                                                  "weight W at the first state; mix:A = A * result + (1 - A) * root value, no TD; abs = |stored label|")
     parser.add_argument("--only", choices=("value", "policy"), help="train only the value or only the policy losses (all still reported)")
+    parser.add_argument("--resume", help="continue the run that saved this checkpoint (weights, optimizer state, epoch "
+                                         "count) for --epochs more epochs, saving into --model")
     parser.add_argument("--val-every", type=int, help="also validate every N steps and save model-e<epoch>-s<step>.pt.gz")
 
     args = parser.parse_args()
@@ -200,4 +214,4 @@ if __name__ == "__main__":
     if args.seed is not None:
         torch.manual_seed(args.seed)
     train(args.model, args.epochs, args.steps, args.checkpoint, args.arch, args.hide_opponent_hand, args.lr,
-          args.drop_player_names, args.td, args.val_every, args.only)
+          args.drop_player_names, args.td, args.val_every, args.only, args.resume)
