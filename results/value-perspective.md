@@ -356,3 +356,28 @@ Down-down's 86% was the top of its distribution: down-down models average 59% on
 43% (≈16 points, a real but modest shift), and nothing on the 1000-sim shard (63% vs 62%). Both groups span ≈15-90%,
 and one run can move 20-40 points between epochs (v4-downdown itself was unusually stable, 75-86%). The headline
 was mostly a lucky run.
+
+## d128 vs d256 (Nov 14): curves, play and land skips
+
+d128 = the `-h5` recipe with `d_model: 128, d_ff: 256` (≈2.4M parameters), seeds 0 and 1, all-node and legal-only
+(`v4-dd-players{,-legal}-noname-h5-d128-s{0,1}`). Held-out = gen0 holdout games (26 shards), state-weighted value MSE.
+Games: Faeries mirror vs offline, 200 games, best held-out checkpoint (`CKPT` in `runpod/generate.sh`), XMage
+`b6ca7b35`, 4090s. Land skips: Pass top at < 3 own lands (< 4), the model's seat in its vs-offline games.
+
+| model | best held-out value (checkpoint) | KL | train value e4 | vs offline | land skips |
+|---|---|---|---|---|---|
+| all-node d256 (`-h5`) | .0361 (e3·10K) | .107 | .034 | 64.0% | 3.8% (7.9%) |
+| all-node d256 (original, 2 x 200) | | | | 79.5%, 70.0% | 3.4%, 2.1% (4.7%, 3.4%) |
+| all-node d128 s0 | .0351 (e4) | .091 | .035 | 76.5% | 3.6% (5.6%) |
+| all-node d128 s1 | .0353 (e4) | .123 | .035 | 74.0% | 2.6% (4.8%) |
+| legal d256 (`-h5`) | .0373 (e4) | .064 | .032 | 72.0% | 4.3% (8.0%) |
+| legal d256 (original, 2 x 200) | | | | 77.5%, 80.0% | 6.5%, 6.2% (11.5%, 10.1%) |
+| legal d128 s0 | .0370 (e4·10K) | .065 | .034 | 74.5% | 2.5% (7.0%) |
+| legal d128 s1 | .0357 (e4) | .064 | .033 | 75.5% | 6.6% (13.0%) |
+
+- d128 matches or beats d256 on held-out value (.001-.0015 better), doesn't overfit by epoch 4 (train ≈ held out), and
+  is best at or near its last checkpoint: it would likely gain from more epochs.
+- In play the four d128 runs sit within 74.0-76.5% (inside the ±3.5 of 200 games); d256 runs spread 64-80%.
+  Pooled: d128 all-node 75.3%, legal 75.0%: at d128 the policy domain makes no difference.
+- Land skips vary between runs at both sizes (d128 2.5-6.6%). All-node is consistently low across its four
+  independent models (2.1-3.8%); legal-only ranges 2.5-6.6%.
