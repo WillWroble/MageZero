@@ -6,9 +6,9 @@
      once; the entity nodes stay;
    - shuffle a leaf's numeric value across its occurrences: the tokens stay, only their information goes.
 3. With --all instead: every leaf id in the sample removed in turn (all its occurrences, from the states that hold it).
-4. With --entities instead: each card blanked in turn, all its copies in one zone of one player at once, one per copy
-   of its state: every leaf edge into them and their abilities cut (so neither a land's name and subtype nor a second
-   copy can cover for it), grouped by card name, zone and owner.
+4. With --entities instead: each card and permanent blanked in turn, one per copy of its state: every leaf edge into
+   it and its abilities cut (so e.g. a land's name and subtype can't cover for each other), grouped by card name, zone
+   and owner.
 Feature names come from the XMage encoder and decks in $MAGE_SRC (WillWroble/mage), if set.
   PYTHONPATH=. python util/ablate.py [--all] OUT N name=model.pt.gz ... -- shard ..."""
 import copy, glob, os, re, sys
@@ -97,8 +97,8 @@ def drop_land_leaves(ds, kinds):
 
 
 def entities_one_at_a_time(ds):
-    """Copies of ds's states with one card blanked in each: all its copies in one zone of one player at once (every
-    leaf edge into them and their abilities cut), and per copy: its state, card name id, zone name id, own."""
+    """Copies of ds's states with one card or permanent blanked in each (every leaf edge into it and its abilities cut),
+    and per copy: its state, card name id, zone name id, own (the decision player's)."""
     state = np.repeat(np.arange(ds.N), np.diff(ds.offsets))
     e_state = np.repeat(np.arange(ds.N), np.diff(ds.edge_offsets))
     child, parent = ds.edge_child + ds.offsets[e_state], ds.edge_parent + ds.offsets[e_state]
@@ -111,15 +111,12 @@ def entities_one_at_a_time(ds):
     decider = set(parent[leaf & (ds.ids[child] == F("IsDecisionPlayer"))])
     ents = np.flatnonzero(np.isin(ds.node_type, [T.PERMANENT, T.CARD]))
     ents = ents[[ds.node_type[up.get(x, x)] == T.ZONE for x in ents]]           # cards in a zone (not choice options)
-    groups = {}
-    for x in ents:
-        groups.setdefault((state[x], name.get(x, 0), name.get(up.get(x), 0), up.get(up.get(x)) in decider), []).append(x)
-    s = np.array([k[0] for k in groups]); info = [k[1:] for k in groups]
+    info = [(name.get(x, 0), name.get(up.get(x), 0), up.get(up.get(x)) in decider) for x in ents]
+    s, local = state[ents], ents - ds.offsets[state[ents]]
     sub = select(copy.deepcopy(ds), s)
     e_state = np.repeat(np.arange(sub.N), np.diff(sub.edge_offsets))
     child, parent = sub.edge_child + sub.offsets[e_state], sub.edge_parent + sub.offsets[e_state]
-    target = np.zeros(len(sub.ids), bool)
-    for j, xs in enumerate(groups.values()): target[sub.offsets[j] + np.array(xs) - ds.offsets[s[j]]] = True
+    target = np.zeros(len(sub.ids), bool); target[sub.offsets[:-1] + local] = True
     entity = target.copy(); entity[child[target[parent] & (sub.node_type[child] == T.ABILITY)]] = True
     keep = ~((sub.node_type[child] == T.LEAF) & entity[parent])
     sub.edge_child, sub.edge_parent, sub.edge_label = sub.edge_child[keep], sub.edge_parent[keep], sub.edge_label[keep]
@@ -201,7 +198,7 @@ if __name__ == "__main__":
     def say(s): print(s, flush=True); out.write(s + "\n"); out.flush()
 
     if per_entity:
-        say(f"one card blanked at a time (all its copies in the zone), {n} states: card, zone, owner, removals, mean value change "
+        say(f"one card or permanent blanked at a time, {n} states: card, zone, owner, removals, mean value change "
             f"(decision player's view), mean |change|, value MSE change per removal")
         for label, path in models:
             model, vocab, edge_vocab = load_checkpoint(path); model.to(M.DEVICE).eval()
