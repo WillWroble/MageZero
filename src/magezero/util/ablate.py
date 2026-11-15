@@ -51,8 +51,8 @@ def sample_states(shards, n):
     return select(ds, np.sort(np.random.default_rng(0).choice(ds.N, n, replace=False)))
 
 
-def select(ds, idx):
-    """ds reduced to states idx, in place, candidates dropped."""
+def select(ds, idx, cands=False):
+    """ds reduced to states idx, in place, candidates dropped (kept with cands)."""
     nodes = [slice(ds.offsets[s], ds.offsets[s + 1]) for s in idx]
     edges = [slice(ds.edge_offsets[s], ds.edge_offsets[s + 1]) for s in idx]
     ds.ids, ds.values, ds.node_type = (np.concatenate([x[k] for k in nodes]) for x in (ds.ids, ds.values, ds.node_type))
@@ -61,8 +61,13 @@ def select(ds, idx):
     ds.offsets = np.concatenate([[0], np.cumsum([k.stop - k.start for k in nodes])]).astype(np.int64)
     ds.edge_offsets = np.concatenate([[0], np.cumsum([k.stop - k.start for k in edges])]).astype(np.int64)
     ds.row, ds.N = ds.row[idx], len(idx)
-    ds.cand_node, ds.cand_visits = np.empty(0, np.int32), np.empty(0, np.int32)
-    ds.cand_offsets = np.zeros(len(idx) + 1, np.int64)
+    if cands:
+        c = [slice(ds.cand_offsets[s], ds.cand_offsets[s + 1]) for s in idx]
+        ds.cand_node, ds.cand_visits = (np.concatenate([x[k] for k in c]) for x in (ds.cand_node, ds.cand_visits))
+        ds.cand_offsets = np.concatenate([[0], np.cumsum([k.stop - k.start for k in c])]).astype(np.int64)
+    else:
+        ds.cand_node, ds.cand_visits = np.empty(0, np.int32), np.empty(0, np.int32)
+        ds.cand_offsets = np.zeros(len(idx) + 1, np.int64)
     return ds
 
 

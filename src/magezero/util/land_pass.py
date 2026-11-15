@@ -12,12 +12,14 @@ from model import NodeType as T
 from vocab import feature_id as F
 
 DEC, ACT, NAME, LAND, BF = (F(s) for s in ("IsDecisionPlayer", "IsActivePlayer", "name", "LAND", "Battlefield"))
-MAIN = {F("PRECOMBAT_MAIN"), F("POSTCOMBAT_MAIN")}
+POST = F("POSTCOMBAT_MAIN")
+MAIN = {F("PRECOMBAT_MAIN"), POST}
 PASS = 679880620
 
 
 def early_drops(path):
-    """(own lands, Pass is the most-visited move) per qualifying state."""
+    """Per qualifying state: (state index, own lands, postcombat main, which candidates play a land, which is Pass,
+    the most-visited candidate)."""
     with h5py.File(path) as f:
         d = {k: f[k][...] for k in ("indices", "offsets", "edge_child", "edge_parent", "edge_label", "edge_offsets",
                                      "policy_node", "policy_offsets", "policy_visits")}
@@ -35,21 +37,23 @@ def early_drops(path):
         leaf = st[c] == T.LEAF
         kids = defaultdict(set)
         for ci, pi in zip(c[leaf], p[leaf]): kids[pi].add(sid[ci])
-        if not MAIN & kids[np.flatnonzero(st == T.ROOT)[0]]: continue
+        phase = MAIN & kids[np.flatnonzero(st == T.ROOT)[0]]
+        if not phase: continue
         me = next(x for x in np.flatnonzero(st == T.PLAYER) if DEC in kids[x])
         if ACT not in kids[me]: continue
         parent = dict(zip(c[~leaf], p[~leaf]))
         named = leaf & (l == NAME); name = dict(zip(p[named], sid[c[named]]))
-        if not any(LAND in kids.get(parent.get(x), ()) for x in cand): continue
+        land = np.array([LAND in kids.get(parent.get(x), ()) for x in cand])
+        if not land.any(): continue
         lands = sum(1 for x in np.flatnonzero(st == T.PERMANENT)
                     if LAND in kids[x] and name.get(parent.get(x)) == BF and parent.get(parent.get(x)) == me)
-        out.append((lands, name.get(cand[int(np.argmax(vis))]) == PASS))
-    return np.array(out).reshape(-1, 2)
+        out.append((s, lands, POST in phase, land, np.array([name.get(x) == PASS for x in cand]), int(np.argmax(vis))))
+    return out
 
 
 if __name__ == "__main__":
     print(f"{'shard':24} {'<3 lands: pass top (states)':>28} {'<4 lands':>18}")
     for name, path in (a.split("=", 1) for a in sys.argv[1:]):
-        x = early_drops(path)
+        x = np.array([(lands, passes[top]) for _, lands, _, _, passes, top in early_drops(path)]).reshape(-1, 2)
         cells = [f"{x[m, 1].mean():.1%} ({m.sum()})" for m in (x[:, 0] < 3, x[:, 0] < 4)]
         print(f"{name:24} {cells[0]:>28} {cells[1]:>18}", flush=True)
