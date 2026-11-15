@@ -291,8 +291,9 @@ set, 1000-sim in brackets):
 
 Neighbouring checkpoints differ by up to 20-40 points, and this run drifts the wrong way from epoch 3 on (69% up at
 epoch 2, 12-20% by epoch 4). The holdout retrain's final checkpoint (77K steps) is 85% up, where this run was at 19%
-at a similar step: the gap between the two runs is not the step count. The test is dominated by checkpoint and run
-noise; the land-skip rate in the models' own games is the statistic to use.
+at a similar step: the gap between the two runs is not the step count. The test varies a lot between checkpoints and runs,
+so test every candidate checkpoint; it does track skipping in play (correction, Nov 15: ver15 46% / P1 44% up skip
+55-58% of Burn drops, down-down 85-86% up skips 19-24%).
 
 ### The holdout retrains in play (Nov 14; final checkpoints, which are also their best or within .0002 of it)
 
@@ -336,7 +337,8 @@ Opponent-turn land injection test on the same MLPs (P1's Burn mirror; up / down)
 | gen1 MLP | 62 / 24% | 35 / 62% | 31 / 66% | 34 / 63% | 57 / 30% | 60 / 37% | 57 / 40% |
 | F2-mlp | 69 / 16% | 76 / 20% | 74 / 22% | 76 / 20% | 64 / 21% | 94 / 6% | 92 / 8% |
 
-F2-mlp aces the injection test yet skips 15.7% of early Burn drops in play: the injection test does not predict skipping.
+F2-mlp aces the injection test and skips ≈30% less than ver15 on Burn (15.7% vs 21.8%), on the same data: consistent
+with the injection test tracking skips in play.
 
 ## Is down-down's land-injection result real? 40 models and checkpoints (`util/land_inject.py`, Nov 14)
 
@@ -459,8 +461,8 @@ Share of positions whose value goes up when the skipped Mountain is played, end-
 
 Dropout does not make the injection test stable. Over e1-e4 the mean jump is 7.9 points with dropout against 10.8
 without, and the seeds of one config still land far apart. Legal ld s1 drops from 76% to 11% at e5, while its held-out
-value improves (.0363 → .0353). Dropout moves the level up: at e4, 67-98% against 26-98% without. Along with the earlier
-finding that the test doesn't predict skips in play, this is a property of a single run, not a training signal.
+value improves (.0363 → .0353). Dropout moves the level up: at e4, 67-98% against 26-98% without. The test tracks skipping in play
+(ver15 / P1 fail it and skip most), so this seed and checkpoint variation is in the models, not the test.
 
 ## Checkpoint averaging (Nov 14, `util/average.py`, `runpod/average-eval.sh`)
 
