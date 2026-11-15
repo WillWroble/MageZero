@@ -3,9 +3,10 @@
 2. The same ablations for every model, value MSE against the stored labels:
    - remove a leaf: the mana-pool leaves (constant 0 in these games, so no information) and the Battlefield name;
    - shuffle a leaf's numeric value across its occurrences: the tokens stay, only their information goes.
+3. With --all instead: every leaf id in the sample removed in turn (all its occurrences, from the states that hold it).
 Feature names come from the XMage encoder and decks in $MAGE_SRC (WillWroble/mage), if set.
-  PYTHONPATH=. python util/ablate.py OUT N name=model.pt.gz ... -- shard ..."""
-import glob, os, re, sys
+  PYTHONPATH=. python util/ablate.py [--all] OUT N name=model.pt.gz ... -- shard ..."""
+import copy, glob, os, re, sys
 
 import numpy as np
 import torch
@@ -27,6 +28,8 @@ def names():
     if src:
         enc = glob.glob(f"{src}/**/encoder/StateEncoder.java", recursive=True)
         words |= {w for f in enc for w in re.findall(r'"([^"\n]{1,60})"', open(f).read())}
+        for f in glob.glob(f"{src}/Mage/src/main/java/mage/constants/*Type.java"):  # card types and subtypes: enum names
+            words |= set(re.findall(r"^\s*([A-Z][A-Z0-9_]*)\(", open(f).read(), re.M))
         for deck in glob.glob(f"{src}/Mage.MageZero/decks/*.txt"):
             words |= {m.group(1) for m in (re.match(r"\s*(?:SB:\s*)?\d+\s+(?:\[[^\]]*\]\s*)?(.+?)\s*$", l)
                                            for l in open(deck)) if m}
@@ -36,7 +39,11 @@ def names():
 def sample_states(shards, n):
     """n states drawn with a fixed seed (the same for every model), candidates dropped; raw ids."""
     ds = H5Graphs([(s, None) for s in shards])
-    idx = np.sort(np.random.default_rng(0).choice(ds.N, n, replace=False))
+    return select(ds, np.sort(np.random.default_rng(0).choice(ds.N, n, replace=False)))
+
+
+def select(ds, idx):
+    """ds reduced to states idx, in place, candidates dropped."""
     nodes = [slice(ds.offsets[s], ds.offsets[s + 1]) for s in idx]
     edges = [slice(ds.edge_offsets[s], ds.edge_offsets[s + 1]) for s in idx]
     ds.ids, ds.values, ds.node_type = (np.concatenate([x[k] for k in nodes]) for x in (ds.ids, ds.values, ds.node_type))
@@ -44,7 +51,7 @@ def sample_states(shards, n):
                                                     for x in (ds.edge_child, ds.edge_parent, ds.edge_label))
     ds.offsets = np.concatenate([[0], np.cumsum([k.stop - k.start for k in nodes])]).astype(np.int64)
     ds.edge_offsets = np.concatenate([[0], np.cumsum([k.stop - k.start for k in edges])]).astype(np.int64)
-    ds.row, ds.N = ds.row[idx], n
+    ds.row, ds.N = ds.row[idx], len(idx)
     ds.cand_node, ds.cand_visits = np.empty(0, np.int32), np.empty(0, np.int32)
     return ds
 
@@ -63,11 +70,31 @@ def drop_leaves(ds, remove):
     ds.ids, ds.values, ds.node_type, ds.offsets = ds.ids[keep], ds.values[keep], ds.node_type[keep], offsets
 
 
-def mse(model, ds, vocab, edge_vocab):
+def values(model, ds, vocab, edge_vocab):
     ds.apply_vocab(vocab, edge_vocab)
     with torch.no_grad():
-        v = np.concatenate([model(g.to(M.DEVICE))[3].float().cpu().numpy() for g, _ in DataLoader(ds, batch_size=64, collate_fn=collate_batch)])
-    return float(np.mean((v - ds.row[:, 0]) ** 2))
+        return np.concatenate([model(g.to(M.DEVICE))[3].float().cpu().numpy() for g, _ in DataLoader(ds, batch_size=64, collate_fn=collate_batch)])
+
+
+def mse(model, ds, vocab, edge_vocab):
+    return float(np.mean((values(model, ds, vocab, edge_vocab) - ds.row[:, 0]) ** 2))
+
+
+def sweep(model, shards, n, vocab, edge_vocab):
+    """{leaf id: (states holding it, change in value MSE over all n states, mean |value change| where present,
+    its parents' node type)}."""
+    ds = sample_states(shards, n); base = values(model, copy.deepcopy(ds), vocab, edge_vocab); err = (base - ds.row[:, 0]) ** 2
+    state = np.repeat(np.arange(ds.N), np.diff(ds.offsets)); leaf = ds.node_type == T.LEAF
+    e_state = np.repeat(np.arange(ds.N), np.diff(ds.edge_offsets))
+    child, parent = ds.edge_child + ds.offsets[e_state], ds.edge_parent + ds.offsets[e_state]
+    out = {}
+    for f in np.unique(ds.ids[leaf]):
+        idx = np.unique(state[leaf & (ds.ids == f)])
+        sub = select(copy.deepcopy(ds), idx); drop_leaves(sub, (sub.node_type == T.LEAF) & (sub.ids == f))
+        v = values(model, sub, vocab, edge_vocab)
+        kind = T(int(np.bincount(ds.node_type[parent[ds.ids[child] == f]]).argmax())).name
+        out[int(f)] = (len(idx), float(((v - ds.row[idx, 0]) ** 2 - err[idx]).sum() / n), float(np.abs(v - base[idx]).mean()), kind)
+    return out
 
 
 calls = []
@@ -113,11 +140,23 @@ def player_attention(model, ds, raw, name):
 
 if __name__ == "__main__":
     torch.set_num_threads(os.cpu_count())
+    full = "--all" in sys.argv
+    if full: sys.argv.remove("--all")
     sep = sys.argv.index("--")
     out_path, n, models, shards = sys.argv[1], int(sys.argv[2]), [a.split("=", 1) for a in sys.argv[3:sep]], sys.argv[sep + 1:]
     name = names()
     out = open(out_path, "w")
     def say(s): print(s, flush=True); out.write(s + "\n"); out.flush()
+
+    if full:
+        for label, path in models:
+            model, vocab, edge_vocab = load_checkpoint(path); model.to(M.DEVICE).eval()
+            r = sweep(model, shards, n, vocab, edge_vocab)
+            say(f"\n## {label}: leaf removed (parent type) -> states holding it, value MSE change over all {n} states, "
+                f"mean |value change| where present")
+            for f, (k, d, a, kind) in sorted(r.items(), key=lambda x: -x[1][1]):
+                say(f"  {name.get(f, f)!s:32} {kind:12} {k:5}  {d:+.4f}  {a:.3f}")
+        sys.exit()
 
     rows = {}
     for label, path in models:
