@@ -6,8 +6,9 @@
      once; the entity nodes stay;
    - shuffle a leaf's numeric value across its occurrences: the tokens stay, only their information goes.
 3. With --all instead: every leaf id in the sample removed in turn (all its occurrences, from the states that hold it).
-4. With --lands instead: each land (a permanent or card with a LAND leaf) blanked in turn, one per copy of its state:
-   every leaf edge into it and its abilities cut, so its name and subtype can't cover for each other.
+4. With --entities instead: each card and permanent blanked in turn, one per copy of its state: every leaf edge into
+   it and its abilities cut (so e.g. a land's name and subtype can't cover for each other), grouped by card name, zone
+   and owner.
 Feature names come from the XMage encoder and decks in $MAGE_SRC (WillWroble/mage), if set.
   PYTHONPATH=. python util/ablate.py [--all] OUT N name=model.pt.gz ... -- shard ..."""
 import copy, glob, os, re, sys
@@ -94,28 +95,32 @@ def drop_land_leaves(ds, kinds):
     ds.edge_offsets = np.concatenate([[0], np.cumsum(np.bincount(e_state[keep], minlength=ds.N))])
 
 
-def lands_one_at_a_time(ds):
-    """(copies of ds's states with one land blanked in each, its state, its zone type: PERMANENT or CARD, own land)."""
+def entities_one_at_a_time(ds):
+    """Copies of ds's states with one card or permanent blanked in each (every leaf edge into it and its abilities cut),
+    and per copy: its state, card name id, zone name id, own (the decision player's)."""
     state = np.repeat(np.arange(ds.N), np.diff(ds.offsets))
     e_state = np.repeat(np.arange(ds.N), np.diff(ds.edge_offsets))
     child, parent = ds.edge_child + ds.offsets[e_state], ds.edge_parent + ds.offsets[e_state]
     leaf = ds.node_type[child] == T.LEAF
     up = dict(zip(child[~leaf], parent[~leaf]))
+    named = leaf & (ds.edge_label == F("name"))
+    cards = set(ds.ids[child[named & (ds.node_type[parent] == T.CARD)]])        # permanents name their card on another edge
+    named |= leaf & np.isin(ds.ids[child], list(cards)) & (ds.node_type[parent] == T.PERMANENT)
+    name = dict(zip(parent[named], ds.ids[child[named]]))
     decider = set(parent[leaf & (ds.ids[child] == F("IsDecisionPlayer"))])
-    lands = np.unique(parent[leaf & (ds.ids[child] == F("LAND"))])
-    lands = lands[np.isin(ds.node_type[lands], [T.PERMANENT, T.CARD])]
-    own = np.array([up.get(up.get(x)) in decider for x in lands])
-    s, local = state[lands], lands - ds.offsets[state[lands]]
+    ents = np.flatnonzero(np.isin(ds.node_type, [T.PERMANENT, T.CARD]))
+    ents = ents[[ds.node_type[up.get(x, x)] == T.ZONE for x in ents]]           # cards in a zone (not choice options)
+    info = [(name.get(x, 0), name.get(up.get(x), 0), up.get(up.get(x)) in decider) for x in ents]
+    s, local = state[ents], ents - ds.offsets[state[ents]]
     sub = select(copy.deepcopy(ds), s)
     e_state = np.repeat(np.arange(sub.N), np.diff(sub.edge_offsets))
     child, parent = sub.edge_child + sub.offsets[e_state], sub.edge_parent + sub.offsets[e_state]
-    target = sub.offsets[:-1] + local                                   # the land in each copy
-    is_land = np.zeros(len(sub.ids), bool); is_land[target] = True
-    entity = is_land.copy(); entity[child[is_land[parent] & (sub.node_type[child] == T.ABILITY)]] = True
+    target = np.zeros(len(sub.ids), bool); target[sub.offsets[:-1] + local] = True
+    entity = target.copy(); entity[child[target[parent] & (sub.node_type[child] == T.ABILITY)]] = True
     keep = ~((sub.node_type[child] == T.LEAF) & entity[parent])
     sub.edge_child, sub.edge_parent, sub.edge_label = sub.edge_child[keep], sub.edge_parent[keep], sub.edge_label[keep]
     sub.edge_offsets = np.concatenate([[0], np.cumsum(np.bincount(e_state[keep], minlength=sub.N))])
-    return sub, s, ds.node_type[lands], own
+    return sub, s, info
 
 
 def mse(model, ds, vocab, edge_vocab):
@@ -182,8 +187,8 @@ def player_attention(model, ds, raw, name):
 
 if __name__ == "__main__":
     torch.set_num_threads(os.cpu_count())
-    full, per_land = "--all" in sys.argv, "--lands" in sys.argv
-    for flag in ("--all", "--lands"):
+    full, per_entity = "--all" in sys.argv, "--entities" in sys.argv
+    for flag in ("--all", "--entities"):
         if flag in sys.argv: sys.argv.remove(flag)
     sep = sys.argv.index("--")
     out_path, n, models, shards = sys.argv[1], int(sys.argv[2]), [a.split("=", 1) for a in sys.argv[3:sep]], sys.argv[sep + 1:]
@@ -191,19 +196,22 @@ if __name__ == "__main__":
     out = open(out_path, "w")
     def say(s): print(s, flush=True); out.write(s + "\n"); out.flush()
 
-    if per_land:
-        say(f"one land blanked at a time, {n} states: removals, mean value change (decision player's view), "
-            f"mean |change|, value MSE change per removal")
+    if per_entity:
+        say(f"one card or permanent blanked at a time, {n} states: card, zone, owner, removals, mean value change "
+            f"(decision player's view), mean |change|, value MSE change per removal")
         for label, path in models:
             model, vocab, edge_vocab = load_checkpoint(path); model.to(M.DEVICE).eval()
-            ds = sample_states(shards, n); sub, s, kind, own = lands_one_at_a_time(ds)
+            ds = sample_states(shards, n); sub, s, info = entities_one_at_a_time(ds)
             base = values(model, ds, vocab, edge_vocab); v = values(model, sub, vocab, edge_vocab)
             d, y = v - base[s], ds.row[s, 0]
             dmse = (v - y) ** 2 - (base[s] - y) ** 2
-            for name_, m in (("own battlefield", (kind == T.PERMANENT) & own), ("opp battlefield", (kind == T.PERMANENT) & ~own),
-                             ("own hand", (kind == T.CARD) & own), ("opp hand", (kind == T.CARD) & ~own)):
-                if m.any():
-                    say(f"  {label:24} {name_:16} {m.sum():6}  {d[m].mean():+.4f}  {np.abs(d[m]).mean():.4f}  {dmse[m].mean():+.4f}")
+            groups = {}
+            for i, key in enumerate(info): groups.setdefault(key, []).append(i)
+            say(f"\n## {label}")
+            for (card, zone, own), idx in sorted(groups.items(), key=lambda g: -np.abs(d[g[1]]).mean()):
+                if len(idx) >= 20:
+                    say(f"  {name.get(int(card), card)!s:28} {name.get(int(zone), zone)!s:12} {'own' if own else 'opp'}  "
+                        f"{len(idx):6}  {d[idx].mean():+.4f}  {np.abs(d[idx]).mean():.4f}  {dmse[idx].mean():+.4f}")
         sys.exit()
 
     if full:

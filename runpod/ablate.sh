@@ -1,6 +1,6 @@
 # util/ablate.py on $N states of the Burn mirror (P1's 300- and 1000-sim A shards) for $MODELS ("label=run ...":
 # /workspace/runs/<run>/gnn/model.pt.gz, or a checkpoint path under /workspace/runs; label=P1 is experiment_models/Pauper/P1).
-# ARGS=--all: every leaf removed in turn; ARGS=--lands: one land blanked at a time. Output: $OUT/ablate.txt.
+# ARGS=--all: every leaf removed in turn; ARGS=--entities: each card and permanent blanked in turn. Output: $OUT/ablate.txt.
 apt-get update -qq && apt-get install -y -qq git-lfs python3 python3-pip >/dev/null
 pip3 install -q h5py numpy torch
 git clone -q --depth 1 --filter=blob:none --sparse https://github.com/WillWroble/mage /tmp/mage \
