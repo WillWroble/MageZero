@@ -342,16 +342,28 @@ class H5Graphs(Dataset):
         print(f"hid {int(hidden.sum())} opponent hands: {int((~keep).sum())} nodes removed "
               f"({(~keep).mean():.1%}), {int((~edges).sum())} edges")
 
-    def flatten_zones(self) -> None:
-        """flatten_zones on every state; policy candidates are never zones, so they only move."""
-        (self.ids, self.values, self.node_type, self.edge_child, self.edge_parent, self.edge_label, offsets,
-         self.edge_offsets, keep) = flatten_zones(self.ids, self.values, self.node_type, self.edge_child,
-                                                  self.edge_parent, self.edge_label, self.offsets, self.edge_offsets)
-        state = states_of(self.offsets)
-        local = np.cumsum(keep) - 1 - offsets[state]
-        self.cand_node = local[self.cand_node + self.offsets[states_of(self.cand_offsets)]].astype(np.int32)
-        print(f"flattened zones: {int((~keep).sum())} ZONE nodes removed of {len(keep)}")
-        self.offsets = offsets
+    def flatten_zones(self, chunk=50_000) -> None:
+        """flatten_zones on every state, a chunk of states at a time (its int64 temporaries over the whole set ran
+        out of memory); policy candidates are never zones, so they only move."""
+        parts, removed, n0 = [], 0, len(self.ids)
+        for a in range(0, self.N, chunk):
+            b = min(a + chunk, self.N)
+            n, e, c = self.offsets[a:b + 1], self.edge_offsets[a:b + 1], self.cand_offsets[a:b + 1]
+            nodes, edges = slice(n[0], n[-1]), slice(e[0], e[-1])
+            *arrays, offsets, edge_offsets, keep = flatten_zones(
+                self.ids[nodes], self.values[nodes], self.node_type[nodes], self.edge_child[edges],
+                self.edge_parent[edges], self.edge_label[edges], n - n[0], e - e[0])
+            state = states_of(n - n[0])
+            local = np.cumsum(keep) - 1 - offsets[state]
+            cand = local[self.cand_node[c[0]:c[-1]] + (n - n[0])[states_of(c - c[0])]].astype(np.int32)
+            parts.append((*arrays, offsets[1:], edge_offsets[1:], cand))
+            removed += int((~keep).sum())
+        cols = list(zip(*parts))
+        (self.ids, self.values, self.node_type, self.edge_child, self.edge_parent, self.edge_label) = (
+            np.concatenate(col) for col in cols[:6])
+        self.offsets, self.edge_offsets = (cat_ends(col) for col in cols[6:8])
+        self.cand_node = np.concatenate(cols[8])
+        print(f"flattened zones: {removed} ZONE nodes removed of {n0}")
 
     def apply_vocab(self, vocab, edge_vocab) -> None:
         """Maps ids to embedding rows, then drops the raw ids and edge labels (the bulk of the memory)."""
@@ -387,6 +399,15 @@ class H5Graphs(Dataset):
             item[3], item[4] = local[item[3][edges]].astype(np.int16), local[item[4][edges]].astype(np.int16)
             item[5], item[6] = item[5][edges], local[item[6]].astype(np.int32)
         return tuple(item)
+
+
+def cat_ends(parts):
+    """Offsets from per-chunk end offsets (each chunk's own, without its leading 0)."""
+    ends, base = [np.zeros(1, np.int64)], 0
+    for p in parts:
+        ends.append(p + base)
+        base += int(p[-1]) if len(p) else 0
+    return np.concatenate(ends)
 
 
 def concat(parts, dtype=np.int64):
