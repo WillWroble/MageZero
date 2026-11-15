@@ -743,3 +743,23 @@ P1 .110 / **.180** / .058; downdown .126 / .096 / .022; td003 .049 / .045 / .021
   something better than a land, seed-specifically.
 - The counter alone moves value ≈ 0 with dropout (≤ .012); small init, value / 20 and no-dropout legal-only use it a
   little (.01-.05). The models read land count from nodes, not from the numeric leaf.
+
+## The ablations again on the Faeries mirror (Nov 15, `c4520bb`, `3c1938e`)
+
+Held-out gen0 Faeries mirror (`ver4/testing/gen0`, PlayerA + PlayerB), 2,000 states, `LAND=Island`: in-distribution
+for every model (base value MSE ≈ .03 vs ≈ .08 on the Burn mirror). Pods `fae-ablate2`, `fae-sweep-{1,2}`,
+`fae-entities`, `fae-add` (5 × 4090, ≈$3). The Burn findings hold:
+
+- Every leaf in turn: with dropout no leaf beyond IsDecisionPlayer / LifeTotal costs more than +.003; without it,
+  legal-only leans on IsActivePlayer (+.13 to +.20), cosine legal s1 on the Battlefield name leaf (+.374), value / 20
+  legal s1 on BattlefieldSize (+.217). Land leaves (LAND, ISLAND, CanPlayLand, Tapped) ≤ +.009 everywhere.
+- One copy blanked at a time (MSE × 1000): Ninja of the Deep Hours on the battlefield +35 to +60 (either side, every
+  recipe), Spellstutter Sprite, Moon-Circuit Hacker +10 to +17; one Island on the own battlefield +5 (no dropout), ≈ 0
+  with dropout, +42 in P1.
+- Lands blanked / ~BattlefieldSize / both / land permanents removed with the count lowered: removal +.012 to +.026 in
+  every d128 model (≈ half the base MSE, as on Burn); blanking ≤ .014 with dropout (.007-.07 without). "Both" exceeds
+  the sum only in models without dropout or with small init / value / 20 (legal nd s1 .073 + .073 → .161, legal value /
+  20 s0 .054 + .029 → .115, legal small init s0 .011 + .076 → .114): there the counter and land identity partly stand in
+  for each other. With dropout the counter is unused (≤ .004) and there is no interaction.
+- Added permanent (Island / blank / count only): with dropout the blank is worth 50-100% of an Island, the count ≤ .013;
+  without dropout the blank beats the Island in 4 of 8 (all nd s1 .167 vs .071); P1 .065 / .234 / .059.
