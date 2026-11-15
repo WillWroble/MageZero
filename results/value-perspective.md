@@ -558,3 +558,16 @@ The numeric value embedding (32 buckets, −5 … ) has no order either: cos bet
 vectors: ≈ 0 ± .09), 5+ buckets apart ≈ 0. With N(0, 1) init (row norm ≈ 11.3) and Adam at 1e-4 (steps ≈ 1e-4 per
 element), the embeddings stay close to random codes: the local layers do the learning, card similarity is never put into
 the table, and "3 life" vs "4 life" or "2 lands" vs "3 lands" are unrelated vectors whose order the layers must learn.
+
+### Sequential "both" (Nov 15): isolates the parallel effect
+
+`directions: [both, both]`, `local: sequential` (stages ROOT → ABILITY: a node sees its parents updated this pass, its
+children from the last), otherwise as above (`v4-bb-seq-players{,-legal}-noname-h5-d128-s{0,1}`).
+
+| run | down-down sequential | both sequential | both parallel |
+|---|---|---|---|
+| all-node s0 / s1 | .0351 / .0353 | .0352 / .0353 | .0397 / .0408 |
+| legal s0 / s1 | .0370 / .0357 | .0374 / .0377 | .0422 / .0423 |
+
+Sequential "both" is level with down-down (legal ≈.001 worse): the .005 loss came from the parallel update, and
+bidirectional tokens add nothing over down-down. Priority KL .091-.100 / .065-.066, as down-down.
