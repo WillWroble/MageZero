@@ -648,3 +648,22 @@ Others: ver15 70, P1 67, v4-downdown 79, v4-downdown-players 69, td003 50, td003
 - The two tests agree only loosely per model (r ≈ .5 over the 31 d128 checkpoints): a seed that fails one often passes
   the other (dropout 0.1 legal s1: Burn 18, Faeries 64; value / 20 legal s0: 19 vs 76).
 - No recipe puts every seed high on Faeries either; value / 20 comes closest (76-99), small init is lowest.
+
+## Every leaf removed in turn (Nov 15, `ablate.py --all`, `986d76f`)
+
+P1's Burn mirror, 2,000 states (the same sample as the ablations above), 185 leaf ids, each removed from the states
+that hold it; value MSE change over all 2,000. Best checkpoints. Pods `sweep-1`, `sweep-2` (2 × 4090, ≈$1). Full lists:
+`/workspace/runs/sweep-{1,2}/ablate.txt`. Every model needs IsDecisionPlayer (+.5-.8) and LifeTotal (+.07-.17);
+the largest other leaf:
+
+| group | largest single leaf besides those two |
+|---|---|
+| dropout 0.1 / 0.2, cosine + dropout, small init + cosine + dropout (15 models) | ≤ +.005 in every model (Tapped, IsActivePlayer, CanPlayLand ...) |
+| no dropout, cosine, value / 20, small init, legal-only (7 of 8) | IsActivePlayer +.093 to +.111 |
+| no dropout / cosine / value / 20 / small init, all-node | Hand zone +.029 / +.045, GraveyardSize +.018, unnamed PERMANENT leaf 1510264190 +.012 |
+| d256 v4-era | P1 BattlefieldSize +.063; downdown GreenMana +.129; td003 Battlefield +.076; td003-noname LibrarySize +.143 |
+
+- Without dropout every seed leans on some single leaf, and which one is seed-specific; with dropout none does.
+- Land leaves matter little everywhere: LAND ≤ +.011, CanPlayLand ≤ +.008, Tapped ≤ +.009. Removing the MOUNTAIN subtype
+  alone changes ≤ .004 (the LAND leaf is still there).
+- Leaf removal does not separate the seeds that pass land injection from those that fail it.
