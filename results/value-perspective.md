@@ -525,7 +525,7 @@ would separate them.
 ## Recipes compared on land injection and ablations (Nov 15)
 
 d128, best held-out checkpoint of each run: no dropout (constant LR, ≤ e8), cosine LR (no dropout, ≤ e8), leaf dropout
-0.1 (constant LR, ≤ e12), leaf dropout 0.2 (constant LR, ≤ e12; all-node s1 still training). Land injection = share of
+0.1 (constant LR, ≤ e12), leaf dropout 0.2 (constant LR, ≤ e12; all-node s1 best .0326 at e12, ablations within the row's ranges). Land injection = share of
 P1 Burn-mirror positions (300-sim shard) whose value goes up when the skipped Mountain is played; jump = mean change
 between consecutive end-of-epoch checkpoints. Ablations: 2,000 Burn-mirror states, value MSE change.
 
@@ -534,13 +534,13 @@ between consecutive end-of-epoch checkpoints. Ablations: 2,000 Burn-mirror state
 | no dropout | 20 / 67 / 45 / 48 | 45 | 9.8 | ≤ +.008 | up to +.039 | +.010 to +.046 | up to +.004 | +.168 |
 | cosine LR | 64 / 49 / 72 / 99 | 71 | 10.0 | up to +.023 | up to +.016 | +.015 to +.028 | up to **+.071** | +.154 to +.175 |
 | dropout 0.1 | 66 / 90 / 95 / 18 | 67 | 8.7 | ≈ 0 | ≤ +.005 | ≤ +.014 | 0 | +.131 to +.171 |
-| dropout 0.2 | 72 / – / 88 / 50 | 70 | 15.1 | ≈ 0 | ≤ +.003 | ≤ +.006 | 0 | +.122 to +.145 |
+| dropout 0.2 | 72 / 50 / 88 / 50 | 65 | 15.1 (3 seeds) | ≈ 0 | ≤ +.003 | ≤ +.006 | 0 | +.122 to +.145 |
 
 - Ablations: dropout is what makes seeds agree. With it, no secondary feature costs more than +.014 and the profile is the
   same across seeds (0.2 flattest). Without it, which counters a seed leans on is seed-specific (legal s1 BattlefieldSize
   +.039 / ManaValue +.046; cosine legal s1 leans on the Battlefield name leaf, +.071). Cosine LR does not fix this.
 - Land injection: dropout lifts the level (mean 45% → 67-70%), but so does cosine LR (71%), and no recipe gets every seed
-  above 90% (dropout 0.1 legal s1: 18%; 0.2 legal s1: 50%). Epoch-to-epoch jumps are not smaller with dropout.
+  above 90% (dropout 0.1 legal s1: 18%; 0.2 all s1 and legal s1: 50%). Epoch-to-epoch jumps are not smaller with dropout.
 
 ## The embedding tables barely train (Nov 15)
 
@@ -596,15 +596,32 @@ d128 recipe, constant LR, 4 epochs, no dropout; only the embedding tables' initi
 
 | run | std 1: best held out | std 0.02: best held out | train value e4 | injection at best (e1 → e4) | ~BattlefieldSize |
 |---|---|---|---|---|---|
-| all-node s0 | .0351 | .0340 (e4) | .030 | 33% (65 59 47 33) | +.008 |
-| all-node s1 | .0353 | .0343 (e4) | .030 | 81% (19 23 64 81) | +.007 |
-| legal s0 | .0370 | .0341 (e3·10K) | .033 | 8% (1 9 7 5) | +.043 |
-| legal s1 | .0357 | .0341 (e3) | .033 | 14% (3 2 14 15) | +.026 |
+| all-node s0 | .0351 | .0340 (e4) | .030 | 65% (95 84 62 65) | +.008 |
+| all-node s1 | .0353 | .0343 (e4) | .030 | 34% (79 65 42 34) | +.007 |
+| legal s0 | .0370 | .0341 (e3·10K) | .033 | 62% (62 68 67 88) | +.043 |
+| legal s1 | .0357 | .0341 (e3) | .033 | 76% (91 92 76 55) | +.026 |
 
 - The tables now train: leaf rows change by a median 150% (std 1: 6%), cos(trained, init) .55 (.998), and the value
   buckets get an order (adjacent cos .55, 5+ apart ≈ 0; std 1: ≈ 0 for both).
 - Held-out value is the best of any 4-epoch constant-LR recipe (−.001 to −.003), learned faster (e1 .038-.040 vs
   .043-.046), with train below held out by e4 (start of overfitting; legal peaks at e3).
-- Land injection is much worse and consistently so, not seed noise: legal-only scores 1-15% at every epoch of both
-  seeds (std 1: 45-95%), so it values the played Mountain below the one in hand. Legal-only seeds also lean on
-  BattlefieldSize again (+.026 / +.043).
+- Land injection (corrected: the first write-up read the wrong column, "flag" down instead of "played" up):
+  65 / 34 / 62 / 76, mean 59, vs 45 for std 1 without dropout at ≤ e8. Not worse; no seed near 90%. Legal-only seeds
+  lean on BattlefieldSize again (+.026 / +.043).
+
+## Small init + cosine LR + dropout 0.1, 12 epochs (Nov 15)
+
+`embed_std` 0.02, leaf dropout 0.1, cosine LR to 1e-5, 12 epochs (`v4-dd-players{,-legal}-noname-h5-d128-es002-ld01-cos-s{0,1}`).
+Compared with the same recipe at std 1 (`...-ld01-cos-...`).
+
+| run | std 1: best held out / injection | std 0.02: best held out | injection at best | injection e1 → e12 | ~BattlefieldSize | ~ManaValue |
+|---|---|---|---|---|---|---|
+| all-node s0 | .0322 / 73% | .0314 (e12·10K) | 65% | 98 94 80 66 57 73 73 69 68 60 66 68 | +.000 | −.001 |
+| all-node s1 | .0318 / 96% | pending (relaunched off a slow pod) | | | | |
+| legal s0 | .0335 / 77% | .0317 (e11) | 74% | 68 79 76 52 70 67 55 70 73 74 74 76 | +.006 | −.001 |
+| legal s1 | .0327 / 82% | .0316 (e9) | 23% | 85 66 64 33 61 29 35 32 23 21 18 19 | +.004 | −.007 |
+
+- Best held-out value of any recipe (−.0004 to −.0018 vs std 1), smallest checkpoint-to-checkpoint jumps (mean ≈ .0009).
+- With dropout the small-init shortcut reliance goes away (BattlefieldSize ≤ +.006, was +.026 / +.043 without dropout).
+- Land injection is worse than at std 1 (65 / 74 / 23 vs 73 / 77 / 82) and legal s1 drifts down steadily as held-out
+  value improves (85% at e1 → 19% at e12): better value loss does not buy the land preference here.
