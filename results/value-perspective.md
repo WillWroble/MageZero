@@ -588,3 +588,23 @@ Cosine + dropout 0.1: 12 epochs, LR 1e-4 → 1e-5, `leaf_dropout: 0.1` (`…-ld0
   (no secondary feature above +.018). It still doesn't put every seed above 90%.
 - value / 20 ends the ManaValue reliance (≈ 0) but brings back seed-specific BattlefieldSize use (legal s1 +.037), and
   legal s0 scores 19% on injection: no better than bins at 4 epochs.
+
+## Small embedding init (Nov 15, `embed_std: 0.02`, `9c7c269`)
+
+d128 recipe, constant LR, 4 epochs, no dropout; only the embedding tables' initial std changes (1 → 0.02)
+(`v4-dd-players{,-legal}-noname-h5-d128-es002-s{0,1}`).
+
+| run | std 1: best held out | std 0.02: best held out | train value e4 | injection at best (e1 → e4) | ~BattlefieldSize |
+|---|---|---|---|---|---|
+| all-node s0 | .0351 | .0340 (e4) | .030 | 33% (65 59 47 33) | +.008 |
+| all-node s1 | .0353 | .0343 (e4) | .030 | 81% (19 23 64 81) | +.007 |
+| legal s0 | .0370 | .0341 (e3·10K) | .033 | 8% (1 9 7 5) | +.043 |
+| legal s1 | .0357 | .0341 (e3) | .033 | 14% (3 2 14 15) | +.026 |
+
+- The tables now train: leaf rows change by a median 150% (std 1: 6%), cos(trained, init) .55 (.998), and the value
+  buckets get an order (adjacent cos .55, 5+ apart ≈ 0; std 1: ≈ 0 for both).
+- Held-out value is the best of any 4-epoch constant-LR recipe (−.001 to −.003), learned faster (e1 .038-.040 vs
+  .043-.046), with train below held out by e4 (start of overfitting; legal peaks at e3).
+- Land injection is much worse and consistently so, not seed noise: legal-only scores 1-15% at every epoch of both
+  seeds (std 1: 45-95%), so it values the played Mountain below the one in hand. Legal-only seeds also lean on
+  BattlefieldSize again (+.026 / +.043).
