@@ -10,6 +10,8 @@
 4. With --entities instead: each card and permanent blanked in turn, one per copy of its state: every leaf edge into
    it and its abilities cut (so e.g. a land's name and subtype can't cover for each other), grouped by card name, zone
    and owner.
+5. With --add instead: one permanent added to the decision player's battlefield in every state (BattlefieldSize + 1 each
+   time): an untapped Mountain, a blank permanent (the node alone), or nothing (the count alone).
 Feature names come from the XMage encoder and decks in $MAGE_SRC (WillWroble/mage), if set.
   PYTHONPATH=. python util/ablate.py [--all] OUT N name=model.pt.gz ... -- shard ..."""
 import copy, glob, os, re, sys
@@ -22,6 +24,7 @@ import model as M
 from dataset import H5Graphs, collate_batch
 from model import load_checkpoint, NodeType as T
 from vocab import feature_id as F
+from util.land_inject import land_template, own_battlefield, parts, rebuild
 
 MANA = ["WhiteMana", "BlueMana", "BlackMana", "RedMana", "GreenMana", "ColorlessMana"]
 SHUFFLE = ["LifeTotal", "HandSize", "BattlefieldSize", "GraveyardSize", "LibrarySize", "ManaValue", "Power", "Toughness"]
@@ -153,6 +156,27 @@ def shuffle(ds, f):
     ds.values[m] = ds.values[np.random.default_rng(1).permutation(m)]
 
 
+def added(ds, kind):
+    """ds with one permanent added to each state's decision-player battlefield and its BattlefieldSize raised by 1:
+    kind "Mountain" (an untapped one from the shard), "blank" (its node alone) or "count only" (raw ids)."""
+    (t_ids, t_vals, t_edges), zone_label = land_template(ds)
+    if kind == "blank": t_ids, t_vals, t_edges = t_ids[:1], t_vals[:1], t_edges[:0]
+    states = []
+    for s in range(ds.N):
+        ids, st, c, p, l = parts(ds, s)
+        _, zone, _ = own_battlefield(ids, st, c, p)
+        v = ds.values[ds.offsets[s]:ds.offsets[s + 1]].copy(); n = len(ids)
+        v[next(ci for ci, pi in zip(c, p) if pi == zone and ids[ci] == F("BattlefieldSize"))] += 1
+        state = [ids, v, c, p, l]
+        if kind != "count only":
+            state = [np.concatenate([ids, t_ids]), np.concatenate([v, t_vals]),
+                     np.concatenate([c, t_edges[:, 0] + n, [n]]), np.concatenate([p, t_edges[:, 1] + n, [zone]]),
+                     np.concatenate([l, t_edges[:, 2], [zone_label]])]
+        states.append(state)
+    rebuild(ds, states, np.arange(ds.N))
+    return ds
+
+
 def mse(model, ds, vocab, edge_vocab):
     return float(np.mean((values(model, ds, vocab, edge_vocab) - ds.row[:, 0]) ** 2))
 
@@ -217,14 +241,24 @@ def player_attention(model, ds, raw, name):
 
 if __name__ == "__main__":
     torch.set_num_threads(os.cpu_count())
-    full, per_entity = "--all" in sys.argv, "--entities" in sys.argv
-    for flag in ("--all", "--entities"):
+    full, per_entity, add = "--all" in sys.argv, "--entities" in sys.argv, "--add" in sys.argv
+    for flag in ("--all", "--entities", "--add"):
         if flag in sys.argv: sys.argv.remove(flag)
     sep = sys.argv.index("--")
     out_path, n, models, shards = sys.argv[1], int(sys.argv[2]), [a.split("=", 1) for a in sys.argv[3:sep]], sys.argv[sep + 1:]
     name = names()
     out = open(out_path, "w")
     def say(s): print(s, flush=True); out.write(s + "\n"); out.flush()
+
+    if add:
+        say(f"one permanent added to the decision player's battlefield, {n} states: mean value change, share up / down")
+        for label, path in models:
+            model, vocab, edge_vocab = load_checkpoint(path); model.to(M.DEVICE).eval()
+            base = values(model, sample_states(shards, n), vocab, edge_vocab)
+            for kind in ("Mountain", "blank", "count only"):
+                d = values(model, added(sample_states(shards, n), kind), vocab, edge_vocab) - base
+                say(f"  {label:24} {kind:12} {d.mean():+.4f}  {np.mean(d > .005):4.0%} / {np.mean(d < -.005):4.0%}")
+        sys.exit()
 
     if per_entity:
         say(f"one card or permanent blanked at a time, {n} states: card, zone, owner, removals, mean value change "
