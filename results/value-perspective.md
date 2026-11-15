@@ -718,3 +718,28 @@ P1: .045 / .077 / .117 / .071. Base MSE .07-.10.
 - Removing the land nodes costs +.03-.06 in every d128 model, about half the base MSE and the same in every recipe and
   seed, far more than blanking them (≈ 0-.04). The lands' presence is used, carried by the (empty) nodes themselves,
   e.g. by counting PERMANENT nodes in attention; what the land is barely matters once the node is there.
+
+## Adding a permanent: a Mountain, a blank node, or the count alone (Nov 15, `ablate.py --add`, `e065db0`)
+
+Burn mirror, 2,000 states; one permanent added to the decision player's battlefield, BattlefieldSize + 1 each time.
+Mean value change (Mountain / blank / count only), best checkpoints.
+
+| recipe | all s0 | all s1 | legal s0 | legal s1 |
+|---|---|---|---|---|
+| no dropout | .099 / .043 / .002 | .112 / **.169** / .007 | .087 / **.101** / .024 | .090 / **.126** / .049 |
+| cosine | .120 / .037 / −.001 | .104 / **.115** / .007 | .091 / .084 / .023 | .072 / **.112** / .001 |
+| dropout 0.1 | .104 / .055 / .001 | .104 / .075 / .008 | .090 / .077 / −.002 | .098 / .088 / .009 |
+| dropout 0.2 | .091 / .048 / .001 | .104 / .060 / −.001 | .088 / .063 / .001 | .083 / .038 / .001 |
+| cosine + dropout | .114 / .061 / .001 | .104 / .077 / .005 | .081 / .049 / .012 | .095 / **.126** / −.004 |
+| value / 20 | .118 / .083 / .009 | .117 / .110 / .009 | .071 / **.091** / .015 | .075 / **.098** / .041 |
+| small init | .091 / .059 / .015 | .095 / .054 / .014 | .076 / .053 / .032 | .090 / .066 / .034 |
+| small init + cos + drop | .113 / .058 / .000 | – | .091 / .053 / .010 | .086 / .051 / .004 |
+
+P1 .110 / **.180** / .058; downdown .126 / .096 / .022; td003 .049 / .045 / .021.
+
+- With dropout, a blank permanent is worth ≈ 40-75% of a Mountain: "a permanent" is valued on its own, less than a land
+  (one exception, cosine + dropout legal s1).
+- Without dropout, and in P1, the blank is worth more than a Mountain in 8 of 13 models: an unknown permanent reads as
+  something better than a land, seed-specifically.
+- The counter alone moves value ≈ 0 with dropout (≤ .012); small init, value / 20 and no-dropout legal-only use it a
+  little (.01-.05). The models read land count from nodes, not from the numeric leaf.
