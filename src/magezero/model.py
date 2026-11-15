@@ -232,6 +232,9 @@ class NetGraph(nn.Module):
                     value_token "players" it only picks the sign, so the state is evaluated without a perspective
       leaf_dropout: in training, each leaf token (with its edges) is dropped with this probability, except the
                     IsDecisionPlayer leaf (decision_row), so no single feature can carry the value
+      value_encoding: "bucket"  each leaf's numeric value picks a row of a value embedding table (VALUE_BOUNDS)
+                      "scaled"  it scales one learned vector: sign(v) log(1 + |v|) * w, so values are ordered by
+                                construction (non-numeric leaves carry 0, so add nothing)
       embed_std: standard deviation of the embedding tables' initial rows (leaf, edge label, node type, value bucket;
                  nn.Embedding's default is 1), so Adam's steps are large relative to the rows
       registers: K learned tokens added to every global sequence after CLS and read by no head, so the global
@@ -243,7 +246,7 @@ class NetGraph(nn.Module):
                  policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared",
                  value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1, directions: list = None,
                  owner_context: bool = False, hide_decider: bool = False, registers: int = 0, leaf_dropout: float = 0.0,
-                 embed_std: float = 1.0):
+                 embed_std: float = 1.0, value_encoding: str = "bucket"):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
@@ -251,14 +254,18 @@ class NetGraph(nn.Module):
                          value_loss=value_loss, value_token=value_token, decision_row=decision_row,
                          directions=list(directions or ["up"] * n_passes), owner_context=owner_context,
                          hide_decider=hide_decider, registers=registers, leaf_dropout=leaf_dropout,
-                         embed_std=embed_std)
+                         embed_std=embed_std, value_encoding=value_encoding)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
-        self.value_embedding = nn.Embedding(len(VALUE_BOUNDS) + 1, d_model)
+        if value_encoding == "scaled":
+            self.value_vector = nn.Parameter(embed_std * torch.randn(d_model))
+        else:
+            self.value_embedding = nn.Embedding(len(VALUE_BOUNDS) + 1, d_model)
+            self.value_embedding.weight.data.mul_(embed_std)
         self.register_buffer("value_bounds", torch.tensor(VALUE_BOUNDS), persistent=False)
         with torch.no_grad():
-            for table in (self.embedding, self.edge_embedding, self.type_embedding, self.value_embedding):
+            for table in (self.embedding, self.edge_embedding, self.type_embedding):
                 table.weight.mul_(embed_std)
 
         self.groups = {"INTERNAL": STAGES} if local == "joint" else {t.name: (t,) for t in STAGES}
@@ -391,9 +398,12 @@ class NetGraph(nn.Module):
         child, parent, label = plan.child, plan.parent, plan.label
 
         # initial embeddings: typed nodes their type, leaves their name and numeric value
-        value = torch.bucketize(g.node_value[plan.leaves], self.value_bounds, right=True)
-        h = self.type_embedding(g.node_type).index_add(
-            0, plan.leaves, self.embedding(g.node_row[plan.leaves]) + self.value_embedding(value))
+        value = g.node_value[plan.leaves]
+        if self.arch.get("value_encoding") == "scaled":
+            value = (value.sign() * value.abs().float().log1p()).unsqueeze(1) * self.value_vector
+        else:
+            value = self.value_embedding(torch.bucketize(value, self.value_bounds, right=True))
+        h = self.type_embedding(g.node_type).index_add(0, plan.leaves, self.embedding(g.node_row[plan.leaves]) + value)
 
         if self.arch["local"] == "flat":
             p = parent[plan.leaf_edges]
