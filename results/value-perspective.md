@@ -521,3 +521,23 @@ Clearly worse (+.005), with a larger train / held-out gap (≈.004-.006 vs ≈0)
 Training takes ≈745 s/epoch vs ≈640 s for down-down on 4090s (the parallel mode still runs one layer per type in turn).
 Two things changed at once (bidirectional tokens and parallel updates); a sequential "both" or a parallel down-down
 would separate them.
+
+## Recipes compared on land injection and ablations (Nov 15)
+
+d128, best held-out checkpoint of each run: no dropout (constant LR, ≤ e8), cosine LR (no dropout, ≤ e8), leaf dropout
+0.1 (constant LR, ≤ e12), leaf dropout 0.2 (constant LR, ≤ e12; all-node s1 still training). Land injection = share of
+P1 Burn-mirror positions (300-sim shard) whose value goes up when the skipped Mountain is played; jump = mean change
+between consecutive end-of-epoch checkpoints. Ablations: 2,000 Burn-mirror states, value MSE change.
+
+| recipe | injection at best: all s0 / s1, legal s0 / s1 | mean | mean jump | ~HandSize | ~BattlefieldSize | ~ManaValue | −Battlefield | ~LifeTotal |
+|---|---|---|---|---|---|---|---|---|
+| no dropout | 20 / 67 / 45 / 48 | 45 | 9.8 | ≤ +.008 | up to +.039 | +.010 to +.046 | up to +.004 | +.168 |
+| cosine LR | 64 / 49 / 72 / 99 | 71 | 10.0 | up to +.023 | up to +.016 | +.015 to +.028 | up to **+.071** | +.154 to +.175 |
+| dropout 0.1 | 66 / 90 / 95 / 18 | 67 | 8.7 | ≈ 0 | ≤ +.005 | ≤ +.014 | 0 | +.131 to +.171 |
+| dropout 0.2 | 72 / – / 88 / 50 | 70 | 15.1 | ≈ 0 | ≤ +.003 | ≤ +.006 | 0 | +.122 to +.145 |
+
+- Ablations: dropout is what makes seeds agree. With it, no secondary feature costs more than +.014 and the profile is the
+  same across seeds (0.2 flattest). Without it, which counters a seed leans on is seed-specific (legal s1 BattlefieldSize
+  +.039 / ManaValue +.046; cosine legal s1 leans on the Battlefield name leaf, +.071). Cosine LR does not fix this.
+- Land injection: dropout lifts the level (mean 45% → 67-70%), but so does cosine LR (71%), and no recipe gets every seed
+  above 90% (dropout 0.1 legal s1: 18%; 0.2 legal s1: 50%). Epoch-to-epoch jumps are not smaller with dropout.
