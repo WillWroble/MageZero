@@ -3,7 +3,8 @@
 2. The same ablations for every model, value MSE against the stored labels:
    - remove a leaf: the mana-pool leaves (constant 0 in these games, so no information) and the Battlefield name;
    - cut every leaf from the land entities (nodes with a LAND leaf) and their abilities: permanents, cards, both at
-     once; the entity nodes stay;
+     once; the entity nodes stay; both at once with BattlefieldSize shuffled too;
+   - remove the land permanents outright (nodes, abilities, edges) and lower BattlefieldSize to match;
    - shuffle a leaf's numeric value across its occurrences: the tokens stay, only their information goes.
 3. With --all instead: every leaf id in the sample removed in turn (all its occurrences, from the states that hold it).
 4. With --entities instead: each card and permanent blanked in turn, one per copy of its state: every leaf edge into
@@ -124,6 +125,34 @@ def entities_one_at_a_time(ds):
     return sub, s, info
 
 
+def remove_land_permanents(ds):
+    """Deletes the land permanents and their abilities (leaves are shared, so they stay) and lowers each battlefield's
+    BattlefieldSize by its lands, in place (raw ids)."""
+    state = np.repeat(np.arange(ds.N), np.diff(ds.offsets))
+    e_state = np.repeat(np.arange(ds.N), np.diff(ds.edge_offsets))
+    child, parent = ds.edge_child + ds.offsets[e_state], ds.edge_parent + ds.offsets[e_state]
+    leaf = ds.node_type[child] == T.LEAF
+    lands = np.unique(parent[leaf & (ds.ids[child] == F("LAND"))])
+    lands = lands[ds.node_type[lands] == T.PERMANENT]
+    gone = np.zeros(len(ds.ids), bool); gone[lands] = True
+    gone[child[gone[parent] & (ds.node_type[child] == T.ABILITY)]] = True
+    zone = dict(zip(child[~leaf], parent[~leaf]))
+    size = {p: c for c, p in zip(child, parent) if ds.ids[c] == F("BattlefieldSize")}
+    for x in lands: ds.values[size[zone[x]]] -= 1
+    keep_e = ~(gone[child] | gone[parent]); keep = ~gone
+    offsets = np.concatenate([[0], np.cumsum(np.bincount(state[keep], minlength=ds.N))])
+    local = np.cumsum(keep) - 1 - offsets[state]
+    ds.edge_child, ds.edge_parent = (local[x[keep_e]].astype(np.int16) for x in (child, parent))
+    ds.edge_label = ds.edge_label[keep_e]
+    ds.edge_offsets = np.concatenate([[0], np.cumsum(np.bincount(e_state[keep_e], minlength=ds.N))])
+    ds.ids, ds.values, ds.node_type, ds.offsets = ds.ids[keep], ds.values[keep], ds.node_type[keep], offsets
+
+
+def shuffle(ds, f):
+    m = np.flatnonzero((ds.node_type == T.LEAF) & (ds.ids == F(f)))
+    ds.values[m] = ds.values[np.random.default_rng(1).permutation(m)]
+
+
 def mse(model, ds, vocab, edge_vocab):
     return float(np.mean((values(model, ds, vocab, edge_vocab) - ds.row[:, 0]) ** 2))
 
@@ -242,9 +271,12 @@ if __name__ == "__main__":
                            ("-all land leaves", [T.PERMANENT, T.CARD])):
             ds = sample_states(shards, n); drop_land_leaves(ds, kinds)
             r[col] = mse(model, ds, vocab, edge_vocab)
+        ds = sample_states(shards, n); drop_land_leaves(ds, [T.PERMANENT, T.CARD]); shuffle(ds, "BattlefieldSize")
+        r["-all land leaves ~BattlefieldSize"] = mse(model, ds, vocab, edge_vocab)
+        ds = sample_states(shards, n); remove_land_permanents(ds)
+        r["-land permanents, count adjusted"] = mse(model, ds, vocab, edge_vocab)
         for f in SHUFFLE:
-            ds = sample_states(shards, n); m = np.flatnonzero((ds.node_type == T.LEAF) & (ds.ids == F(f)))
-            ds.values[m] = ds.values[np.random.default_rng(1).permutation(m)]
+            ds = sample_states(shards, n); shuffle(ds, f)
             r["~" + f] = mse(model, ds, vocab, edge_vocab)
 
     cols = list(next(iter(rows.values())))
