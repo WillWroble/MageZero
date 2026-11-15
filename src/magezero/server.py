@@ -10,7 +10,7 @@ import waitress
 from flask import Flask, request, Response
 
 from cache import NodeCache
-from dataset import map_ids, node_types
+from dataset import flatten_zones, map_ids, node_types
 from model import Graphs, NetGraph, load_checkpoint, value_estimate, AMP, DEVICE, NodeType
 
 # Threading config
@@ -64,16 +64,23 @@ def request_arrays(data):
       edge_child, edge_parent, edge_label   per edge; child and parent are local to the state
       edge_offsets                          per state, its first edge
     Returns node_type, node_row, values, edge_child, edge_parent, edge_row (edges local to the request) and each
-    state's first node plus the node count, all int64 so the worker only concatenates."""
+    state's first node plus the node count, all int64 so the worker only concatenates; and, for a flat_zones model,
+    the sent nodes kept (flatten_zones) and each state's first sent node, else None, None."""
     ids, values = as_array(data["indices"]), as_array(data["values"])
-    edge_child, edge_parent = as_array(data["edge_child"]), as_array(data["edge_parent"])
+    edge_child, edge_parent, edge_label = as_array(data["edge_child"]), as_array(data["edge_parent"]), as_array(data["edge_label"])
     node_type = node_types(ids)
-    node_row, edge_row = map_ids(ids, node_type, as_array(data["edge_label"]), VOCAB, EDGE_VOCAB)
     starts = np.append(as_array(data["offsets"], np.int64), len(ids))
     edge_starts = np.append(as_array(data["edge_offsets"], np.int64), len(edge_child))
+    sent = keep = None
+    if server_model.arch.get("flat_zones"):
+        sent = starts
+        ids, values, node_type, edge_child, edge_parent, edge_label, starts, edge_starts, keep = flatten_zones(
+            ids, values, node_type, edge_child, edge_parent, edge_label, starts, edge_starts)
+        edge_child, edge_parent = edge_child.astype(np.int64), edge_parent.astype(np.int64)
+    node_row, edge_row = map_ids(ids, node_type, edge_label, VOCAB, EDGE_VOCAB)
     state_start = np.repeat(starts[:-1], np.diff(edge_starts))
     return (node_type.astype(np.int64), node_row.astype(np.int64), values.astype(np.int64),
-            edge_child + state_start, edge_parent + state_start, edge_row.astype(np.int64), starts)
+            edge_child + state_start, edge_parent + state_start, edge_row.astype(np.int64), starts), keep, sent
 
 
 def collate_requests(batch):
@@ -93,7 +100,7 @@ def collate_requests(batch):
 
 
 class Pending:
-    __slots__ = ("req_id", "arrays", "node_hash", "binary", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
+    __slots__ = ("req_id", "arrays", "keep", "sent", "node_hash", "binary", "states", "nodes", "kept", "evt", "out", "error", "t_recv", "t_done")
 
     def __init__(self, req_id, data):
         self.req_id = req_id
@@ -103,7 +110,7 @@ class Pending:
         self.error = None
         self.t_done = 0.0
 
-        self.arrays = request_arrays(data)
+        self.arrays, self.keep, self.sent = request_arrays(data)
         # per node, its subtree hash (raw int64): the node cache's key. Clients that don't send it go uncached
         self.node_hash = np.frombuffer(data["node_hash"], "<i8") if "node_hash" in data else None
         self.binary = bool(data.get("binary"))  # reply with raw float32 arrays instead of per-state maps
@@ -154,6 +161,13 @@ def worker_loop():
 
             # Split results back to individual requests: per-node scores in the order each state was sent
             starts = np.asarray(graphs.node_offsets)
+            if batch[0].keep is not None:  # flat_zones: back to the sent nodes, removed zones scored -inf
+                keep = np.concatenate([p.keep for p in batch])
+                full = [np.full(len(keep), -np.inf, np.float32) for _ in range(2)]
+                full[0][keep], full[1][keep] = priority, target
+                priority, target = full
+                bases = np.cumsum([0] + [len(p.keep) for p in batch])
+                starts = np.concatenate([p.sent[:-1] + b for p, b in zip(batch, bases)] + [bases[-1:]])
             row = 0
             for p in batch:
                 rows = slice(row, row + p.states)

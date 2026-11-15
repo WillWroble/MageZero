@@ -134,7 +134,10 @@ if __name__ == "__main__":
         for tag, (sets, lands, lost) in data.items():
             v = {}
             for k, ds in sets.items():
-                ds = copy.deepcopy(ds); ds.apply_vocab(vocab, edge_vocab); v[k] = predict(model, ds)
+                ds = copy.deepcopy(ds)
+                if model.arch.get("flat_zones"):
+                    ds.flatten_zones()
+                ds.apply_vocab(vocab, edge_vocab); v[k] = predict(model, ds)
             flag, played = v["flag"] - v["base"], v["played"] - v["base"]
             print(f"{name:36} {tag:8} {len(lands):9}  {share(flag)}  {share(played)}  {share(played[lost])}  "
                   f"{share(played[lands == 2])}", flush=True)

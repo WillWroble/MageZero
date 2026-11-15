@@ -30,6 +30,59 @@ for _t in NodeType:
         TYPE_IDS[feature_id(_t.name)] = _t
 
 
+# a player's own zones; flatten_zones replaces them with leaves (Exile and the Stack hang from the root and stay)
+FLAT_ZONES = ("Battlefield", "Hand", "Graveyard", "CommandZone")
+
+
+def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, offsets, edge_offsets):
+    """Removes each player's own ZONE nodes (FLAT_ZONES): what a zone held hangs from its PLAYER, with the zone's name
+    leaf as a child of each card or permanent (edge label "zone"), and the zone's counters (BattlefieldSize,
+    GraveyardSize) become the PLAYER's leaves. Raw ids, edges local to their state.
+    Returns (ids, values, node_type, edge_child, edge_parent, edge_label, offsets, edge_offsets, keep): keep marks the
+    original nodes that remain, in order."""
+    e_state, state = states_of(edge_offsets), states_of(offsets)
+    child, parent = edge_child + offsets[e_state], edge_parent + offsets[e_state]
+    t, leaf = node_type, node_type[child] == NodeType.LEAF
+    named = leaf & (edge_label == feature_id("name"))
+    zone = np.zeros(len(ids), bool)
+    zone[parent[named & (t[parent] == NodeType.ZONE) & np.isin(ids[child], [feature_id(z) for z in FLAT_ZONES])]] = True
+    owner = np.full(len(ids), -1)
+    up = zone[child] & (t[parent] == NodeType.PLAYER)
+    owner[child[up]] = parent[up]
+    zone &= owner >= 0
+    into = zone[parent]
+    zone_name = np.full(len(ids), -1)
+    zone_name[parent[into & named]] = child[into & named]
+    moved = parent.copy()
+    moved[into & ~named] = owner[parent[into & ~named]]
+    ent = into & ~leaf & (zone_name[parent] >= 0)                     # a card or permanent: it gets the zone's name
+    keep_e = ~(into & named) & ~zone[child]
+    child, parent = (np.concatenate([child[keep_e], zone_name[parent[ent]]]),
+                     np.concatenate([moved[keep_e], child[ent]]))
+    edge_label = np.concatenate([edge_label[keep_e], np.full(int(ent.sum()), feature_id("zone"), edge_label.dtype)])
+    e_state = np.concatenate([e_state[keep_e], e_state[ent]])
+    order = np.argsort(e_state, kind="stable")
+    keep = ~zone
+    offsets = np.concatenate([[0], np.cumsum(np.bincount(state[keep], minlength=len(offsets) - 1))]).astype(np.int64)
+    local = np.cumsum(keep) - 1 - offsets[state]
+    edge_offsets = np.concatenate([[0], np.cumsum(np.bincount(e_state, minlength=len(offsets) - 1))]).astype(np.int64)
+    return (ids[keep], values[keep], t[keep], local[child[order]].astype(np.int16), local[parent[order]].astype(np.int16),
+            edge_label[order], offsets, edge_offsets, keep)
+
+
+def drop_entities(node_type, edge_child, edge_parent, cand_node, p, rng):
+    """One state with each card and permanent dropped with probability p (with its abilities and every edge touching
+    them), except policy candidates and the cards or permanents whose abilities are candidates. The counters and
+    shared leaves stay. Returns (keep, edges kept, each kept node's new index)."""
+    t = node_type
+    gone = np.isin(t, (NodeType.PERMANENT, NodeType.CARD)) & (rng.random(len(t)) < p)
+    gone[cand_node] = False
+    gone[edge_parent[np.isin(edge_child, cand_node) & (t[edge_child] == NodeType.ABILITY)]] = False
+    gone[edge_child[(t[edge_child] == NodeType.ABILITY) & gone[edge_parent]]] = True
+    keep = ~gone
+    return keep, keep[edge_child] & keep[edge_parent], np.cumsum(keep) - 1
+
+
 def node_types(ids: np.ndarray) -> np.ndarray:
     types = np.full(ids.shape, NodeType.LEAF, dtype=np.int8)
     for type_id, t in TYPE_IDS.items():
@@ -184,11 +237,14 @@ class H5Graphs(Dataset):
                                                         useFalseVisits, useTrueVisits
     Ids stay raw until apply_vocab maps them to embedding rows; __getitem__ needs the mapped form.
     hide_opponent_hand: see hide_opponent_hand.
+    flat_zones: see flatten_zones (after hide_opponent_hand, which finds hands by their zone).
+    entity_dropout: __getitem__ drops cards and permanents with this probability (drop_entities); set on training data.
     td: if given, the value labels (resultLabel) are rebuilt with this discount (td_labels) instead of the stored ones.
     source: a directory (every shard under it) or a list of (shard path, games or None for all), as read_split gives.
     """
 
-    def __init__(self, source, vocab=None, edge_vocab=None, hide_opponent_hand: bool = False, td: float = None):
+    def __init__(self, source, vocab=None, edge_vocab=None, hide_opponent_hand: bool = False, td: float = None,
+                 flat_zones: bool = False):
         if isinstance(source, (str, Path)):
             source = [(str(p), None) for p in sorted(list(Path(source).rglob("*.h5")) + list(Path(source).rglob("*.hdf5")))]
         self.files = [path for path, _ in source]
@@ -241,7 +297,10 @@ class H5Graphs(Dataset):
         self.node_type = node_types(self.ids)
         if hide_opponent_hand:
             self.hide_opponent_hand()
+        if flat_zones:
+            self.flatten_zones()
         self.check_candidates()
+        self.entity_dropout, self.rng = 0.0, np.random.default_rng()
 
         if vocab is not None:
             self.apply_vocab(vocab, edge_vocab)
@@ -283,6 +342,17 @@ class H5Graphs(Dataset):
         print(f"hid {int(hidden.sum())} opponent hands: {int((~keep).sum())} nodes removed "
               f"({(~keep).mean():.1%}), {int((~edges).sum())} edges")
 
+    def flatten_zones(self) -> None:
+        """flatten_zones on every state; policy candidates are never zones, so they only move."""
+        (self.ids, self.values, self.node_type, self.edge_child, self.edge_parent, self.edge_label, offsets,
+         self.edge_offsets, keep) = flatten_zones(self.ids, self.values, self.node_type, self.edge_child,
+                                                  self.edge_parent, self.edge_label, self.offsets, self.edge_offsets)
+        state = states_of(self.offsets)
+        local = np.cumsum(keep) - 1 - offsets[state]
+        self.cand_node = local[self.cand_node + self.offsets[states_of(self.cand_offsets)]].astype(np.int32)
+        print(f"flattened zones: {int((~keep).sum())} ZONE nodes removed of {len(keep)}")
+        self.offsets = offsets
+
     def apply_vocab(self, vocab, edge_vocab) -> None:
         """Maps ids to embedding rows, then drops the raw ids and edge labels (the bulk of the memory)."""
         self.node_row, self.edge_row = map_ids(self.ids, self.node_type, self.edge_label, vocab, edge_vocab)
@@ -309,9 +379,14 @@ class H5Graphs(Dataset):
         n = slice(self.offsets[k], self.offsets[k + 1])
         e = slice(self.edge_offsets[k], self.edge_offsets[k + 1])
         c = slice(self.cand_offsets[k], self.cand_offsets[k + 1])
-        return (self.node_type[n], self.node_row[n], self.values[n],
-                self.edge_child[e], self.edge_parent[e], self.edge_row[e],
-                self.cand_node[c], self.cand_visits[c], self.row[k])
+        item = [self.node_type[n], self.node_row[n], self.values[n], self.edge_child[e], self.edge_parent[e],
+                self.edge_row[e], self.cand_node[c], self.cand_visits[c], self.row[k]]
+        if self.entity_dropout:
+            keep, edges, local = drop_entities(item[0], item[3], item[4], item[6], self.entity_dropout, self.rng)
+            item[:3] = (x[keep] for x in item[:3])
+            item[3], item[4] = local[item[3][edges]].astype(np.int16), local[item[4][edges]].astype(np.int16)
+            item[5], item[6] = item[5][edges], local[item[6]].astype(np.int32)
+        return tuple(item)
 
 
 def concat(parts, dtype=np.int64):

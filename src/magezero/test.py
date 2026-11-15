@@ -199,12 +199,12 @@ def shard_line(shard, result) -> str:
             f"prio_top1={hits / max(n, 1):.3f}  tgt_top1={thits / max(tn, 1):.3f}")
 
 
-def val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand=False, td=None) -> dict:
+def val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand=False, td=None, flat_zones=False) -> dict:
     """val set name -> [(shard path, DataLoader)], from read_split's vals; shards without states left out."""
     loaders = {}
     for name, shards in val_shards.items():
         for path, games in shards:
-            ds = H5Graphs([(path, games)], vocab, edge_vocab, hide_opponent_hand, td)
+            ds = H5Graphs([(path, games)], vocab, edge_vocab, hide_opponent_hand, td, flat_zones)
             if len(ds) > 0:
                 loaders.setdefault(name, []).append((path, DataLoader(
                     ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, collate_fn=collate_batch,
@@ -241,5 +241,6 @@ if __name__ == "__main__":
     print(f"Loaded checkpoint from {checkpoint_path}: {len(vocab)} leaf rows, {len(edge_vocab)} edge label rows, "
           f"hide_opponent_hand={hide_opponent_hand}")
 
-    loaders = val_loaders(read_split(f"{args.model}/split.txt")[1], vocab, edge_vocab, hide_opponent_hand, args.td)
+    loaders = val_loaders(read_split(f"{args.model}/split.txt")[1], vocab, edge_vocab, hide_opponent_hand, args.td,
+                          model.arch.get("flat_zones"))
     validate_sets(model.to(DEVICE), loaders, vocab, edge_vocab, "" if args.td is None else f" (TD {args.td})")

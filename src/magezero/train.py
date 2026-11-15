@@ -37,7 +37,7 @@ def train(
         min_lr: float = None,
 ):
     train_shards, val_shards = read_split(f"{out}/split.txt")
-    ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand, td=td)
+    ds = H5Graphs(train_shards, hide_opponent_hand=hide_opponent_hand, td=td, flat_zones=(arch or {}).get("flat_zones"))
     if len(ds) == 0:
         found = (f"{len(ds.files)} .hdf5/.h5 files, none with readable states (see warnings above)" if ds.files
                  else "no .hdf5/.h5 files")
@@ -50,7 +50,8 @@ def train(
             raise SystemExit(f"--resume: this data adds leaf ids to {resume}'s vocab; warm start with --checkpoint instead")
         start_epoch, opt_state = checkpoint["epoch"], checkpoint["optimizer_dense_state_dict"]
     ds.apply_vocab(vocab, edge_vocab)
-    val_sets = test.val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand, td)
+    ds.entity_dropout = model.arch.get("entity_dropout", 0.0)
+    val_sets = test.val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand, td, model.arch.get("flat_zones"))
 
     train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_opponent_hand, lr, val_every, only,
                start_epoch, opt_state, min_lr)
