@@ -541,3 +541,20 @@ between consecutive end-of-epoch checkpoints. Ablations: 2,000 Burn-mirror state
   +.039 / ManaValue +.046; cosine legal s1 leans on the Battlefield name leaf, +.071). Cosine LR does not fix this.
 - Land injection: dropout lifts the level (mean 45% → 67-70%), but so does cosine LR (71%), and no recipe gets every seed
   above 90% (dropout 0.1 legal s1: 18%; 0.2 legal s1: 50%). Epoch-to-epoch jumps are not smaller with dropout.
+
+## The embedding tables barely train (Nov 15)
+
+Leaf rows start from `vocab.initial_rows` (N(0, 1) per id, reproducible), so a checkpoint can be compared with its own
+init. d128 all-node s0 runs: relative change ‖W − W0‖ / ‖W0‖ per leaf row, and cos(W, W0).
+
+| checkpoint | leaf rows: median / p90 / max change | cos(trained, init) median | edge rows median change |
+|---|---|---|---|
+| no dropout, e1 | .032 / .056 / .152 | .999 | .023 |
+| no dropout, e4 | .062 / .105 / .265 | .998 | .054 |
+| cosine LR, e7 | .060 / .103 / .284 | .998 | .050 |
+| dropout 0.1, e12 | .120 / .201 / .386 | .993 | .112 |
+
+The numeric value embedding (32 buckets, −5 … ) has no order either: cos between adjacent buckets .04-.08 (random 128-d
+vectors: ≈ 0 ± .09), 5+ buckets apart ≈ 0. With N(0, 1) init (row norm ≈ 11.3) and Adam at 1e-4 (steps ≈ 1e-4 per
+element), the embeddings stay close to random codes: the local layers do the learning, card similarity is never put into
+the table, and "3 life" vs "4 life" or "2 lands" vs "3 lands" are unrelated vectors whose order the layers must learn.
