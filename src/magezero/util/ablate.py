@@ -58,6 +58,7 @@ def select(ds, idx):
     ds.edge_offsets = np.concatenate([[0], np.cumsum([k.stop - k.start for k in edges])]).astype(np.int64)
     ds.row, ds.N = ds.row[idx], len(idx)
     ds.cand_node, ds.cand_visits = np.empty(0, np.int32), np.empty(0, np.int32)
+    ds.cand_offsets = np.zeros(len(idx) + 1, np.int64)
     return ds
 
 
