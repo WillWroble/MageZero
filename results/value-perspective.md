@@ -789,3 +789,21 @@ LR 1e-3 runs were killed at e9-e10 (legal-only unstable: train value .07-.09, ch
 - Across 40 best checkpoints, models whose value depends on land identity (blanking all lands costs > .02 on Burn,
   n = 8) score 90 on Burn injection on average, the rest 61 (Spearman .36). Removing land nodes, which costs ≈ the same
   everywhere, does not predict injection (.12). Passing injection goes with reading what the lands are.
+
+## Entity dropout p = 0.05 (Nov 15)
+
+Cosine + leaf dropout 0.1, d128, 12 epochs, plus `entity_dropout` 0.05 (`548e41a`: each training state drops every
+card and permanent with p = .05, with its abilities; candidates kept). RunPod 4090s, ≈$9 for training, ≈$5 for tests.
+Order: all s0 / s1, legal s0 / s1; baseline = the same recipe without entity dropout.
+
+| | best held-out value | Burn injection | Faeries injection | ~BattlefieldSize Burn / Faeries | count only (Burn) |
+|---|---|---|---|---|---|
+| baseline | .0322 / .0318 / .0335 / .0327 | 73 / 96 / 77 / 82 | 46 / 80 / 67 / 83 | ≈ .001 / ≤ .004 | .001 / .005 / .012 / -.004 |
+| entity dropout .05 | .0337 / .0331 / .0336 / .0333 | 41 / 74 / 32 / 39 | 58 / 61 / 64 / 60 | .044-.111 / .069-.124 | .032 / .072 / .071 / .083 |
+
+- The models now read the counter: shuffling BattlefieldSize costs +.04 to +.12 (≈ 0 before), and a battlefield count
+  raised by one with no node behind it moves value 45-90% as much as an added Mountain (≈ 0 before). Removing land
+  permanents with the count lowered still costs +.04-.05 (Burn): the nodes are read too.
+- Held-out value is .001-.0015 worse on all-node, level on legal-only; curves still falling at e12.
+- Injection got worse on Burn (mean 47 vs 82) and less seed-dependent but lower on Faeries (58-64 vs 46-83). Reading
+  the count did not make the land play read as good.
