@@ -625,3 +625,26 @@ Compared with the same recipe at std 1 (`...-ld01-cos-...`).
 - With dropout the small-init shortcut reliance goes away (BattlefieldSize ≤ +.006, was +.026 / +.043 without dropout).
 - Land injection is worse than at std 1 (65 / 74 / 23 vs 73 / 77 / 82) and legal s1 drifts down steadily as held-out
   value improves (85% at e1 → 19% at e12): better value loss does not buy the land preference here.
+
+## Land injection on the Faeries mirror (Nov 15, `f0742a8`)
+
+`util/land_inject.py` with `LAND=Island` on the held-out gen0 Faeries mirror (`ver4/testing/gen0`, PlayerA 142 and
+PlayerB 132 skipped-Island positions, most at 5+ own lands: ±4 points of noise per shard). "Played" up, mean of A and B,
+best held-out checkpoints (td003 runs: best on the mirror val set). Run on CPU in the session.
+
+| recipe | Faeries: all s0 / s1, legal s0 / s1 | mean | Burn (same order) |
+|---|---|---|---|
+| no dropout | 41 / 65 / 65 / 83 | 63 | 20 / 67 / 45 / 48 |
+| cosine LR | 28 / 72 / 77 / 89 | 66 | 64 / 49 / 72 / 99 |
+| dropout 0.1 | 30 / 65 / 83 / 64 | 60 | 66 / 90 / 95 / 18 |
+| dropout 0.2 | 66 / 47 / 86 / 49 | 62 | 72 / 50 / 88 / 50 |
+| cosine + dropout 0.1 | 46 / 80 / 67 / 83 | 69 | 73 / 96 / 77 / 82 |
+| value / 20 (4 ep) | 77 / 99 / 76 / 78 | 82 | 95 / 100 / 19 / 71 |
+| small init (4 ep) | 62 / 13 / 71 / 52 | 49 | 65 / 34 / 62 / 76 |
+| small init + cosine + dropout | 56 / – / 60 / 55 | | 65 / – / 74 / 23 |
+
+Others: ver15 70, P1 67, v4-downdown 79, v4-downdown-players 69, td003 50, td003-noname 58.
+
+- The two tests agree only loosely per model (r ≈ .5 over the 31 d128 checkpoints): a seed that fails one often passes
+  the other (dropout 0.1 legal s1: Burn 18, Faeries 64; value / 20 legal s0: 19 vs 76).
+- No recipe puts every seed high on Faeries either; value / 20 comes closest (76-99), small init is lowest.
