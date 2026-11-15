@@ -763,3 +763,29 @@ for every model (base value MSE ≈ .03 vs ≈ .08 on the Burn mirror). Pods `fa
   for each other. With dropout the counter is unused (≤ .004) and there is no interaction.
 - Added permanent (Island / blank / count only): with dropout the blank is worth 50-100% of an Island, the count ≤ .013;
   without dropout the blank beats the Island in 4 of 8 (all nd s1 .167 vs .071); P1 .065 / .234 / .059.
+
+## Leaf init seed, value / 20 + dropout 0.2 + cosine + small init, LR 1e-3 (Nov 15)
+
+d128, 12 epochs, cosine to 1e-5 unless noted; best held-out checkpoint; injection = "played" up (Burn: P1's 300-sim
+shard; Faeries: mean of the held-out gen0 mirror's A and B). Order: all s0 / s1, legal s0 / s1.
+
+| recipe | best held-out value | Burn injection | Faeries injection |
+|---|---|---|---|
+| cosine + dropout 0.1, leaf init as before (`embed_seed` 0) | .0322 / .0318 / .0335 / .0327 | 73 / 96 / 77 / 82 | 46 / 80 / 67 / 83 |
+| same, `embed_seed` 1 (`ee802ae`) | .0321 / .0321 / .0325 / .0326 | 78 / 99 / **35 / 49** | 70 / 92 / **34 / 51** |
+| value / 20 + dropout 0.2 + cosine + small init | .0320 / .0317 / .0322 / .0318 | 79 / 98 / 63 / 83 (mean 81) | 58 / 73 / 58 / 71 (mean 65) |
+| small init + cosine + dropout 0.1 (all s1 now done) | .0314 / .0315 / .0317 / .0316 | 65 / 69 / 74 / 23 | 56 / 42 / 60 / 55 |
+| LR 1e-3 → 1e-4, small init + dropout 0.1 | .0347 / .0354 / .0553 / .0796 at e9 | – | – |
+
+LR 1e-3 runs were killed at e9-e10 (legal-only unstable: train value .07-.09, checkpoint jumps up to .05; ≈$7).
+
+- The leaf init alone moves injection as much as the torch seed: same weights init, data order and dropout masks, only
+  the leaf / edge rows changed, and legal-only went 77 → 35 and 82 → 49 (Faeries 67 → 34, 83 → 51). Held-out value is
+  unchanged (±.001). Part of the seed dependence comes from the leaf init.
+- value / 20 with dropout, cosine and small init: held-out value level with the best recipes, injection about level
+  with cosine + dropout (Burn mean 81 vs 82, minimum 63 vs 73). Ablations: blanking every land ≤ +.003, BattlefieldSize
+  shuffled ≈ 0, an added blank permanent ≈ half a Mountain, the count alone ≈ 0 (Burn and Faeries): with dropout the
+  numeric counter stays unused under value / 20 too; land presence comes from the nodes (removal +.036-.044).
+- Across 40 best checkpoints, models whose value depends on land identity (blanking all lands costs > .02 on Burn,
+  n = 8) score 90 on Burn injection on average, the rest 61 (Spearman .36). Removing land nodes, which costs ≈ the same
+  everywhere, does not predict injection (.12). Passing injection goes with reading what the lands are.
