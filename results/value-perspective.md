@@ -667,3 +667,31 @@ the largest other leaf:
 - Land leaves matter little everywhere: LAND ≤ +.011, CanPlayLand ≤ +.008, Tapped ≤ +.009. Removing the MOUNTAIN subtype
   alone changes ≤ .004 (the LAND leaf is still there).
 - Leaf removal does not separate the seeds that pass land injection from those that fail it.
+
+## Blanking one card or permanent at a time: does value accuracy drop? (Nov 15, `ablate.py --entities`, `0e84a34`)
+
+P1's Burn mirror, 2,000 states. Each card and permanent in turn has every leaf edge into it and its abilities cut (the
+node stays, so name and subtype can't cover for each other). Value MSE change per blanked entity (×1000; base MSE
+≈ 80), mean over the seeds of each recipe, groups with ≥ 150 removals. Full lists:
+`/workspace/runs/ablate-entities2/ablate.txt` (ids; names mapped with the local XMage source).
+
+| card | zone | owner | P1 | no dropout | cosine | drop 0.1 | drop 0.2 | cos + drop | value / 20 | small init | small init + cos + drop |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Guttersnipe | Battlefield | opp | +27 | +23 | +24 | +47 | +47 | +27 | +42 | +36 | +32 |
+| Sneaky Snacker | Battlefield | own | +14 | +21 | +29 | +27 | +31 | +36 | +28 | +31 | +28 |
+| unnamed permanent (token) | Battlefield | own | +26 | +14 | +11 | +8 | +4 | +5 | +9 | +5 | +4 |
+| Masked Meower | Battlefield | own | +18 | +16 | +13 | +5 | +5 | +7 | +10 | +7 | −1 |
+| Mountain | Hand | opp | +6 | +7 | +7 | +5 | +5 | +4 | +7 | +5 | +5 |
+| Mountain | Battlefield | own | +9 | +3 | +5 | +0 | +0 | +2 | +2 | −0 | −2 |
+| Mountain | Battlefield | opp | +4 | −1 | +0 | +1 | +0 | +1 | +4 | −1 | −0 |
+| Mountain | Hand | own | +1 | −0 | +2 | −2 | −1 | +0 | +1 | −0 | −3 |
+
+Per land on its own (`--lands`, `6819a4d`, same states), value MSE change per blanked land: own battlefield +.0001 to
++.0085, a third of the 36 models negative (the prediction is better without the land); P1 the largest.
+All lands at once (`6210d55`): ≤ +.04 except value / 20 all-node s1 (+.20); small init + cosine + dropout −.009 to +.005.
+
+- Value accuracy rests on a few creatures (Guttersnipe, Sneaky Snacker, Masked Meower, tokens), the same in every recipe.
+- Lands barely matter for accuracy: blanking one Mountain changes MSE by ≤ .009 anywhere. The opponent's Mountain in hand
+  matters more than the decision player's own Mountain on the battlefield, and the own Mountain in hand not at all.
+- With dropout, the own battlefield Mountain matters ≈ 0; the tests of land judgement (injection) probe information
+  the value barely uses, which may be why they swing with the seed.
