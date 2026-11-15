@@ -87,8 +87,9 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop
     edge_vocab.extend(kept_labels)
     # rows the appended ids would have started from in any run
     d_model = model.arch["d_model"]
-    model.resize_embedding(len(vocab), initial_rows(vocab.ids[prev_rows:], d_model))
-    model.resize_embedding(len(edge_vocab) + 1, initial_rows(edge_vocab.ids[prev_labels:], d_model), "edge_embedding")
+    std = model.arch.get("embed_std", 1.0)
+    model.resize_embedding(len(vocab), std * initial_rows(vocab.ids[prev_rows:], d_model))
+    model.resize_embedding(len(edge_vocab) + 1, std * initial_rows(edge_vocab.ids[prev_labels:], d_model), "edge_embedding")
     if model.arch.get("value_token") == "players" or model.arch.get("hide_decider") or model.arch.get("leaf_dropout"):
         model.arch["decision_row"] = int(vocab.lookup([feature_id("IsDecisionPlayer")])[0])
     print(f"leaf vocab: {len(kept_leaves)} kept ids in this dataset, {prev_rows} rows from checkpoint -> {len(vocab)} rows")

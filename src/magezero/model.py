@@ -232,6 +232,8 @@ class NetGraph(nn.Module):
                     value_token "players" it only picks the sign, so the state is evaluated without a perspective
       leaf_dropout: in training, each leaf token (with its edges) is dropped with this probability, except the
                     IsDecisionPlayer leaf (decision_row), so no single feature can carry the value
+      embed_std: standard deviation of the embedding tables' initial rows (leaf, edge label, node type, value bucket;
+                 nn.Embedding's default is 1), so Adam's steps are large relative to the rows
       registers: K learned tokens added to every global sequence after CLS and read by no head, so the global
                  layers can store state-wide information there instead of in uninformative nodes"""
 
@@ -240,19 +242,24 @@ class NetGraph(nn.Module):
                  global_layers: int = GLOBAL_LAYERS, local: str = "sequential", global_tokens: str = "internal",
                  policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared",
                  value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1, directions: list = None,
-                 owner_context: bool = False, hide_decider: bool = False, registers: int = 0, leaf_dropout: float = 0.0):
+                 owner_context: bool = False, hide_decider: bool = False, registers: int = 0, leaf_dropout: float = 0.0,
+                 embed_std: float = 1.0):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
                          policy_domain=policy_domain, legality_weight=legality_weight, legality_heads=legality_heads,
                          value_loss=value_loss, value_token=value_token, decision_row=decision_row,
                          directions=list(directions or ["up"] * n_passes), owner_context=owner_context,
-                         hide_decider=hide_decider, registers=registers, leaf_dropout=leaf_dropout)
+                         hide_decider=hide_decider, registers=registers, leaf_dropout=leaf_dropout,
+                         embed_std=embed_std)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
         self.value_embedding = nn.Embedding(len(VALUE_BOUNDS) + 1, d_model)
         self.register_buffer("value_bounds", torch.tensor(VALUE_BOUNDS), persistent=False)
+        with torch.no_grad():
+            for table in (self.embedding, self.edge_embedding, self.type_embedding, self.value_embedding):
+                table.weight.mul_(embed_std)
 
         self.groups = {"INTERNAL": STAGES} if local == "joint" else {t.name: (t,) for t in STAGES}
         self.local_layers = nn.ModuleList(
