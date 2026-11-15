@@ -1,10 +1,11 @@
-"""Opponent-turn land injection test: on P1's Burn mirror shards, the positions on the opponent's turn where the decision
-player skipped its land drop with a Mountain in hand (CanPlayLand still set). Two edits per position: "flag" drops
-CanPlayLand only; "played" moves the Mountain from hand to battlefield (hand size -1, permanent count +1, flag dropped).
+"""Opponent-turn land injection test: the positions on the opponent's turn where the decision player skipped its land
+drop with a basic land in hand (CanPlayLand still set): Mountain on P1's Burn mirror, Island on the Faeries mirror
+(LAND env, default Mountain). Two edits per position: "flag" drops CanPlayLand only; "played" moves the land from hand
+to battlefield (hand size -1, permanent count +1, flag dropped).
 Prints, per model and shard, the share of positions whose value goes up / down (|change| > .005): flag; played over all
 positions, in lost games, and with 2 own lands.
-  PYTHONPATH=. python util/land_inject.py name=model.pt.gz ... -- shard ..."""
-import copy, sys
+  LAND=Island PYTHONPATH=. python util/land_inject.py name=model.pt.gz ... -- [tag=]shard ..."""
+import copy, os, sys
 from collections import defaultdict
 
 import numpy as np
@@ -15,8 +16,9 @@ from dataset import H5Graphs, collate_batch, node_types
 from model import load_checkpoint, NodeType as T, DEVICE
 from vocab import feature_id as F
 
-DEC, ACT, LAND, BF, MOUNTAIN, TAPPED, HAND, CAN_PLAY_LAND = (F(s) for s in (
-    "IsDecisionPlayer", "IsActivePlayer", "LAND", "Battlefield", "Mountain", "Tapped", "Hand", "CanPlayLand"))
+BASIC = os.environ.get("LAND", "Mountain")
+DEC, ACT, LAND, BF, BASIC_ID, TAPPED, HAND, CAN_PLAY_LAND = (F(s) for s in (
+    "IsDecisionPlayer", "IsActivePlayer", "LAND", "Battlefield", BASIC, "Tapped", "Hand", "CanPlayLand"))
 PERM_COUNT, HAND_SIZE = 218205224, 502725437  # battlefield zone leaf = permanent count; player leaf = cards in hand
 
 
@@ -42,17 +44,17 @@ def subtree(c, p, root):
     return nodes
 
 
-def mountain_template(ds):
-    """An untapped Mountain permanent from the shard: subtree (ids, values, local edges) and its edge label to the zone."""
+def land_template(ds):
+    """An untapped basic land permanent from the shard: subtree (ids, values, local edges) and its edge label to the zone."""
     for s in range(ds.N):
         ids, st, c, p, l = parts(ds, s)
         _, zone, kids = own_battlefield(ids, st, c, p)
         for x, lx in ((ci, li) for ci, pi, li in zip(c, p, l) if pi == zone and st[ci] == T.PERMANENT):
-            if MOUNTAIN in kids[x] and TAPPED not in kids[x]:
+            if BASIC_ID in kids[x] and TAPPED not in kids[x]:
                 nodes = subtree(c, p, x); local = {n: i for i, n in enumerate(nodes)}
                 edges = np.array([(local[ci], local[pi], li) for ci, pi, li in zip(c, p, l) if pi in local])
                 return (ids[nodes], ds.values[ds.offsets[s] + np.array(nodes)], edges), lx
-    raise ValueError("no untapped Mountain on the decision player's battlefield")
+    raise ValueError(f"no untapped {BASIC} on the decision player's battlefield")
 
 
 def rebuild(ds, states, kept):
@@ -70,18 +72,18 @@ def rebuild(ds, states, kept):
 
 
 def variants(shard):
-    """(unchanged, flag dropped, Mountain played) datasets over the skipped-drop positions, raw ids, and per position
+    """(unchanged, flag dropped, land played) datasets over the skipped-drop positions, raw ids, and per position
     (own lands, game lost)."""
     ds = H5Graphs([(shard, None)])
     lost = H5Graphs([(shard, None)], td=1.0).row[:, 0] < 0
-    (t_ids, t_vals, t_edges), zone_label = mountain_template(ds)
+    (t_ids, t_vals, t_edges), zone_label = land_template(ds)
     out = {"base": [], "flag": [], "played": []}; kept, lands = [], []
     for s in range(ds.N):
         ids, st, c, p, l = parts(ds, s)
         me, zone, kids = own_battlefield(ids, st, c, p)
         if ACT in kids[me] or CAN_PLAY_LAND not in kids[me]: continue
         hand = next(ci for ci in c[p == me] if st[ci] == T.ZONE and HAND in kids[ci])
-        card = next((ci for ci in c[p == hand] if st[ci] == T.CARD and MOUNTAIN in kids[ci]), None)
+        card = next((ci for ci in c[p == hand] if st[ci] == T.CARD and BASIC_ID in kids[ci]), None)
         if card is None: continue
         vals = ds.values[ds.offsets[s]:ds.offsets[s + 1]]
         out["base"].append((ids, vals, c, p, l))
@@ -118,8 +120,10 @@ def share(d):
 
 if __name__ == "__main__":
     sep = sys.argv.index("--")
-    models, shards = [a.split("=", 1) for a in sys.argv[1:sep]], sys.argv[sep + 1:]
-    data = {sh: variants(sh) for sh in shards}
+    models = [a.split("=", 1) for a in sys.argv[1:sep]]
+    shards = {a.split("=", 1)[0] if "=" in a else "".join(ch for ch in a.split("/")[-1] if ch.isdigit())[:4]:
+              a.split("=", 1)[-1] for a in sys.argv[sep + 1:]}
+    data = {tag: variants(sh) for tag, sh in shards.items()}
     print(f"{'model':36} {'shard':8} {'positions':>9}  {'flag':>9}  {'played':>9}  {'lost':>9}  {'2 lands':>9}  (up / down)")
     for name, path in models:
         try:
@@ -127,11 +131,10 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"{name:36} skipped: {path}: {e}", flush=True); continue
         model.to(DEVICE).eval()
-        for sh, (sets, lands, lost) in data.items():
+        for tag, (sets, lands, lost) in data.items():
             v = {}
             for k, ds in sets.items():
                 ds = copy.deepcopy(ds); ds.apply_vocab(vocab, edge_vocab); v[k] = predict(model, ds)
             flag, played = v["flag"] - v["base"], v["played"] - v["base"]
-            tag = "".join(ch for ch in sh.split("/")[-1] if ch.isdigit())[:4]
             print(f"{name:36} {tag:8} {len(lands):9}  {share(flag)}  {share(played)}  {share(played[lost])}  "
                   f"{share(played[lands == 2])}", flush=True)
