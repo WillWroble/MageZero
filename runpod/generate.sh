@@ -28,9 +28,9 @@ fi
 mkdir -p /tmp/xmage && cp -r /workspace/xmage/$MAGE_COMMIT/{lib,decks,config} /tmp/xmage/ && X=/tmp/xmage
 for C in $CONFIG; do
   N=$(basename $C .yml)
-  # $TAG and $PRIORS (default: none, false) fill a config's @TAG@ / @PRIORS@ placeholders
+  # $TAG, $PRIORS and $TARGET_PRIORS (default: none, false, $PRIORS) fill a config's @TAG@ / @PRIORS@ / @TARGET_PRIORS@
   # $THREADS and $TIMEOUT_MS (optional) override the config's game threads and search timeout, for slower pods
-  sed -e "s|@TAG@|$TAG|g" -e "s|@PRIORS@|${PRIORS:-false}|g" ${THREADS:+-e "s|^  threads: .*|  threads: $THREADS|"} \
+  sed -e "s|@TAG@|$TAG|g" -e "s|@TARGET_PRIORS@|${TARGET_PRIORS:-${PRIORS:-false}}|g" -e "s|@PRIORS@|${PRIORS:-false}|g" ${THREADS:+-e "s|^  threads: .*|  threads: $THREADS|"} \
     ${TIMEOUT_MS:+-e "s|timeout_ms: .*|timeout_ms: $TIMEOUT_MS|"} $C > $OUT/$N.yml
   # shards are written on the container disk and copied to the volume when the run is done, so a stalled or
   # restarted volume can't leave a partial shard where a finished one should be

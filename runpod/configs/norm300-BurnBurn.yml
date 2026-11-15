@@ -1,4 +1,4 @@
-# Normed test, 300 sims for the model, piloting Burn (offline Burn stays at 300): Burn ($MODEL, priority and target priors @PRIORS@) vs offline Burn, 200 games.
+# Normed test, 300 sims for the model, piloting Burn (offline Burn stays at 300): Burn ($MODEL, priority priors @PRIORS@, target priors @TARGET_PRIORS@) vs offline Burn, 200 games.
 # Output: /workspace/runs/norm300-burnburn-@TAG@ (runpod/generate.sh, TAG and PRIORS from the environment).
 
 goes_first: random  # player_a, player_b, random
@@ -10,7 +10,7 @@ player_a:
 
   priors:
     priority: @PRIORS@
-    target: @PRIORS@
+    target: @TARGET_PRIORS@
     binary: false
     opponent: false
     prior_temperature: 1.5
