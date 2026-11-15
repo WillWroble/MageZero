@@ -484,3 +484,38 @@ Burn-mirror land injection test and the ablations (2,000 Burn-mirror states). On
 - It doesn't remove seed dependence: each average lands inside the injection range of its own checkpoints (all-node s0
   stays low, legal ld s1 stays low), and keeps its run's ablation profile (legal s0 still leans on HandSize +.026,
   legal s1 on BattlefieldSize +.028; the dropout averages ≈0 on both). Burn-mirror MSE moves by ≤ .003.
+
+## Cosine LR decay at d128 (Nov 15, `train.py --min-lr`, `1ef072a`)
+
+The four d128 recipes (no dropout) retrained from scratch for 8 epochs with the learning rate cosine-decayed from 1e-4 to
+1e-5 (`v4-dd-players{,-legal}-noname-h5-d128-cos-s{0,1}`). Held-out gen0 value, state-weighted.
+
+| run | constant LR, best ≤ e4 | cosine, best ≤ e8 | cosine, last (e8) | e5 → e8 checkpoints | train value e8 |
+|---|---|---|---|---|---|
+| all-node s0 | .0351 | .0325 (e7) | .0326 | .0349 .0347 .0335 .0332 .0331 .0325 .0326 .0326 | .029 |
+| all-node s1 | .0353 | .0326 (e7) | .0327 | .0346 .0354 .0342 .0329 .0329 .0326 .0331 .0327 | .029 |
+| legal s0 | .0370 | .0341 (e8) | .0341 | .0356 .0344 .0344 .0346 .0343 .0343 .0343 .0341 | .026 |
+| legal s1 | .0357 | .0335 (e8) | .0335 | .0348 .0341 .0343 .0341 .0340 .0342 .0336 .0335 | .026 |
+
+- Once the rate is low the curve settles: over e6-e8 checkpoints move by ≤ .0006, and the last checkpoint is within .0001
+  of the best on all four (constant LR: best and last differ by up to .0017). Early, at high LR, seed 1 still spikes
+  (e3·10K, as in every seed-1 run).
+- Seeds agree: all-node .0325 / .0326, legal .0341 / .0335. Best single checkpoints of any recipe so far; all-node
+  matches dropout 0.1 + checkpoint averaging (.0320-.0329) without either.
+- Train value (.026-.029) is now below held out (.033-.034): the start of overfitting, but held out is flat, not rising.
+
+## Bidirectional local passes (Nov 15, directions "both", `499b41f`)
+
+`directions: [both, both], local: parallel`: each internal node attends over its leaves, internal children and parents
+(parent tokens + a learned vector), all nodes reading the pass's starting embeddings. Otherwise the d128 recipe
+(constant LR, 4 epochs, no dropout), `v4-bb-par-players{,-legal}-noname-h5-d128-s{0,1}`.
+
+| run | down-down sequential (best) | both parallel (best) | train value e4 |
+|---|---|---|---|
+| all-node s0 / s1 | .0351 / .0353 | .0397 / .0408 | .037 / .039 |
+| legal s0 / s1 | .0370 / .0357 | .0422 / .0423 | .036 / .038 |
+
+Clearly worse (+.005), with a larger train / held-out gap (≈.004-.006 vs ≈0): it generalizes worse, not just fits slower.
+Training takes ≈745 s/epoch vs ≈640 s for down-down on 4090s (the parallel mode still runs one layer per type in turn).
+Two things changed at once (bidirectional tokens and parallel updates); a sequential "both" or a parallel down-down
+would separate them.
