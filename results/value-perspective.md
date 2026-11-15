@@ -571,3 +571,20 @@ children from the last), otherwise as above (`v4-bb-seq-players{,-legal}-noname-
 
 Sequential "both" is level with down-down (legal ≈.001 worse): the .005 loss came from the parallel update, and
 bidirectional tokens add nothing over down-down. Priority KL .091-.100 / .065-.066, as down-down.
+
+### Cosine LR + dropout 0.1, and value / 20, on land injection and ablations (Nov 15)
+
+Cosine + dropout 0.1: 12 epochs, LR 1e-4 → 1e-5, `leaf_dropout: 0.1` (`…-ld01-cos-s{0,1}`). Best held out: all-node
+.0322 / .0318, legal .0335 / .0327, the best of any recipe; the last checkpoints move ≤ .0003. value / 20:
+`value_encoding: scaled` (`db719b0`), 4 epochs constant LR (`…-sv20-s{0,1}`): all-node .0372 / .0355, legal .0355 / .0348.
+
+| recipe | injection at best: all s0 / s1, legal s0 / s1 | mean | min | e9-e12 range | ~BattlefieldSize | ~ManaValue | ~LifeTotal |
+|---|---|---|---|---|---|---|---|
+| cosine + dropout 0.1 | 73 / 96 / 77 / 82 | 82 | 73 | 69-79, 95-97, 77-83, 67-84 | ≤ +.001 | +.009 to +.018 | +.125 to +.168 |
+| value / 20 (e4) | 95 / 100 / 19 / 71 | 71 | 19 | – | up to +.037 | ≈ 0 | +.151 to +.189 |
+
+- Cosine + dropout is the best recipe on every count so far: highest mean and minimum injection score (earlier recipes:
+  mean 45-71, min 18-49), the narrowest late-epoch ranges, the best held-out value, and seed-consistent ablations
+  (no secondary feature above +.018). It still doesn't put every seed above 90%.
+- value / 20 ends the ManaValue reliance (≈ 0) but brings back seed-specific BattlefieldSize use (legal s1 +.037), and
+  legal s0 scores 19% on injection: no better than bins at 4 epochs.
