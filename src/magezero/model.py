@@ -41,6 +41,7 @@ LEGACY_OPTIONS = dict(policy_domain="all")
 # numeric value buckets: exact -5..20 (P/T, counters, mana, costs, small counts), then 21-25, 26-30,
 # 31-40, 41-60, 61+ (life totals, library and zone sizes); everything below -5 is one bucket
 VALUE_BOUNDS = list(range(-5, 22)) + [26, 31, 41, 61]
+VALUE_SCALE = 20  # value_encoding "scaled": most numbers in Magic are integers 0-20
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 AMP = DEVICE.type == "cuda"  # autocast + GradScaler
@@ -233,7 +234,7 @@ class NetGraph(nn.Module):
       leaf_dropout: in training, each leaf token (with its edges) is dropped with this probability, except the
                     IsDecisionPlayer leaf (decision_row), so no single feature can carry the value
       value_encoding: "bucket"  each leaf's numeric value picks a row of a value embedding table (VALUE_BOUNDS)
-                      "scaled"  it scales one learned vector: sign(v) log(1 + |v|) * w, so values are ordered by
+                      "scaled"  it scales one learned vector: v / VALUE_SCALE * w, so values are ordered by
                                 construction (non-numeric leaves carry 0, so add nothing)
       embed_std: standard deviation of the embedding tables' initial rows (leaf, edge label, node type, value bucket;
                  nn.Embedding's default is 1), so Adam's steps are large relative to the rows
@@ -400,7 +401,7 @@ class NetGraph(nn.Module):
         # initial embeddings: typed nodes their type, leaves their name and numeric value
         value = g.node_value[plan.leaves]
         if self.arch.get("value_encoding") == "scaled":
-            value = (value.sign() * value.abs().float().log1p()).unsqueeze(1) * self.value_vector
+            value = (value.float() / VALUE_SCALE).unsqueeze(1) * self.value_vector
         else:
             value = self.value_embedding(torch.bucketize(value, self.value_bounds, right=True))
         h = self.type_embedding(g.node_type).index_add(0, plan.leaves, self.embedding(g.node_row[plan.leaves]) + value)
