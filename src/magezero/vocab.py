@@ -67,12 +67,12 @@ def feature_id(name: str) -> int:
     return (h if h < 1 << 63 else (1 << 64) - h) % _TABLE_SIZE
 
 
-def initial_rows(ids, embedding_dim: int) -> np.ndarray:
-    """N(0, 1) rows (nn.Embedding's own init) drawn from a per-id keyed stream."""
+def initial_rows(ids, embedding_dim: int, seed: int = 0) -> np.ndarray:
+    """N(0, 1) rows (nn.Embedding's own init) drawn from a per-id stream keyed by seed."""
     ids = np.asarray(ids, dtype=np.int64)
     out = np.empty((len(ids), embedding_dim), dtype=np.float32)
     for i, fid in enumerate(ids):
-        rng = np.random.Generator(np.random.Philox(key=FEATURE_INIT_KEY, counter=int(fid)))
+        rng = np.random.Generator(np.random.Philox(key=FEATURE_INIT_KEY + seed, counter=int(fid)))
         out[i] = rng.standard_normal(embedding_dim, dtype=np.float32)
     return out
 

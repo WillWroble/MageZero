@@ -238,6 +238,7 @@ class NetGraph(nn.Module):
                                 construction (non-numeric leaves carry 0, so add nothing)
       embed_std: standard deviation of the embedding tables' initial rows (leaf, edge label, node type, value bucket;
                  nn.Embedding's default is 1), so Adam's steps are large relative to the rows
+      embed_seed: key of the per-id streams the leaf and edge label rows are drawn from (vocab.initial_rows)
       registers: K learned tokens added to every global sequence after CLS and read by no head, so the global
                  layers can store state-wide information there instead of in uninformative nodes"""
 
@@ -247,7 +248,7 @@ class NetGraph(nn.Module):
                  policy_domain: str = "legal", legality_weight: float = 0.0, legality_heads: str = "shared",
                  value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1, directions: list = None,
                  owner_context: bool = False, hide_decider: bool = False, registers: int = 0, leaf_dropout: float = 0.0,
-                 embed_std: float = 1.0, value_encoding: str = "bucket"):
+                 embed_std: float = 1.0, value_encoding: str = "bucket", embed_seed: int = 0):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
@@ -255,7 +256,7 @@ class NetGraph(nn.Module):
                          value_loss=value_loss, value_token=value_token, decision_row=decision_row,
                          directions=list(directions or ["up"] * n_passes), owner_context=owner_context,
                          hide_decider=hide_decider, registers=registers, leaf_dropout=leaf_dropout,
-                         embed_std=embed_std, value_encoding=value_encoding)
+                         embed_std=embed_std, value_encoding=value_encoding, embed_seed=embed_seed)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
