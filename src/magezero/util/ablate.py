@@ -136,11 +136,11 @@ def remove_land_permanents(ds):
     child, parent = ds.edge_child + ds.offsets[e_state], ds.edge_parent + ds.offsets[e_state]
     leaf = ds.node_type[child] == T.LEAF
     lands = np.unique(parent[leaf & (ds.ids[child] == F("LAND"))])
-    lands = lands[ds.node_type[lands] == T.PERMANENT]
-    gone = np.zeros(len(ds.ids), bool); gone[lands] = True
-    gone[child[gone[parent] & (ds.node_type[child] == T.ABILITY)]] = True
     zone = dict(zip(child[~leaf], parent[~leaf]))
     size = {p: c for c, p in zip(child, parent) if ds.ids[c] == F("BattlefieldSize")}
+    lands = [x for x in lands if ds.node_type[x] == T.PERMANENT and zone.get(x) in size]   # directly on a battlefield
+    gone = np.zeros(len(ds.ids), bool); gone[lands] = True
+    gone[child[gone[parent] & (ds.node_type[child] == T.ABILITY)]] = True
     for x in lands: ds.values[size[zone[x]]] -= 1
     keep_e = ~(gone[child] | gone[parent]); keep = ~gone
     offsets = np.concatenate([[0], np.cumsum(np.bincount(state[keep], minlength=ds.N))])
