@@ -461,3 +461,26 @@ Dropout does not make the injection test stable. Over e1-e4 the mean jump is 7.9
 without, and the seeds of one config still land far apart. Legal ld s1 drops from 76% to 11% at e5, while its held-out
 value improves (.0363 → .0353). Dropout moves the level up: at e4, 67-98% against 26-98% without. Along with the earlier
 finding that the test doesn't predict skips in play, this is a property of a single run, not a training signal.
+
+## Checkpoint averaging (Nov 14, `util/average.py`, `runpod/average-eval.sh`)
+
+Weights of each run's last 4 validated checkpoints averaged (last 2 epochs: e3·10K, e3, e4·10K, e4 without dropout;
+e7·10K…e8 with leaf dropout 0.1), then tested like a checkpoint: held-out gen0 value (test.py, the run's split), the
+Burn-mirror land injection test and the ablations (2,000 Burn-mirror states). One 4090, ≈$0.40.
+
+| run | best single checkpoint | average of last 4 | gain | injection, played up: average (its checkpoints) | Burn MSE: best → average |
+|---|---|---|---|---|---|
+| all-node s0 | .0351 | .0340 | −.0011 | 19% (18 e3, 26 e4) | .077 → .080 |
+| all-node s1 | .0353 | .0345 | −.0008 | 90% (89, 87) | .079 → .076 |
+| legal s0 | .0370 | .0355 | −.0015 | 67% (74, 48) | .080 → .079 |
+| legal s1 | .0357 | .0343 | −.0014 | 76% (60, 67) | .083 → .082 |
+| all-node ld s0 | .0343 | .0329 | −.0014 | 66% (50 e7, 64 e8) | .080 → .080 |
+| all-node ld s1 | .0338 | **.0320** | −.0018 | 97% (97, 96) | .073 → .073 |
+| legal ld s0 | .0344 | .0332 | −.0012 | 99% (98, 96) | .088 → .085 |
+| legal ld s1 | .0341 | .0326 | −.0015 | 25% (27, 49) | .090 → .088 |
+
+- Averaging is a free, consistent gain: every run improves on its best single checkpoint by .0008-.0018, more than the
+  seed spread. all-node ld s1's average (.0320) is the best held-out value of any model on this split.
+- It doesn't remove seed dependence: each average lands inside the injection range of its own checkpoints (all-node s0
+  stays low, legal ld s1 stays low), and keeps its run's ablation profile (legal s0 still leans on HandSize +.026,
+  legal s1 on BattlefieldSize +.028; the dropout averages ≈0 on both). Burn-mirror MSE moves by ≤ .003.
