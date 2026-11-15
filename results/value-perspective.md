@@ -695,3 +695,26 @@ All lands at once (`6210d55`): ≤ +.04 except value / 20 all-node s1 (+.20); sm
   matters more than the decision player's own Mountain on the battlefield, and the own Mountain in hand not at all.
 - With dropout, the own battlefield Mountain matters ≈ 0; the tests of land judgement (injection) probe information
   the value barely uses, which may be why they swing with the seed.
+
+## Does the permanent count stand in for lands? (Nov 15, `e48ae3e`, pod `ablate-landcount`)
+
+Same 2,000 Burn-mirror states. Value MSE change: all land leaves cut (lands stay as empty nodes); BattlefieldSize
+shuffled; both together; land permanents removed outright (nodes and abilities) with BattlefieldSize lowered to match.
+
+| recipe (all s0 / s1, legal s0 / s1) | lands blanked | ~BattlefieldSize | both | lands removed, count lowered |
+|---|---|---|---|---|
+| no dropout | .015 / .007 / .002 / .011 | .001 / .001 / .018 / .039 | .016 / .009 / .018 / .043 | .040 / .039 / .055 / .043 |
+| cosine | .035 / .017 / .022 / .026 | .001 / .001 / .016 / .007 | .034 / .019 / .036 / .035 | .045 / .043 / .043 / .037 |
+| dropout 0.1 | .014 / .012 / .035 / −.003 | .001 / .000 / −.001 / .005 | .015 / .016 / .035 / −.003 | .046 / .045 / .039 / .047 |
+| dropout 0.2 | .011 / .001 / .007 / .009 | .000 / −.000 / .000 / .003 | .011 / .001 / .007 / .010 | .041 / .040 / .052 / .047 |
+| cosine + dropout | .020 / .037 / .015 / .002 | .001 / .000 / .001 / −.000 | .020 / .037 / .015 / .005 | .047 / .052 / .040 / .041 |
+| value / 20 | .023 / .201 / .018 / .005 | .001 / .002 / .008 / .037 | .022 / .197 / .037 / .044 | .046 / .047 / .030 / .030 |
+| small init | .003 / .007 / .002 / .015 | .008 / .007 / .043 / .026 | .007 / .010 / .056 / .034 | .041 / .043 / .048 / .049 |
+| small init + cos + drop | −.002 / – / .005 / −.009 | .000 / – / .006 / .004 | −.000 / – / .009 / −.005 | .040 / – / .054 / .046 |
+
+P1: .045 / .077 / .117 / .071. Base MSE .07-.10.
+
+- The counter does not cover for blanked lands: "both" ≈ the sum of the two (no interaction) in every model.
+- Removing the land nodes costs +.03-.06 in every d128 model, about half the base MSE and the same in every recipe and
+  seed, far more than blanking them (≈ 0-.04). The lands' presence is used, carried by the (empty) nodes themselves,
+  e.g. by counting PERMANENT nodes in attention; what the land is barely matters once the node is there.
