@@ -2,6 +2,8 @@
 1. Attention mass in the PLAYER local layers (each pass, mean over heads and PLAYER nodes) per child feature.
 2. The same ablations for every model, value MSE against the stored labels:
    - remove a leaf: the mana-pool leaves (constant 0 in these games, so no information) and the Battlefield name;
+   - cut every leaf from the land entities (nodes with a LAND leaf) and their abilities: permanents, cards, both at
+     once; the entity nodes stay;
    - shuffle a leaf's numeric value across its occurrences: the tokens stay, only their information goes.
 3. With --all instead: every leaf id in the sample removed in turn (all its occurrences, from the states that hold it).
 Feature names come from the XMage encoder and decks in $MAGE_SRC (WillWroble/mage), if set.
@@ -74,6 +76,20 @@ def values(model, ds, vocab, edge_vocab):
     ds.apply_vocab(vocab, edge_vocab)
     with torch.no_grad():
         return np.concatenate([model(g.to(M.DEVICE))[3].float().cpu().numpy() for g, _ in DataLoader(ds, batch_size=64, collate_fn=collate_batch)])
+
+
+def drop_land_leaves(ds, kinds):
+    """Cuts every leaf edge into the land entities (nodes of a type in `kinds` with a LAND leaf) and into their
+    abilities, in place (raw ids); leaf nodes are shared within a state, so the edges go, not the leaves."""
+    e_state = np.repeat(np.arange(ds.N), np.diff(ds.edge_offsets))
+    child, parent = ds.edge_child + ds.offsets[e_state], ds.edge_parent + ds.offsets[e_state]
+    leaf = ds.node_type[child] == T.LEAF
+    lands = np.unique(parent[leaf & (ds.ids[child] == F("LAND"))])
+    lands = lands[np.isin(ds.node_type[lands], kinds)]
+    entities = np.concatenate([lands, child[np.isin(parent, lands) & (ds.node_type[child] == T.ABILITY)]])
+    keep = ~(leaf & np.isin(parent, entities))
+    ds.edge_child, ds.edge_parent, ds.edge_label = ds.edge_child[keep], ds.edge_parent[keep], ds.edge_label[keep]
+    ds.edge_offsets = np.concatenate([[0], np.cumsum(np.bincount(e_state[keep], minlength=ds.N))])
 
 
 def mse(model, ds, vocab, edge_vocab):
@@ -171,6 +187,10 @@ if __name__ == "__main__":
         for f in MANA + ["Battlefield", MANA]:
             ds = sample_states(shards, n); drop_leaves(ds, (ds.node_type == T.LEAF) & np.isin(ds.ids, [F(x) for x in np.atleast_1d(f)]))
             r["-" + (f if isinstance(f, str) else "all mana")] = mse(model, ds, vocab, edge_vocab)
+        for col, kinds in (("-land permanent leaves", [T.PERMANENT]), ("-land card leaves", [T.CARD]),
+                           ("-all land leaves", [T.PERMANENT, T.CARD])):
+            ds = sample_states(shards, n); drop_land_leaves(ds, kinds)
+            r[col] = mse(model, ds, vocab, edge_vocab)
         for f in SHUFFLE:
             ds = sample_states(shards, n); m = np.flatnonzero((ds.node_type == T.LEAF) & (ds.ids == F(f)))
             ds.values[m] = ds.values[np.random.default_rng(1).permutation(m)]
