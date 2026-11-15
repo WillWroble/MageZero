@@ -115,7 +115,8 @@ class Plan(NamedTuple):
     counts: torch.Tensor      # global tokens per state
     width: int                # padded sequence length (1 + the largest count)
     down_stages: list = []    # top-down passes: (layer name, nodes, their leaves and parents, edge labels, each
-                              # token's node position), types in reverse STAGES order
+                              # token's node position), types in reverse STAGES order; "both" passes: all children
+                              # and parents, plus a mask of the parent tokens
     owner: torch.Tensor = None  # owner_context: each node's PLAYER ancestor (-1 for none)
 
     def to(self, device):
@@ -218,6 +219,8 @@ class NetGraph(nn.Module):
       directions: one per local pass, "up" (default: each node attends over its children, ABILITY -> ... -> ROOT)
                   or "down" (each node attends over its leaves and its parents, ROOT -> ... -> ABILITY, so a node
                   learns its zone and owner; not cacheable by subtree)
+                  or "both" (each internal node attends over its leaves, its internal children and its parents, parent
+                  tokens marked by a learned vector; leaves only send; best with local "parallel"; not cacheable)
       owner_context: before the global layers, each internal node adds a projection of its owner PLAYER's embedding
                      (cacheable: the local passes are unchanged)
       value_token: "cls"      the value head reads CLS after the global layers
@@ -259,6 +262,8 @@ class NetGraph(nn.Module):
         self.cls = nn.Parameter(torch.randn(d_model))
         if registers:
             self.registers = nn.Parameter(torch.randn(registers, d_model))
+        if "both" in self.arch["directions"]:
+            self.from_parent = nn.Parameter(torch.randn(d_model))
         if owner_context:
             self.owner_proj = nn.Linear(d_model, d_model)
         global_layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, activation="gelu",
@@ -327,19 +332,23 @@ class NetGraph(nn.Module):
                 stage = (name, nodes, child[edges], label[edges], torch.searchsorted(nodes, parent[edges]))
                 stages.append(stage if cached is None else stage + (slot[nodes], fill, slot[fill]))
 
-        # top-down stages: each node's tokens are its leaves and its parents
-        down_stages = []
-        if "down" in self.arch["directions"]:
+        # top-down stages: each node's tokens are its leaves (all its children for "both") and its parents
+        down_stages, directions = [], set(self.arch["directions"])
+        if directions & {"down", "both"}:
             if cached is not None:
                 raise ValueError("the node cache only supports bottom-up passes")
+            if directions >= {"down", "both"}:
+                raise ValueError('"down" and "both" passes cannot be mixed')
+            both = "both" in directions
             from_leaf = g.node_type[child] == NodeType.LEAF
             for name, types in reversed(self.groups.items()):
                 run = torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device))
                 nodes = run.nonzero().squeeze(1)
                 if len(nodes):
-                    up, down = (run[parent] & from_leaf).nonzero().squeeze(1), (run[child] & ~from_leaf).nonzero().squeeze(1)
-                    down_stages.append((name, nodes, torch.cat([child[up], parent[down]]), torch.cat([label[up], label[down]]),
-                                        torch.searchsorted(nodes, torch.cat([parent[up], child[down]]))))
+                    up, down = (run[parent] & (from_leaf | both)).nonzero().squeeze(1), (run[child] & ~from_leaf).nonzero().squeeze(1)
+                    stage = (name, nodes, torch.cat([child[up], parent[down]]), torch.cat([label[up], label[down]]),
+                             torch.searchsorted(nodes, torch.cat([parent[up], child[down]])))
+                    down_stages.append(stage + (torch.arange(len(up) + len(down), device=up.device) >= len(up),) if both else stage)
 
         # owners: each PLAYER owns itself; ownership flows down the internal edges, ZONE before what it holds
         owner = None
@@ -392,16 +401,19 @@ class NetGraph(nn.Module):
         # an out-of-place copy rewrites every node, leaves included, at each stage
         inplace = self.arch["local"] == "sequential" and not torch.is_grad_enabled()
         for p, layers in enumerate(self.local_layers):
-            src = h
-            for name, nodes, c, lbl, seg, *fill in (plan.down_stages if self.arch["directions"][p] == "down" else plan.stages):
+            src, direction = h, self.arch["directions"][p]
+            for name, nodes, c, lbl, seg, *fill in (plan.stages if direction == "up" else plan.down_stages):
                 if self.arch["local"] == "sequential":
                     src = h
                 if len(nodes):
-                    out = layers[name](src[nodes], src[c] + self.edge_embedding(lbl), seg)
+                    tokens = src[c] + self.edge_embedding(lbl)
+                    if direction == "both":
+                        tokens = tokens + fill[0].unsqueeze(1) * self.from_parent
+                    out = layers[name](src[nodes], tokens, seg)
                     h = h.index_copy_(0, nodes, out) if inplace else h.index_copy(0, nodes, out)
-                    if fill:
+                    if cache is not None:
                         cache[p].index_copy_(0, fill[0], out)
-                if fill and len(fill[1]):
+                if cache is not None and len(fill[1]):
                     h = h.index_copy_(0, fill[1], cache[p][fill[2]]) if inplace else h.index_copy(0, fill[1], cache[p][fill[2]])
 
         # global layers: self-attention over [CLS, tokens], one padded sequence per state
