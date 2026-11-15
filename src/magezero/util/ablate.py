@@ -11,7 +11,7 @@
    it and its abilities cut (so e.g. a land's name and subtype can't cover for each other), grouped by card name, zone
    and owner.
 5. With --add instead: one permanent added to the decision player's battlefield in every state (BattlefieldSize + 1 each
-   time): an untapped Mountain, a blank permanent (the node alone), or nothing (the count alone).
+   time): an untapped basic land ($LAND, default Mountain), a blank permanent (the node alone), or nothing (the count alone).
 Feature names come from the XMage encoder and decks in $MAGE_SRC (WillWroble/mage), if set.
   PYTHONPATH=. python util/ablate.py [--all] OUT N name=model.pt.gz ... -- shard ..."""
 import copy, glob, os, re, sys
@@ -24,7 +24,7 @@ import model as M
 from dataset import H5Graphs, collate_batch
 from model import load_checkpoint, NodeType as T
 from vocab import feature_id as F
-from util.land_inject import land_template, own_battlefield, parts, rebuild
+from util.land_inject import BASIC, land_template, own_battlefield, parts, rebuild
 
 MANA = ["WhiteMana", "BlueMana", "BlackMana", "RedMana", "GreenMana", "ColorlessMana"]
 SHUFFLE = ["LifeTotal", "HandSize", "BattlefieldSize", "GraveyardSize", "LibrarySize", "ManaValue", "Power", "Toughness"]
@@ -158,7 +158,7 @@ def shuffle(ds, f):
 
 def added(ds, kind):
     """ds with one permanent added to each state's decision-player battlefield and its BattlefieldSize raised by 1:
-    kind "Mountain" (an untapped one from the shard), "blank" (its node alone) or "count only" (raw ids)."""
+    kind BASIC (an untapped one from the shard: LAND, default Mountain), "blank" (its node alone) or "count only" (raw ids)."""
     (t_ids, t_vals, t_edges), zone_label = land_template(ds)
     if kind == "blank": t_ids, t_vals, t_edges = t_ids[:1], t_vals[:1], t_edges[:0]
     states = []
@@ -255,7 +255,7 @@ if __name__ == "__main__":
         for label, path in models:
             model, vocab, edge_vocab = load_checkpoint(path); model.to(M.DEVICE).eval()
             base = values(model, sample_states(shards, n), vocab, edge_vocab)
-            for kind in ("Mountain", "blank", "count only"):
+            for kind in (BASIC, "blank", "count only"):
                 d = values(model, added(sample_states(shards, n), kind), vocab, edge_vocab) - base
                 say(f"  {label:24} {kind:12} {d.mean():+.4f}  {np.mean(d > .005):4.0%} / {np.mean(d < -.005):4.0%}")
         sys.exit()
