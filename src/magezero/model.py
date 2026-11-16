@@ -244,7 +244,8 @@ class NetGraph(nn.Module):
                       while the counters stay, so the counts have to be read from them
       pointers: in "down" passes, internal edges other than containment (TARGET@i, blocker, defender, attachment, ...,
                 i.e. labels other than the containment row containment_row, set by train.py) are reversed like the
-                rest ("down"), or also kept as they are ("both"), so an object still attends over what it points at
+                rest ("down"), kept as they are ("up": an object attends over what it points at, as in up passes),
+                or both
       embed_seed: key of the per-id streams the leaf and edge label rows are drawn from (vocab.initial_rows)
       registers: K learned tokens added to every global sequence after CLS and read by no head, so the global
                  layers can store state-wide information there instead of in uninformative nodes"""
@@ -367,12 +368,14 @@ class NetGraph(nn.Module):
                 raise ValueError('"down" and "both" passes cannot be mixed')
             both = "both" in directions
             from_leaf = g.node_type[child] == NodeType.LEAF
-            pointer = ~from_leaf & (label != self.arch["containment_row"]) if self.arch.get("pointers") == "both" else torch.zeros_like(from_leaf)
+            mode = self.arch.get("pointers", "down")
+            pointer = ~from_leaf & (label != self.arch["containment_row"]) if mode != "down" else torch.zeros_like(from_leaf)
+            reversed_ = ~from_leaf & ~pointer if mode == "up" else ~from_leaf
             for name, types in reversed(self.groups.items()):
                 run = torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device))
                 nodes = run.nonzero().squeeze(1)
                 if len(nodes):
-                    up, down = (run[parent] & (from_leaf | pointer | both)).nonzero().squeeze(1), (run[child] & ~from_leaf).nonzero().squeeze(1)
+                    up, down = (run[parent] & (from_leaf | pointer | both)).nonzero().squeeze(1), (run[child] & reversed_).nonzero().squeeze(1)
                     stage = (name, nodes, torch.cat([child[up], parent[down]]), torch.cat([label[up], label[down]]),
                              torch.searchsorted(nodes, torch.cat([parent[up], child[down]])))
                     down_stages.append(stage + (torch.arange(len(up) + len(down), device=up.device) >= len(up),) if both else stage)
