@@ -1,16 +1,20 @@
 """Each model's value predictions on a data set, saved with every state's value label, search root value and game
 result (one array per model, named by its last two path components, e.g. v4-legal-gnn):
-  PYTHONPATH=. python util/value_preds.py OUT.npz DATA MODEL_DIR ...   (run from src/magezero; DATA: a shard directory)"""
+  PYTHONPATH=. python util/value_preds.py OUT.npz DATA MODEL_DIR ...   (run from src/magezero; DATA: a shard directory,
+  or SPLIT:NAME for the val set NAME of a split.txt, whose regexes match paths from the current directory)"""
 import sys
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from dataset import H5Graphs, collate_batch, BATCH_SIZE
+from dataset import H5Graphs, collate_batch, read_split, BATCH_SIZE
 from model import load_checkpoint, value_estimate, AMP, DEVICE
 
 out_path, data, models = sys.argv[1], sys.argv[2], sys.argv[3:]
+if ":" in data:
+    split, name = data.rsplit(":", 1)
+    data = read_split(split)[1][name]
 results = H5Graphs(data, td=1.0).row[:, 0]  # td 1: each state's label is its game's result
 saved = {}
 for path in models:
