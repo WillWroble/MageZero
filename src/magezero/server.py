@@ -38,9 +38,10 @@ def init(model_dir: str, port: int):
 
     model, VOCAB, EDGE_VOCAB = load_checkpoint(f"{model_dir}/model.pt.gz")
     server_model = model.to(DEVICE).eval()
-    # the node cache holds NetGraph local-layer outputs, keyed by subtree: NetMLP and top-down passes can't use it
+    # the node cache holds NetGraph local-layer outputs, keyed by XMage's subtree hashes of the sent graph: NetMLP,
+    # top-down passes and flat_zones models (whose graph the server changes) can't use it
     CACHE = (NodeCache(server_model, DEVICE) if isinstance(server_model, NetGraph)
-             and "down" not in server_model.arch["directions"] else None)
+             and "down" not in server_model.arch["directions"] and not server_model.arch.get("flat_zones") else None)
 
     for _ in range(WORKERS):
         threading.Thread(target=worker_loop, daemon=True).start()

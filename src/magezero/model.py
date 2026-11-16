@@ -240,7 +240,8 @@ class NetGraph(nn.Module):
                  nn.Embedding's default is 1), so Adam's steps are large relative to the rows
       flat_zones: the data's player zones are replaced by leaves (dataset.flatten_zones), in training, testing and
                   serving alike; "players" also cuts each player from what it holds, flagging its owner instead;
-                  "entities" and "leaves" cut further (flatten_zones)
+                  "entities" and "leaves" cut further, "context" makes abilities their card's parents and runs
+                  them last in up passes (flatten_zones)
       entity_dropout: in training, each card and permanent is dropped with this probability (dataset.drop_entities),
                       while the counters stay, so the counts have to be read from them
       pointers: in "down" passes, internal edges other than containment (TARGET@i, blocker, defender, attachment, ...,
@@ -348,8 +349,10 @@ class NetGraph(nn.Module):
         # one stage per group of types: its nodes, their children, and each child's parent position
         if cached is not None:
             slot, compute = (t.to(g.node_type.device) for t in cached)
-        stages = []
-        for name, types in self.groups.items():
+        stages, groups = [], list(self.groups.items())
+        if self.arch.get("flat_zones") == "context" and "ABILITY" in self.groups:  # abilities read their card (above it)
+            groups.append(groups.pop(list(self.groups).index("ABILITY")))
+        for name, types in groups:
             run = torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device))
             if cached is not None:
                 fill = (run & ~compute).nonzero().squeeze(1)

@@ -45,6 +45,8 @@ def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, o
     permanent's or stack object's own abilities: each of those is a root, as are the players and ROOT's zones; a card
     in exile gets the Exile zone's name leaf as a child (edge label "zone"), like the player zones' cards.
     "leaves": as "entities", and every edge between internal nodes is cut, pointers and abilities included.
+    "context": the flags of "entities" (owner, Exile) but nothing cut; instead each card's, permanent's or stack
+    object's abilities become its parents, so in up passes (NetGraph runs ABILITY last then) they read their card.
     Returns (ids, values, node_type, edge_child, edge_parent, edge_label, offsets, edge_offsets, keep): keep marks the
     original nodes that remain, in order."""
     e_state, state = states_of(edge_offsets), states_of(offsets)
@@ -68,7 +70,7 @@ def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, o
                      np.concatenate([moved[keep_e], child[ent]]))
     edge_label = np.concatenate([edge_label[keep_e], np.full(int(ent.sum()), feature_id("zone"), edge_label.dtype)])
     e_state = np.concatenate([e_state[keep_e], e_state[ent]])
-    if mode in ("players", "entities", "leaves"):
+    if mode in ("players", "entities", "leaves", "context"):
         is_dec = ids[child] == feature_id("IsDecisionPlayer")
         dec_leaf = np.full(len(ids), -1)
         dec_leaf[parent[is_dec]] = child[is_dec]
@@ -76,7 +78,7 @@ def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, o
         held = (t[parent] == NodeType.PLAYER) & inner & contain
         flag = held & (dec_leaf[parent] >= 0)
         own = (t[child] == NodeType.ABILITY) & np.isin(t[parent], (NodeType.CARD, NodeType.PERMANENT, NodeType.STACK_OBJECT))
-        cut = held | inner & {"players": False, "entities": contain & ~own, "leaves": True}[mode]
+        cut = {"players": held, "entities": inner & contain & ~own, "leaves": inner, "context": np.zeros_like(held)}[mode]
         exile = np.full(len(ids), -1)                                   # Exile and its piles: Exile's name leaf
         if mode != "players":
             ex = (t[parent] == NodeType.ZONE) & (edge_label == feature_id("name")) & (ids[child] == feature_id("Exile"))
@@ -84,6 +86,9 @@ def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, o
             pile = contain & (t[child] == NodeType.ZONE) & (exile[parent] >= 0)
             exile[child[pile]] = exile[parent[pile]]
         exiled = contain & (t[child] == NodeType.CARD) & (exile[parent] >= 0)
+        if mode == "context":                                           # each ability becomes its card's parent
+            flip = own & contain
+            child, parent = np.where(flip, parent, child), np.where(flip, child, parent)
         child, parent = (np.concatenate([child[~cut], dec_leaf[parent[flag]], exile[parent[exiled]]]),
                          np.concatenate([parent[~cut], child[flag], child[exiled]]))
         edge_label = np.concatenate([edge_label[~cut], np.full(int(flag.sum()), feature_id("owner"), edge_label.dtype),
@@ -265,8 +270,8 @@ class H5Graphs(Dataset):
                                                         useFalseVisits, useTrueVisits
     Ids stay raw until apply_vocab maps them to embedding rows; __getitem__ needs the mapped form.
     hide_opponent_hand: see hide_opponent_hand.
-    flat_zones: see flatten_zones (after hide_opponent_hand, which finds hands by their zone); "players", "entities" and
-                "leaves" also sever (flatten_zones mode).
+    flat_zones: see flatten_zones (after hide_opponent_hand, which finds hands by their zone); "players", "entities",
+                "leaves" and "context" also change the edges (flatten_zones mode).
     entity_dropout: __getitem__ drops cards and permanents with this probability (drop_entities); set on training data.
     td: if given, the value labels (resultLabel) are rebuilt with this discount (td_labels) instead of the stored ones.
     source: a directory (every shard under it) or a list of (shard path, games or None for all), as read_split gives.
