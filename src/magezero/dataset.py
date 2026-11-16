@@ -42,8 +42,9 @@ def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, o
     internal children on containment edges), which become parentless; the deciding player's IsDecisionPlayer leaf
     becomes a child of each of its own (edge label "owner"). Pointer edges to and from the PLAYER stay.
     "entities": as "players", and every other containment edge between internal nodes is cut too, except a card's,
-    permanent's or stack object's own abilities: each of those is a root, as are the players and ROOT's zones.
-    "leaves": as "players", and every edge between internal nodes is cut, pointers and abilities included.
+    permanent's or stack object's own abilities: each of those is a root, as are the players and ROOT's zones; a card
+    in exile gets the Exile zone's name leaf as a child (edge label "zone"), like the player zones' cards.
+    "leaves": as "entities", and every edge between internal nodes is cut, pointers and abilities included.
     Returns (ids, values, node_type, edge_child, edge_parent, edge_label, offsets, edge_offsets, keep): keep marks the
     original nodes that remain, in order."""
     e_state, state = states_of(edge_offsets), states_of(offsets)
@@ -76,10 +77,18 @@ def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, o
         flag = held & (dec_leaf[parent] >= 0)
         own = (t[child] == NodeType.ABILITY) & np.isin(t[parent], (NodeType.CARD, NodeType.PERMANENT, NodeType.STACK_OBJECT))
         cut = held | inner & {"players": False, "entities": contain & ~own, "leaves": True}[mode]
-        child, parent = (np.concatenate([child[~cut], dec_leaf[parent[flag]]]),
-                         np.concatenate([parent[~cut], child[flag]]))
-        edge_label = np.concatenate([edge_label[~cut], np.full(int(flag.sum()), feature_id("owner"), edge_label.dtype)])
-        e_state = np.concatenate([e_state[~cut], e_state[flag]])
+        exile = np.full(len(ids), -1)                                   # Exile and its piles: Exile's name leaf
+        if mode != "players":
+            ex = (t[parent] == NodeType.ZONE) & (edge_label == feature_id("name")) & (ids[child] == feature_id("Exile"))
+            exile[parent[ex]] = child[ex]
+            pile = contain & (t[child] == NodeType.ZONE) & (exile[parent] >= 0)
+            exile[child[pile]] = exile[parent[pile]]
+        exiled = contain & (t[child] == NodeType.CARD) & (exile[parent] >= 0)
+        child, parent = (np.concatenate([child[~cut], dec_leaf[parent[flag]], exile[parent[exiled]]]),
+                         np.concatenate([parent[~cut], child[flag], child[exiled]]))
+        edge_label = np.concatenate([edge_label[~cut], np.full(int(flag.sum()), feature_id("owner"), edge_label.dtype),
+                                     np.full(int(exiled.sum()), feature_id("zone"), edge_label.dtype)])
+        e_state = np.concatenate([e_state[~cut], e_state[flag], e_state[exiled]])
     order = np.argsort(e_state, kind="stable")
     keep = ~zone
     offsets = np.concatenate([[0], np.cumsum(np.bincount(state[keep], minlength=len(offsets) - 1))]).astype(np.int64)
