@@ -20,6 +20,8 @@ until curl -sf localhost:50052/healthz; do sleep 2; done
 # $OPP_MODEL (optional): a second model on port 50053, for configs whose server.opponent_port points player_b there
 if [ -n "$OPP_MODEL" ]; then
   git lfs pull --include="$OPP_MODEL/model.pt.gz"
+  # $OPP_CKPT (optional): as $CKPT, for $OPP_MODEL
+  if [ -n "$OPP_CKPT" ]; then mkdir -p /tmp/opp-ckpt && cp $OPP_MODEL/$OPP_CKPT /tmp/opp-ckpt/model.pt.gz && OPP_MODEL=/tmp/opp-ckpt; fi
   python -u src/magezero/server.py --model $OPP_MODEL --port 50053 2>&1 | grep -v "^\[REQ" > /tmp/server-opp.log &
   until curl -sf localhost:50053/healthz; do sleep 2; done
 fi
@@ -28,9 +30,10 @@ fi
 mkdir -p /tmp/xmage && cp -r /workspace/xmage/$MAGE_COMMIT/{lib,decks,config} /tmp/xmage/ && X=/tmp/xmage
 for C in $CONFIG; do
   N=$(basename $C .yml)
-  # $TAG, $PRIORS and $TARGET_PRIORS (default: none, false, $PRIORS) fill a config's @TAG@ / @PRIORS@ / @TARGET_PRIORS@
+  # $TAG, $PRIORS, $TARGET_PRIORS and $OPP_PRIORS (default: none, false, $PRIORS, false) fill a config's @TAG@ /
+  # @PRIORS@ / @TARGET_PRIORS@ / @OPP_PRIORS@
   # $THREADS and $TIMEOUT_MS (optional) override the config's game threads and search timeout, for slower pods
-  sed -e "s|@TAG@|$TAG|g" -e "s|@TARGET_PRIORS@|${TARGET_PRIORS:-${PRIORS:-false}}|g" -e "s|@PRIORS@|${PRIORS:-false}|g" ${THREADS:+-e "s|^  threads: .*|  threads: $THREADS|"} \
+  sed -e "s|@TAG@|$TAG|g" -e "s|@TARGET_PRIORS@|${TARGET_PRIORS:-${PRIORS:-false}}|g" -e "s|@PRIORS@|${PRIORS:-false}|g" -e "s|@OPP_PRIORS@|${OPP_PRIORS:-false}|g" ${THREADS:+-e "s|^  threads: .*|  threads: $THREADS|"} \
     ${TIMEOUT_MS:+-e "s|timeout_ms: .*|timeout_ms: $TIMEOUT_MS|"} $C > $OUT/$N.yml
   # shards are written on the container disk and copied to the volume when the run is done, so a stalled or
   # restarted volume can't leave a partial shard where a finished one should be
