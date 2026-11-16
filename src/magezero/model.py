@@ -242,6 +242,9 @@ class NetGraph(nn.Module):
                   serving alike
       entity_dropout: in training, each card and permanent is dropped with this probability (dataset.drop_entities),
                       while the counters stay, so the counts have to be read from them
+      pointers: in "down" passes, internal edges other than containment (TARGET@i, blocker, defender, attachment, ...,
+                i.e. labels other than the containment row containment_row, set by train.py) are reversed like the
+                rest ("down"), or also kept as they are ("both"), so an object still attends over what it points at
       embed_seed: key of the per-id streams the leaf and edge label rows are drawn from (vocab.initial_rows)
       registers: K learned tokens added to every global sequence after CLS and read by no head, so the global
                  layers can store state-wide information there instead of in uninformative nodes"""
@@ -253,7 +256,7 @@ class NetGraph(nn.Module):
                  value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1, directions: list = None,
                  owner_context: bool = False, hide_decider: bool = False, registers: int = 0, leaf_dropout: float = 0.0,
                  embed_std: float = 1.0, value_encoding: str = "bucket", embed_seed: int = 0,
-                 flat_zones: bool = False, entity_dropout: float = 0.0):
+                 flat_zones: bool = False, entity_dropout: float = 0.0, pointers: str = "down", containment_row: int = -1):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,
@@ -262,7 +265,8 @@ class NetGraph(nn.Module):
                          directions=list(directions or ["up"] * n_passes), owner_context=owner_context,
                          hide_decider=hide_decider, registers=registers, leaf_dropout=leaf_dropout,
                          embed_std=embed_std, value_encoding=value_encoding, embed_seed=embed_seed,
-                         flat_zones=flat_zones, entity_dropout=entity_dropout)
+                         flat_zones=flat_zones, entity_dropout=entity_dropout, pointers=pointers,
+                         containment_row=containment_row)
         self.embedding = nn.Embedding(num_embeddings, d_model)                         # leaves
         self.edge_embedding = nn.Embedding(num_edge_labels + 1, d_model, padding_idx=0)  # row 0: unknown label
         self.type_embedding = nn.Embedding(len(NodeType), d_model)
@@ -363,11 +367,12 @@ class NetGraph(nn.Module):
                 raise ValueError('"down" and "both" passes cannot be mixed')
             both = "both" in directions
             from_leaf = g.node_type[child] == NodeType.LEAF
+            pointer = ~from_leaf & (label != self.arch["containment_row"]) if self.arch.get("pointers") == "both" else torch.zeros_like(from_leaf)
             for name, types in reversed(self.groups.items()):
                 run = torch.isin(g.node_type, torch.tensor(types, device=g.node_type.device))
                 nodes = run.nonzero().squeeze(1)
                 if len(nodes):
-                    up, down = (run[parent] & (from_leaf | both)).nonzero().squeeze(1), (run[child] & ~from_leaf).nonzero().squeeze(1)
+                    up, down = (run[parent] & (from_leaf | pointer | both)).nonzero().squeeze(1), (run[child] & ~from_leaf).nonzero().squeeze(1)
                     stage = (name, nodes, torch.cat([child[up], parent[down]]), torch.cat([label[up], label[down]]),
                              torch.searchsorted(nodes, torch.cat([parent[up], child[down]])))
                     down_stages.append(stage + (torch.arange(len(up) + len(down), device=up.device) >= len(up),) if both else stage)
