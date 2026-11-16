@@ -34,10 +34,13 @@ for _t in NodeType:
 FLAT_ZONES = ("Battlefield", "Hand", "Graveyard", "CommandZone")
 
 
-def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, offsets, edge_offsets):
+def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, offsets, edge_offsets, players=False):
     """Removes each player's own ZONE nodes (FLAT_ZONES): what a zone held hangs from its PLAYER, with the zone's name
     leaf as a child of each card or permanent (edge label "zone"), and the zone's counters (BattlefieldSize,
     GraveyardSize) become the PLAYER's leaves. Raw ids, edges local to their state.
+    players: then each PLAYER is also cut from what it holds (its cards, permanents and Pass ability: the internal
+    children on containment edges), which become parentless; the deciding player's IsDecisionPlayer leaf becomes a
+    child of each of its own (edge label "owner"). Pointer edges to and from the PLAYER stay.
     Returns (ids, values, node_type, edge_child, edge_parent, edge_label, offsets, edge_offsets, keep): keep marks the
     original nodes that remain, in order."""
     e_state, state = states_of(edge_offsets), states_of(offsets)
@@ -61,6 +64,16 @@ def flatten_zones(ids, values, node_type, edge_child, edge_parent, edge_label, o
                      np.concatenate([moved[keep_e], child[ent]]))
     edge_label = np.concatenate([edge_label[keep_e], np.full(int(ent.sum()), feature_id("zone"), edge_label.dtype)])
     e_state = np.concatenate([e_state[keep_e], e_state[ent]])
+    if players:
+        is_dec = ids[child] == feature_id("IsDecisionPlayer")
+        dec_leaf = np.full(len(ids), -1)
+        dec_leaf[parent[is_dec]] = child[is_dec]
+        held = (t[parent] == NodeType.PLAYER) & (t[child] != NodeType.LEAF) & (edge_label == feature_id("NONE"))
+        flag = held & (dec_leaf[parent] >= 0)
+        child, parent = (np.concatenate([child[~held], dec_leaf[parent[flag]]]),
+                         np.concatenate([parent[~held], child[flag]]))
+        edge_label = np.concatenate([edge_label[~held], np.full(int(flag.sum()), feature_id("owner"), edge_label.dtype)])
+        e_state = np.concatenate([e_state[~held], e_state[flag]])
     order = np.argsort(e_state, kind="stable")
     keep = ~zone
     offsets = np.concatenate([[0], np.cumsum(np.bincount(state[keep], minlength=len(offsets) - 1))]).astype(np.int64)
@@ -237,7 +250,8 @@ class H5Graphs(Dataset):
                                                         useFalseVisits, useTrueVisits
     Ids stay raw until apply_vocab maps them to embedding rows; __getitem__ needs the mapped form.
     hide_opponent_hand: see hide_opponent_hand.
-    flat_zones: see flatten_zones (after hide_opponent_hand, which finds hands by their zone).
+    flat_zones: see flatten_zones (after hide_opponent_hand, which finds hands by their zone); "players" also severs
+                the players (flatten_zones players).
     entity_dropout: __getitem__ drops cards and permanents with this probability (drop_entities); set on training data.
     td: if given, the value labels (resultLabel) are rebuilt with this discount (td_labels) instead of the stored ones.
     source: a directory (every shard under it) or a list of (shard path, games or None for all), as read_split gives.
@@ -298,7 +312,7 @@ class H5Graphs(Dataset):
         if hide_opponent_hand:
             self.hide_opponent_hand()
         if flat_zones:
-            self.flatten_zones()
+            self.flatten_zones(flat_zones)
         self.check_candidates()
         self.entity_dropout, self.rng = 0.0, np.random.default_rng()
 
@@ -342,7 +356,7 @@ class H5Graphs(Dataset):
         print(f"hid {int(hidden.sum())} opponent hands: {int((~keep).sum())} nodes removed "
               f"({(~keep).mean():.1%}), {int((~edges).sum())} edges")
 
-    def flatten_zones(self, chunk=50_000) -> None:
+    def flatten_zones(self, mode=True, chunk=50_000) -> None:
         """flatten_zones on every state, a chunk of states at a time (its int64 temporaries over the whole set ran
         out of memory); policy candidates are never zones, so they only move."""
         parts, removed, n0 = [], 0, len(self.ids)
@@ -352,7 +366,7 @@ class H5Graphs(Dataset):
             nodes, edges = slice(n[0], n[-1]), slice(e[0], e[-1])
             *arrays, offsets, edge_offsets, keep = flatten_zones(
                 self.ids[nodes], self.values[nodes], self.node_type[nodes], self.edge_child[edges],
-                self.edge_parent[edges], self.edge_label[edges], n - n[0], e - e[0])
+                self.edge_parent[edges], self.edge_label[edges], n - n[0], e - e[0], mode == "players")
             state = states_of(n - n[0])
             local = np.cumsum(keep) - 1 - offsets[state]
             cand = local[self.cand_node[c[0]:c[-1]] + (n - n[0])[states_of(c - c[0])]].astype(np.int32)

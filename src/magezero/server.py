@@ -75,7 +75,8 @@ def request_arrays(data):
     if server_model.arch.get("flat_zones"):
         sent = starts
         ids, values, node_type, edge_child, edge_parent, edge_label, starts, edge_starts, keep = flatten_zones(
-            ids, values, node_type, edge_child, edge_parent, edge_label, starts, edge_starts)
+            ids, values, node_type, edge_child, edge_parent, edge_label, starts, edge_starts,
+            server_model.arch["flat_zones"] == "players")
         edge_child, edge_parent = edge_child.astype(np.int64), edge_parent.astype(np.int64)
     node_row, edge_row = map_ids(ids, node_type, edge_label, VOCAB, EDGE_VOCAB)
     state_start = np.repeat(starts[:-1], np.diff(edge_starts))

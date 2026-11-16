@@ -239,7 +239,7 @@ class NetGraph(nn.Module):
       embed_std: standard deviation of the embedding tables' initial rows (leaf, edge label, node type, value bucket;
                  nn.Embedding's default is 1), so Adam's steps are large relative to the rows
       flat_zones: the data's player zones are replaced by leaves (dataset.flatten_zones), in training, testing and
-                  serving alike
+                  serving alike; "players" also cuts each player from what it holds, flagging its owner instead
       entity_dropout: in training, each card and permanent is dropped with this probability (dataset.drop_entities),
                       while the counters stay, so the counts have to be read from them
       pointers: in "down" passes, internal edges other than containment (TARGET@i, blocker, defender, attachment, ...,
@@ -257,7 +257,7 @@ class NetGraph(nn.Module):
                  value_loss: str = "mse", value_token: str = "cls", decision_row: int = -1, directions: list = None,
                  owner_context: bool = False, hide_decider: bool = False, registers: int = 0, leaf_dropout: float = 0.0,
                  embed_std: float = 1.0, value_encoding: str = "bucket", embed_seed: int = 0,
-                 flat_zones: bool = False, entity_dropout: float = 0.0, pointers: str = "down", containment_row: int = -1):
+                 flat_zones=False, entity_dropout: float = 0.0, pointers: str = "down", containment_row: int = -1):
         super().__init__()
         self.arch = dict(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout, n_passes=n_passes,
                          global_layers=global_layers, local=local, global_tokens=global_tokens,

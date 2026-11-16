@@ -87,7 +87,7 @@ def drop_leaves(ds, remove):
 
 def values(model, ds, vocab, edge_vocab):
     if model.arch.get("flat_zones"):
-        ds.flatten_zones()
+        ds.flatten_zones(model.arch["flat_zones"])
     ds.apply_vocab(vocab, edge_vocab)
     with torch.no_grad():
         return np.concatenate([model(g.to(M.DEVICE))[3].float().cpu().numpy() for g, _ in DataLoader(ds, batch_size=64, collate_fn=collate_batch)])
@@ -302,7 +302,7 @@ if __name__ == "__main__":
                                          ("policy_domain", "value_token", "hide_decider", "directions", "registers")))
         ds = sample_states(shards, n)
         if model.arch.get("flat_zones"):
-            ds.flatten_zones()
+            ds.flatten_zones(model.arch["flat_zones"])
         raw = ds.ids.copy(); ds.apply_vocab(vocab, edge_vocab)
         for p, a in player_attention(model, ds, raw, name).items():
             say(f"  PLAYER attention, pass {p}: " + "  ".join(f"{k} {x:.2f}" for k, x in sorted(a.items(), key=lambda kx: -kx[1])[:10])

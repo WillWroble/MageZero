@@ -50,7 +50,7 @@ if __name__ == "__main__":
         for tag, (ds, x) in data.items():
             ds = copy.deepcopy(ds)
             if model.arch.get("flat_zones"):
-                ds.flatten_zones()
+                ds.flatten_zones(model.arch["flat_zones"])
             ds.apply_vocab(vocab, edge_vocab)
             pr = priors(model, ds)
             top = [int(np.argmax(q)) for q in pr]
