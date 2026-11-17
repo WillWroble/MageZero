@@ -6,11 +6,11 @@ goes_first: random  # player_a, player_b, random
 player_a:
   deckPath: decks/Pauper-Rally.txt
   type: mcts
-  output_file: /workspace/runs/gen5-selfplay/PlayerA/Pauper-Rally_vs_Pauper-Wildfire.hdf5
+  output_file: /workspace/runs/gen5-@TAG@/PlayerA/Pauper-Rally_vs_Pauper-Wildfire.hdf5
 
   priors:
     priority: @PRIORS@
-    target: @PRIORS@
+    target: @TARGET_PRIORS@
     binary: false
     opponent: false
     prior_temperature: 1.5
@@ -41,10 +41,10 @@ player_a:
 player_b:
   deckPath: decks/Pauper-Wildfire.txt
   type: mcts
-  output_file: /workspace/runs/gen5-selfplay/PlayerB/Pauper-Wildfire_vs_Pauper-Rally.hdf5
+  output_file: /workspace/runs/gen5-@TAG@/PlayerB/Pauper-Wildfire_vs_Pauper-Rally.hdf5
 
   priors:
-    priority: false
+    priority: @OPP_PRIORS@
     target: false
     binary: false
     opponent: false

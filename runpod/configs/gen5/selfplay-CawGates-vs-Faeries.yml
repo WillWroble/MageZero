@@ -6,11 +6,11 @@ goes_first: random  # player_a, player_b, random
 player_a:
   deckPath: decks/Pauper-CawGates.txt
   type: mcts
-  output_file: /workspace/runs/gen5-selfplay/PlayerA/Pauper-CawGates_vs_Pauper-Faeries.hdf5
+  output_file: /workspace/runs/gen5-@TAG@/PlayerA/Pauper-CawGates_vs_Pauper-Faeries.hdf5
 
   priors:
     priority: @PRIORS@
-    target: @PRIORS@
+    target: @TARGET_PRIORS@
     binary: false
     opponent: false
     prior_temperature: 1.5
@@ -41,10 +41,10 @@ player_a:
 player_b:
   deckPath: decks/Pauper-Faeries.txt
   type: mcts
-  output_file: /workspace/runs/gen5-selfplay/PlayerB/Pauper-Faeries_vs_Pauper-CawGates.hdf5
+  output_file: /workspace/runs/gen5-@TAG@/PlayerB/Pauper-Faeries_vs_Pauper-CawGates.hdf5
 
   priors:
-    priority: false
+    priority: @OPP_PRIORS@
     target: false
     binary: false
     opponent: false

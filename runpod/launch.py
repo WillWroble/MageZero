@@ -56,6 +56,7 @@ SCRIPT_POD = '''set -x
 apt-get update -qq && apt-get install -y -qq git >/dev/null
 export OUT=/workspace/runs/{name}; mkdir -p $OUT; rm -f $OUT/DONE
 GIT_LFS_SKIP_SMUDGE=1 git clone -q {repo} /tmp/code && cd /tmp/code && git checkout -q {commit}
+(lscpu | grep -E '^(Model name|CPU.s.:)'; uptime; df -h /workspace | tail -1) > $OUT/host.txt  # host speed varies
 {env} timeout {hours}h bash {script} > $OUT/script.log 2>&1
 echo $? > $OUT/DONE
 sleep infinity
