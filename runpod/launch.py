@@ -41,6 +41,7 @@ apt-get update -qq && apt-get install -y -qq git >/dev/null; pip install -q h5py
 OUT=/workspace/runs/{name}; mkdir -p $OUT; rm -f $OUT/DONE
 GIT_LFS_SKIP_SMUDGE=1 git clone -q {repo} /tmp/code && cd /tmp/code && git checkout -q {commit}
 nvidia-smi > $OUT/gpu.txt
+(lscpu | grep -E '^(Model name|CPU.s.:)'; echo "nproc $(nproc)  cpu.max $(cat /sys/fs/cgroup/cpu.max 2>/dev/null)"; uptime) >> $OUT/gpu.txt  # host speed varies
 {setup}
 export OMP_NUM_THREADS=$(( $(nproc) / {concurrent} ))  # concurrent runs otherwise oversubscribe the CPU
 cat > /tmp/runs.txt <<'RUNS'

@@ -131,7 +131,7 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
     a whole); the first picks best.pt.gz. With val_every, they're also validated every val_every steps, each time
     saving model-e<epoch>-s<step>.pt.gz. only: "value" or "policy" trains only those losses (the others are still reported).
     start_epoch, opt_state: a resumed run's epochs so far (numbering continues after them) and optimizer state.
-    min_lr: decay the learning rate from lr to min_lr over this call's steps (cosine)."""
+    min_lr: decay the learning rate from lr to min_lr over the run's steps, a resumed run's earlier epochs included (cosine)."""
 
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)
@@ -141,7 +141,14 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
     opt = optim.Adam(model.parameters(), lr=lr)
     if opt_state:
         opt.load_state_dict(opt_state)
-    decay = min_lr is not None and optim.lr_scheduler.CosineAnnealingLR(opt, epochs * min(len(dl), steps), min_lr)
+    decay = None
+    if min_lr is not None:  # a resumed run's schedule starts again from the base lr and steps through its epochs so far
+        for group in opt.param_groups:
+            group["lr"] = group.get("initial_lr", group["lr"])
+        per_epoch = min(len(dl), steps)
+        decay = optim.lr_scheduler.CosineAnnealingLR(opt, (start_epoch + epochs) * per_epoch, min_lr)
+        for _ in range(start_epoch * per_epoch):
+            decay.step()
     legal_only = model.arch.get("policy_domain") == "legal"
     legality_weight = model.arch.get("legality_weight", 0.0)
     value_loss = model.arch.get("value_loss", "mse")
@@ -172,6 +179,8 @@ def train_loop(out, epochs, steps, model, ds, val_sets, vocab, edge_vocab, hide_
 
             accumulate(stats, heads)
             step += 1
+            if step == 500:  # pods' hosts differ several-fold in speed: catch a slow one early
+                print(f"speed: {step / (time.perf_counter() - start):.1f} steps/s", flush=True)
             if step >= steps:
                 break
             if val_every and step % val_every == 0:
