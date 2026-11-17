@@ -807,3 +807,141 @@ Order: all s0 / s1, legal s0 / s1; baseline = the same recipe without entity dro
 - Held-out value is .001-.0015 worse on all-node, level on legal-only; curves still falling at e12.
 - Injection got worse on Burn (mean 47 vs 82) and less seed-dependent but lower on Faeries (58-64 vs 46-83). Reading
   the count did not make the land play read as good.
+
+## Zone flattening (`flat_zones: "zones"`), alone and with entity dropout, value / 20 and small init (Nov 15-16)
+
+Cosine 1e-4 → 1e-5, leaf dropout 0.1, d128, 12 epochs, down-down, no names, player value. Best held-out value on the
+gen0 holdout; order: all s0 / s1, legal s0 / s1. † = run stopped at e6-e7.
+
+| recipe | best held-out value | legal priority KL |
+|---|---|---|
+| baseline (cosine + dropout 0.1) | .0322 / .0318 / .0335 / .0327 | .059 / .057 |
+| flat | .0323 / .0325 / .0326 / .0333 | .056 / .056 |
+| flat + entity dropout .05 | .0333 / .0336 / .0343 / .0342 | .058 / .058 |
+| value / 20 + entity dropout | .0324 / .0327 / .0329 / .0335 | .058 / .059 |
+| value / 20 + small init + entity dropout | .0342† / .0325 / .0332 / .0317 | .055 / .055 |
+| value / 20 + small init + flat | .0328† / **.0312** / .0318 / .0318 | **.053 / .053** |
+| value / 20 + small init + flat + entity dropout | .0337† / .0321 / .0329 / .0336† | – |
+
+- Flat zones put the zone counters on PLAYER, to get the battlefield count read. It isn't: ~BattlefieldSize costs
+  0-.04 with flat alone, .07-.15 only with entity dropout (with or without flat). Injection swings across seeds as before
+  (Burn 19 vs 79, 55 vs 92).
+- With value / 20 + small init, flat gives the tightest seed pair, the best priority KL of any model and the best
+  all-node held-out value (.0312), but the lowest Faeries injection of any recipe (28-39).
+- Flat removes ≈ 3% of the nodes: no speedup to speak of.
+
+## The pick in play (Nov 15-16)
+
+The pick: `v4-dd-players-legal-noname-h5-d128-sv20-es002-ld02-cos-s1`, best checkpoint e10 (d128, small init, value /
+20, leaf dropout 0.2, cosine 1e-4 → 1e-5, 12 epochs, down-down, legal-only, no names, player value, TD 0.92). Held-out
+value .0322 / .0318 (s0 / s1), priority KL .055 / .056. 300 sims, 200 games, XMage `b6ca7b35`, 4090s, `max_pending` 4.
+"Pass top" = the most-visited move is Pass with < 3 lands and a land drop available.
+
+| | value-only | priority priors 1.5 | best earlier model |
+|---|---|---|---|
+| Burn vs offline Burn | 58.0% (Pass top 24.2%) | **64.5%** (4.1%) | 47% (ver15) |
+| Faeries mirror | **79.0%** (2.7%) | 72.5% (0.7%) | 78.8% (d256 legal-only, 400 games) |
+
+- On Burn the priors fix the land skipping (24% → 4%, below the offline search's 13-14%) and win 6.5 points more; on
+  Faeries skipping is rare and value-only wins 6.5 more.
+- Value-only Burn at 58% beats every earlier value-only pilot (37.5-47%) with the same skip rate: the gain is elsewhere.
+
+**Entity dropout in play.** Legal value / 20 + small init + entity dropout s1 (e12, held-out .0317), value-only, same
+tests: Burn 52.0% (Pass top 28.6%), Faeries 79.0% → 78.0% (5.9%). Not better; reading the counter didn't stop the
+land skips. Entity dropout stays out.
+
+## Pointer direction in down passes (Nov 16, `fafb8c7`, `a3f1780`)
+
+Down-down reverses every internal edge, pointers included: a target reads the spell aimed at it, a blocker the
+attacker. `pointers: "up"` keeps pointer edges (TARGET@i, blocker, defender, attachment, ...) in their original direction
+(the spell reads its target); containment stays top-down. ≈ 1.3 pointer edges per state. Pick recipe, 2 seeds.
+("both", each pointer in both directions, was killed after 10 minutes.)
+
+| | held-out value s0 / s1 | priority KL | target KL | target top-1 |
+|---|---|---|---|---|
+| pick (pointers reversed) | .0322 / .0318 | .055 / .056 | .063 / .063 | .835 / .835 |
+| pointers up | .0322 / .0318 | .056 / .056 | .063 / .064 | .836 / .833 |
+
+No difference anywhere, per matchup within ±.016 target top-1 without a direction. The 2 global layers already link a
+spell and its target. Keep the default.
+
+## Up-up-down-down (Nov 16)
+
+4 local passes (up, up, down, down), each with its own layers, pick recipe, 2 seeds (≈$13.50, slow hosts).
+
+| | best held-out value s0 / s1 | priority KL | train value e12 |
+|---|---|---|---|
+| pick | .0322 / .0318 | .055 / .056 | ≈ .030 |
+| up-up-down-down | .0344 (e5) / .0345 (e8) | .060 / .056 | .025 / .026 |
+
+Overfits: lower train loss, held-out bottoms out at e5-e8 ≈ .002-.003 worse. Target KL .061 vs .063. Down-down stays.
+
+## TD sweep (Nov 16, `7855db1`)
+
+Pick recipe with TD 0.95, 0.98, adaptive first:0.03 and first:0.1 (`--td`), 2 seeds each. Held-out MSE against each
+run's own labels can't rank them (best: 0.95 .049 / .050, first:0.03 .057, first:0.1 .086-.088, 0.98 .114-.115). 0.98
+and first:0.1 overfit early (best at e2-e4, where priority KL is still .065-.070); 0.92 and 0.95 improve to e10-e12.
+
+Best checkpoints re-scored on common labels (s0 / s1):
+
+| trained on | gen0 holdout, TD 0.92 labels | gen0 holdout, game result | AUROC vs result, gen0 / mirror | Burn / Faeries injection (mean) |
+|---|---|---|---|---|
+| TD 0.92 (pick) | **.032 / .032** | .532 / .529 | .909 / .874 | 79 / **64** |
+| TD 0.95 | .039 / .040 | .482 / .478 | .926 / .880 | **81** / 52 |
+| first:0.03 | .047 / .047 | .494 / .495 | .924 / .875 | 73 / 62 |
+| first:0.1 | .062 / .062 | .460 / .455 | .933 / .876 | 67 / 28 |
+| TD 0.98 | .087 / .099 | **.407 / .393** | **.945 / .881** | 55 / 51 |
+| search root value | | | .839 / .853 | |
+
+- Higher TD predicts the result better on the gen0 holdout (13 matchups), but on the mirror all are within .01 AUROC:
+  the gen0 gap is probably matchup priors, not board reading (untested).
+- Land policy is unaffected by TD (last-chance land 61-71% Burn 300, 97-100% Faeries).
+- Adaptive TD adds nothing over the fixed ones; 0.98 reads the board worst.
+- **Games** (TD 0.95 s1 e12, value-only, as the pick): Burn **45.5%** vs 58.0%, Faeries 74.0% vs 79.0%. TD 0.92 stays.
+
+## Cutting edges for caching: flatp, entities, leaves (Nov 16, `a250e67`, `094e8c8`, `7b4e436`)
+
+Pick recipe, flat zones, seed 0. Each step cuts more internal edges:
+- `players` (flatp): each PLAYER also cut from its cards, permanents and Pass ability; the decider's entities get
+  `IsDecisionPlayer` on an `owner` edge.
+- `entities`: only card / permanent / stack object → ability and pointer edges remain; players and the shared zones get
+  no parent; exiled cards get the Exile name leaf.
+- `leaves`: no internal edges at all.
+
+| | best held-out value | priority KL | priority top-1 | target top-1 | s / epoch |
+|---|---|---|---|---|---|
+| pick s0 | .0322 (e11) | .0552 | .826 | .831 | ≈ 630 |
+| flatp | .0327 (e12) | .0560 | .823 | .831 | ≈ 630 |
+| entities | .0329 (e11) | .0564 | .823 | .833 | 464 |
+| leaves | .0335 (e10) | .0575 | .820 | .802 | 690 |
+
+- Cutting everything but abilities and pointers costs ≈ .0007 value and .001 priority KL: the global layers recover
+  almost everything. Cutting pointers too costs 3 points of target top-1.
+- flatp s1 was killed at e5 (.0343, on a slow host). Single seeds; differences are well under the ≈ .004 that moved win
+  rate ≈ 6 points.
+- The server can't cache these yet: the node cache is off for down passes and for `flat_zones` models (XMage's subtree
+  hashes don't match the flattened nodes; `0103b59`). Keys would have to be computed server-side, top-down.
+- Entities' games (vs offline and vs the pick, priors on) were cancelled before finishing.
+
+## Up-up with the entities' nodes ("context", Nov 16-17, `0103b59`, `49f2423`)
+
+`flat_zones: "context"`, `directions: ["up","up"]`: the entities' nodes and flags, but nothing cut (PLAYER holds its
+cards, ROOT its players, stack and exile); card / permanent / stack object → ability edges flipped and ABILITY run last,
+so abilities read their card. Pick recipe, seed 0.
+
+| held-out value | e1 | e2 | e3 | e4 | e5 | e6 | best | train e12 |
+|---|---|---|---|---|---|---|---|---|
+| context up-up | .0408 | **.0374** | **.0357** | .0358 | .0372 | .0365 | .0357 (e3) | .027 |
+| entities | .0405 | .0402 | .0369 | .0349 | .0339 | .0345 | .0329 | .034 |
+| flatp | .0431 | .0410 | .0367 | .0349 | .0344 | .0341 | .0327 | .034 |
+
+Leads to e3, then overfits: held-out stays at .036-.038 to e12 (.0371) while train value falls to .027. Priority KL
+.065 at best. ≈ .003 worse than entities and flatp. Not pursued.
+
+The run was moved after e4 (`train.py --resume`, which now continues the original cosine; seed 1 for the new data
+order, the one confound).
+
+**Host speed.** Same code, same 4090: epochs took 464-790 s on most pods but ≈ 2,170 s on some (context e1-e4, flatp
+s1, TD 0.95 s0, probably up-up-down-down). Training is CPU-bound (`num_workers=0`); the slow host was an AMD EPYC 7352
+(9.6 steps/s), a Ryzen 9 7950X ran 33.8 steps/s. On CPU, up-up and down-down cost the same per step (≈ 430 vs 455-486
+ms). Pods now log the host CPU in `gpu.txt` and `train.py` prints steps/s at step 500: kill a slow host early.
