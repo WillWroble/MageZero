@@ -102,7 +102,7 @@ like ver15), **priority priors 1.5 on**, target priors off. Offline opponent as 
 
 Incidents: the volume filled up (300 GB) at ≈14:07 UTC Nov 17 and was resized to 1000 GB; 5 finished or running
 matchups were lost and rerun, one rerun of the CawGates mirror crashed the JVM (SIGSEGV in
-`MCTSNode.getMatchingState`) after ≈6 h and was rerun as two halves. Cost ≈ $130 (balance $512 → ≈$378 + pods).
+`MCTSNode.getMatchingState`) after ≈6 h and was rerun as two halves. Cost ≈ $137 (RunPod balance ≈ $504 → $367, including the files pod and volume).
 
 Conclusion: the pick pilots the Pauper format 7 points better than ver15 on average, most on Burn and Wildfire; with
 priority priors on, Faeries drops 4 points.
