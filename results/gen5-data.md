@@ -70,3 +70,39 @@ Conclusion: the new decks' policy improves through all 3 epochs (non-pass .559 �
 settles by epoch 1–2; no overfitting. The Faeries blocks end at or better than ver15. End of epoch 3 is uploaded as
 **P1**: `experiment_models/Pauper/P1` (full checkpoint) and https://huggingface.co/inkling616/MZ-Pauper-P1 (weights
 and model card). Cost ≈$21 (PRO 6000) + ≈$15 (stopped A100 attempt). Not yet tested in play.
+
+## P2 pilot: the pick piloting each deck vs the offline search of each deck (Nov 17-18)
+
+Same 8×8 layout as the ver15 table above, 200 games each (12,799 games, 1 failed). Pilot: the pick
+(`v4-dd-players-legal-noname-h5-d128-sv20-es002-ld02-cos-s1` e10, `value-perspective.md`, trained on Faeries data only,
+like ver15), **priority priors 1.5 on**, target priors off. Offline opponent as before. Shards:
+`/workspace/runs/gen5-p2-offline/`; the CawGates mirror is two 100-game halves (`-h1`, `-h2`). Win rate P2 (ver15) Δ:
+
+| pilot ↓ / offline → | Affinity | Burn | CawGates | Elves | Faeries | Rally | Spy | Wildfire | mean |
+|---|---|---|---|---|---|---|---|---|---|
+| **Affinity** | 73.0 (66.0) +7.0 | 71.0 (52.5) +18.5 | 81.5 (74.5) +7.0 | 73.5 (67.0) +6.5 | 75.5 (83.5) −8.0 | 52.5 (46.0) +6.5 | 70.0 (73.5) −3.5 | 79.0 (67.5) +11.5 | **72.0 (66.3) +5.7** |
+| **Burn** | 66.5 (52.5) +14.0 | 61.5 (37.5) +24.0 | 67.0 (69.5) −2.5 | 74.0 (69.0) +5.0 | 70.5 (71.0) −0.5 | 30.0 (25.0) +5.0 | 59.0 (64.5) −5.5 | 65.0 (48.5) +16.5 | **61.7 (54.7) +7.0** |
+| **CawGates** | 73.0 (65.5) +7.5 | 71.0 (52.0) +19.0 | 84.0 (77.0) +7.0 | 66.5 (60.2) +6.3 | 83.5 (87.0) −3.5 | 38.5 (33.5) +5.0 | 74.5 (66.0) +8.5 | 73.4 (47.7) +25.7 | **70.5 (61.1) +9.4** |
+| **Elves** | 80.5 (72.5) +8.0 | 63.0 (42.5) +20.5 | 94.5 (94.5) 0.0 | 82.0 (72.0) +10.0 | 84.5 (85.5) −1.0 | 58.5 (54.0) +4.5 | 83.0 (75.5) +7.5 | 84.5 (63.5) +21.0 | **78.8 (70.0) +8.8** |
+| **Faeries** | 70.0 (75.0) −5.0 | 58.0 (70.5) −12.5 | 76.5 (84.5) −8.0 | 68.5 (64.0) +4.5 | 73.5 (76.0) −2.5 | 34.5 (28.5) +6.0 | 59.5 (62.0) −2.5 | 73.5 (85.5) −12.0 | **64.2 (68.2) −4.0** |
+| **Rally** | 91.0 (83.5) +7.5 | 89.0 (66.5) +22.5 | 91.5 (93.5) −2.0 | 82.0 (78.5) +3.5 | 96.5 (92.0) +4.5 | 61.0 (56.0) +5.0 | 72.0 (68.0) +4.0 | 91.5 (78.5) +13.0 | **84.3 (77.1) +7.2** |
+| **Spy** | 79.0 (62.5) +16.5 | 62.0 (46.2) +15.8 | 90.5 (79.5) +11.0 | 68.5 (62.5) +6.0 | 76.5 (77.4) −0.9 | 71.5 (62.0) +9.5 | 60.0 (58.0) +2.0 | 66.0 (57.3) +8.7 | **71.8 (63.2) +8.6** |
+| **Wildfire** | 73.0 (59.5) +13.5 | 65.0 (36.5) +28.5 | 80.0 (73.4) +6.6 | 61.5 (58.5) +3.0 | 71.5 (66.0) +5.5 | 35.0 (23.0) +12.0 | 70.0 (67.0) +3.0 | 73.0 (36.0) +37.0 | **66.1 (52.5) +13.6** |
+| mean vs this deck | 75.8 (67.1) +8.6 | 67.6 (50.5) +17.0 | 83.2 (80.8) +2.4 | 72.1 (66.5) +5.6 | 79.0 (79.8) −0.8 | 47.7 (41.0) +6.7 | 68.5 (66.8) +1.7 | 75.7 (60.6) +15.2 | **71.2 (64.1) +7.1** |
+
+- Overall +7.1 points (SE ≈ 0.6); 48 of 64 matchups up, 15 down, 1 level. 24 differ by more than 2 SE: 21 up, 3 down.
+- The biggest gains are where ver15 was weakest: Wildfire +13.6 and Burn +7.0 as pilots, the Wildfire mirror 36 → 73
+  and the Burn mirror 37.5 → 61.5; against the offline Burn +17.0 and Wildfire +15.2.
+- **Faeries is the only deck that got worse (−4.0)**: vs Burn −12.5, Wildfire −12.0 and CawGates −8.0. This fits the pick's
+  Faeries mirror test (79.0% value-only vs 72.5% with priors): the priority priors cost Faeries and help the rest.
+- Confounds: (1) model, (2) priority priors (P1 was value-only), (3) XMage `f2ce8eca` → `b6ca7b35` (6 commits: virtual
+  visits and changed backprop in `MCTSNode2`/`ComputerPlayerMCTS2`, which the offline opponent also runs, plus a
+  one-line `Combat` change), (4) P2 hosts filtered to fast CPUs. The offline opponent's strength may have moved too, so
+  the Δ is not the pilot's gain alone.
+
+Incidents: the volume filled up (300 GB) at ≈14:07 UTC Nov 17 and was resized to 1000 GB; 5 finished or running
+matchups were lost and rerun, one rerun of the CawGates mirror crashed the JVM (SIGSEGV in
+`MCTSNode.getMatchingState`) after ≈6 h and was rerun as two halves. Cost ≈ $130 (balance $512 → ≈$378 + pods).
+
+Conclusion: the pick pilots the Pauper format 7 points better than ver15 on average, most on Burn and Wildfire; with
+priority priors on, Faeries drops 4 points.
