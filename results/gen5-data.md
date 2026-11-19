@@ -106,3 +106,42 @@ matchups were lost and rerun, one rerun of the CawGates mirror crashed the JVM (
 
 Conclusion: the pick pilots the Pauper format 7 points better than ver15 on average, most on Burn and Wildfire; with
 priority priors on, Faeries drops 4 points.
+
+## P2 self-play: the pick on both seats (Nov 18-19)
+
+All 36 matchups, 200 games each (7,198 games, 2 failed), the pick on both seats with the same settings as the P2
+pilot (priority priors 1.5 on both seats, target priors off, XMage `b6ca7b35`). Shards: `/workspace/runs/gen5-p2-selfplay/`;
+CawGates vs Wildfire and the Wildfire mirror are two 100-game halves (`-h1`, `-h2`), because their 200-game runs hit
+the pods' 10 h cap and were lost. Win rate of the row deck, P2 (ver15) Δ (mirrors: the PlayerA seat):
+
+| row ↓ vs column → | Affinity | Burn | CawGates | Elves | Faeries | Rally | Spy | Wildfire | mean (excl. mirror) |
+|---|---|---|---|---|---|---|---|---|---|
+| **Affinity** | 45.0 (54.0) −9.0 | 57.0 (35.5) +21.5 | 51.5 (54.3) −2.8 | 35.5 (45.5) −10.0 | 68.5 (54.5) +14.0 | 25.5 (29.5) −4.0 | 48.0 (43.5) +4.5 | 61.5 (53.5) +8.0 | **49.6 (45.2) +4.5** |
+| **Burn** | 43.0 (64.5) −21.5 | 51.5 (49.5) +2.0 | 50.5 (71.5) −21.0 | 63.0 (68.0) −5.0 | 61.0 (64.0) −3.0 | 20.5 (32.5) −12.0 | 43.0 (65.0) −22.0 | 53.5 (72.5) −19.0 | **47.8 (62.6) −14.8** |
+| **CawGates** | 48.5 (45.7) +2.8 | 49.5 (28.5) +21.0 | 53.0 (38.7) +14.3 | 20.1 (20.3) −0.2 | 55.5 (56.0) −0.5 | 15.0 (16.1) −1.1 | 43.0 (34.0) +9.0 | 50.3 (42.5) +7.8 | **40.3 (34.7) +5.5** |
+| **Elves** | 64.5 (54.5) +10.0 | 37.0 (32.0) +5.0 | 79.9 (79.7) +0.2 | 48.5 (39.5) +9.0 | 71.5 (64.3) +7.2 | 41.5 (44.5) −3.0 | 53.5 (60.5) −7.0 | 58.0 (60.0) −2.0 | **58.0 (56.5) +1.5** |
+| **Faeries** | 31.5 (45.5) −14.0 | 39.0 (36.0) +3.0 | 44.5 (44.0) +0.5 | 28.5 (35.7) −7.2 | 48.0 (49.0) −1.0 | 11.5 (13.0) −1.5 | 31.5 (41.5) −10.0 | 48.0 (42.5) +5.5 | **33.5 (36.9) −3.4** |
+| **Rally** | 74.5 (70.5) +4.0 | 79.5 (67.5) +12.0 | 85.0 (83.9) +1.1 | 58.5 (55.5) +3.0 | 88.5 (87.0) +1.5 | 51.5 (53.0) −1.5 | 49.0 (52.8) −3.8 | 85.0 (82.5) +2.5 | **74.3 (71.4) +2.9** |
+| **Spy** | 52.0 (56.5) −4.5 | 57.0 (35.0) +22.0 | 57.0 (66.0) −9.0 | 46.5 (39.5) +7.0 | 68.5 (58.5) +10.0 | 51.0 (47.2) +3.8 | 49.0 (51.5) −2.5 | 43.0 (62.0) −19.0 | **53.6 (52.1) +1.5** |
+| **Wildfire** | 38.5 (46.5) −8.0 | 46.5 (27.5) +19.0 | 49.7 (57.5) −7.8 | 42.0 (40.0) +2.0 | 52.0 (57.5) −5.5 | 15.0 (17.5) −2.5 | 57.0 (38.0) +19.0 | 41.5 (43.0) −1.5 | **43.0 (40.6) +2.3** |
+
+- The SE of a Δ between two 200-game rates is ≈5 points, so by chance the mean |Δ| would be ≈4.0. It is 7.4, and 8
+  of 36 matchups move by more than 10 points (≈1.6 expected): the deck balance under P2 is really different.
+- **Burn falls from the second strongest deck to below average (62.6 → 47.8, −14.8)**: CawGates +21.0, Spy +22.0,
+  Affinity +21.5 and Wildfire +19.0 against it. This matches the pilot table, where P2's gains were largest against
+  the offline Burn (+17.0): the pick defends against Burn much better than ver15 did, and gains less piloting it.
+- Faeries is again the only deck down among the non-Burn decks (−3.4; vs Affinity −14.0, vs Spy −10.0), in line with
+  the priors costing Faeries.
+- Spy vs Wildfire flips (62.0 → 43.0, −19.0), in line with Wildfire's +13.6 as a pilot in the P2 pilot table.
+- Rally stays the strongest deck (74.3); CawGates stays the weakest (40.3), though its mirror moves from 38.7 to a
+  level 53.0. Mirrors (first seat) average 48.5 (ver15 47.3), all within ≈2 SE of 50 except Affinity (45.0, 1.4 SE).
+- Confounds as in the P2 pilot section; here both seats change, so a Δ mixes how each deck's pilot changed.
+
+Incidents: CawGates vs Wildfire and the Wildfire mirror hit the 10 h cap (`HOURS=10`) at ≈7–7.5 h into their second
+config and lost all their games; they were rerun as 100-game halves with `HOURS=14` (4 pods; RTX 4090s were
+unavailable in EU-RO-1 for ≈2 h). My cleanup script died with a container restart, so the 4 finished rerun pods idled
+≈7–9 h (≈$28) before they were terminated. Cost ≈ $128 (balance ≈ $360 → $232, ≈$85 for the main run and ≈$43 for the
+rerun, including the idle pods), against an estimate of $70–110.
+
+Conclusion: under the pick, Burn loses most of its self-play edge (−14.8) and the other decks move by ±6 or less;
+Rally stays the strongest deck and CawGates the weakest.
