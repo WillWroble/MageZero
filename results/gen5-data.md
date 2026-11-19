@@ -134,7 +134,7 @@ the pods' 10 h cap and were lost. Win rate of the row deck, P2 (ver15) Δ (mirro
   the priors costing Faeries.
 - Spy vs Wildfire flips (62.0 → 43.0, −19.0), in line with Wildfire's +13.6 as a pilot in the P2 pilot table.
 - Rally stays the strongest deck (74.3); CawGates stays the weakest (40.3), though its mirror moves from 38.7 to a
-  level 53.0. Mirrors (first seat) average 48.5 (ver15 47.3), all within ≈2 SE of 50 except Affinity (45.0, 1.4 SE).
+  level 53.0. Mirrors (first seat) average 48.5 (ver15 47.3), all within 2 SE of 50 (lowest: Affinity 45.0).
 - Confounds as in the P2 pilot section; here both seats change, so a Δ mixes how each deck's pilot changed.
 
 Incidents: CawGates vs Wildfire and the Wildfire mirror hit the 10 h cap (`HOURS=10`) at ≈7–7.5 h into their second
