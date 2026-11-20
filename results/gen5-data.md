@@ -195,3 +195,25 @@ Incidents: the first launch crashed on the truncated shard; the 14 h cap stopped
 idled ≈2 h (≈$5) because my cleanup script dies with my container's restarts; the first continuation pod had 94 GB of
 RAM and was OOM-killed while loading the data (≈$4), the relaunch required ≥180 GB (188 GB).
 Cost ≈ $72 (RunPod balance $231.97 → $159.84, Nov 19 15:02 → Nov 20 17:06 UTC, including the files pod): epochs 1-3 ≈ $45, the OOM-killed pod ≈ $4, epochs 4-6 ≈ $23.
+
+### lr 1e-4 test (Nov 20)
+
+Is P2-2's slow late progress the learning rate? The same run (P2-1 e10 warm start, split, seed and batch order, 3-epoch
+cosine to 1e-5) at **1e-4** instead of 3e-5 (P2-1's own starting rate), stopped after epoch 1
+(`/workspace/runs/pauper-P2-2-lr1e4-gnn/P2-2`). Mean held-out value / priority KL over the four Pauper sets:
+
+| step (epoch 1) | lr 1e-4 | lr 3e-5 (P2-2) | Δ value |
+|---|---|---|---|
+| 10K | .0515 / .0672 | .0506 / .0674 | +.0009 |
+| 40K | .0492 / .0646 | .0479 / .0645 | +.0013 |
+| 70K | .0492 / .0633 | .0469 / .0628 | +.0024 |
+| 100K | .0466 / .0624 | .0459 / .0621 | +.0007 |
+| 130K | .0453 / .0614 | .0454 / .0615 | −.0001 |
+| 150K | .0445 / .0610 | .0453 / .0612 | −.0008 |
+| e2 10K | .0453 / .0609 | .0453 / .0612 | .0000 |
+
+On gen0 (P2-1's data) 1e-4 forgets more: e1 130K value .038 / priority KL .072 against .036 / .068 at 3e-5.
+
+Conclusion: 1e-4 is worse for most of the epoch and only level by its end; the learning rate is not what slows P2-2.
+The next suspects are capacity (d128, 2.4M parameters for 8 decks) and the data itself. Data loading took ≈3 h on this
+pod (EPYC 9655, 283 GB) against ≈70 min before. Cost ≈ $15 (balance $159.71 → $144.65, 17:25 → 22:47 UTC).
