@@ -11,6 +11,8 @@ from model import (Graphs, Targets, ActionType, NodeType, load_checkpoint, load_
                    decision_states, graph_index, segment_logsumexp, PRIORITY_TYPES, TARGET_TYPES, AMP, DEVICE)
 from vocab import feature_id
 
+VAL_BATCH_SIZE = 512  # evaluation only: the metrics are sums over states, so batching doesn't change them
+
 SHOW_CONFUSION_MATRIX = True
 
 PASS_ID = feature_id("PassAbility")
@@ -207,7 +209,7 @@ def val_loaders(val_shards, vocab, edge_vocab, hide_opponent_hand=False, td=None
             ds = H5Graphs([(path, games)], vocab, edge_vocab, hide_opponent_hand, td, flat_zones)
             if len(ds) > 0:
                 loaders.setdefault(name, []).append((path, DataLoader(
-                    ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, collate_fn=collate_batch,
+                    ds, batch_size=VAL_BATCH_SIZE, shuffle=False, num_workers=0, collate_fn=collate_batch,
                     pin_memory=AMP, persistent_workers=False)))
     return loaders
 
