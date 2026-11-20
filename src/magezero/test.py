@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from dataset import H5Graphs, collate_batch, read_split, parse_td, BATCH_SIZE
+from dataset import H5Graphs, collate_batch, read_split, parse_td
 from model import (Graphs, Targets, ActionType, NodeType, load_checkpoint, load_model, losses, accumulate, averages,
                    decision_states, graph_index, segment_logsumexp, PRIORITY_TYPES, TARGET_TYPES, AMP, DEVICE)
 from vocab import feature_id
