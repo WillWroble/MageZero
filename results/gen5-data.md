@@ -145,3 +145,52 @@ rerun, including the idle pods), against an estimate of $70–110.
 
 Conclusion: under the pick, Burn loses most of its self-play edge (−14.8) and the other decks move by ±6 or less;
 Rally stays the strongest deck and CawGates the weakest.
+
+## P2-2: P2-1 warm-started on all the Pauper data (Nov 19-20)
+
+Naming: the P2 line numbers its models. **P2-1** is the pick (`v4-dd-players-legal-noname-h5-d128-sv20-es002-ld02-cos-s1`
+e10, trained on gen0 only), which played the two P2 sets above; **P2-2** is trained on them.
+
+Split `runpod/splits/P2-2.txt`: P1's blocks (gen0-gen3 Faeries data, ver15's 8x8 and self-play) plus P2-1's 8x8 and
+self-play, every 5th game held out per block (9.84M training states, 153,720 steps per epoch). PlayerB's P2 Wildfire
+mirror shard was left out: its copy was truncated when the volume filled on Nov 17. Warm start from P2-1 e10 (d128,
+leaf dropout 0.2, scaled value, legal-only, no player names), lr 3e-5 cosine to 1e-5, `--val-every 10000`, RTX PRO
+6000. Epochs 1-3 (`/workspace/runs/pauper-P2-2-gnn/P2-2`) hit the pod's 14 h cap at e3 step 90K; epochs 4-6
+(`/workspace/runs/pauper-P2-2b-gnn/P2-2`) resumed from `model-e3-s90000` (`--resume`: optimizer kept, the cosine
+spans 6 epochs, so lr went back to 2e-5 and down to 1e-5).
+
+Held-out value MSE (mean of the four Pauper sets, and each) and priority KL (mean):
+
+| point | value mean | p2-offline | p2-selfplay | pauper-offline | pauper-selfplay | prio KL mean |
+|---|---|---|---|---|---|---|
+| e1 10K | .0506 | .0448 | .0501 | .0458 | .0617 | .0674 |
+| e1 150K | .0453 | .0406 | .0450 | .0403 | .0552 | .0612 |
+| e2 150K | .0431 | .0394 | .0421 | .0394 | .0513 | .0593 |
+| e3 90K | .0426 | .0391 | .0421 | .0385 | .0506 | .0589 |
+| e4 150K | .0422 | .0393 | .0414 | .0384 | .0498 | .0583 |
+| e5 150K | .0415 | .0380 | .0409 | .0371 | .0499 | .0578 |
+| **e6 140K** | **.0412** | .0377 | .0410 | .0370 | .0491 | **.0574** |
+
+On the gen0 sets P2-1 was trained on (the only sets both were tested on), value / priority KL:
+
+| | gen0 held-out | gen0-test (Faeries mirror) |
+|---|---|---|
+| P2-1 e10 | **.0321** / **.0565** | .0310 / **.0415** |
+| P2-2 e6 (mean of its validations) | .0349 / .0647 | **.0295** / .0523 |
+
+- Still improving at the end (−.0004 value per epoch over e4-e6, down from −.005 in e1), with no overfitting: the
+  best checkpoint is the last few, and training value loss (.047, leaf dropout on) stays above held-out (.041).
+- P2-2 gives up some of P2-1's fit on gen0 (value +.003, priority KL +.008) for the 7 new decks; on the Faeries mirror
+  test set its value is better and its priority worse.
+- The slow late progress points at lr 3e-5 (ver15's fine-tuning rate) being low for what is mostly new data; P2-1
+  itself trained at 1e-4 → 1e-5. Untested: a 1e-4 epoch from P2-1 against e1 above would tell.
+- Speed: validation in batches of 64 over 2.55M held-out states took ≈12 of every 18m50s per 10K steps. Validating in
+  batches of 512 (`cdf628b`, metrics unchanged) cut it to 7m54s (5.6 min training at 30 steps/s, ≈2.3 min
+  validation), ≈2.1 h per epoch instead of 4.7 h.
+
+Pick: **`pauper-P2-2b-gnn/P2-2/model-e6-s140000.pt.gz`** (lowest mean held-out value; e6 150K and the end of e6 are
+within .00002). Not yet tested in play.
+
+Incidents: the first launch crashed on the truncated shard; the 14 h cap stopped epoch 3 at 90K and the pod then
+idled ≈2 h (≈$5) because my cleanup script dies with my container's restarts; the first continuation pod had 94 GB of
+RAM and was OOM-killed while loading the data (≈$4), the relaunch required ≥180 GB (188 GB).
