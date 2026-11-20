@@ -194,3 +194,4 @@ within .00002). Not yet tested in play.
 Incidents: the first launch crashed on the truncated shard; the 14 h cap stopped epoch 3 at 90K and the pod then
 idled ≈2 h (≈$5) because my cleanup script dies with my container's restarts; the first continuation pod had 94 GB of
 RAM and was OOM-killed while loading the data (≈$4), the relaunch required ≥180 GB (188 GB).
+Cost ≈ $72 (RunPod balance $231.97 → $159.84, Nov 19 15:02 → Nov 20 17:06 UTC, including the files pod): epochs 1-3 ≈ $45, the OOM-killed pod ≈ $4, epochs 4-6 ≈ $23.
