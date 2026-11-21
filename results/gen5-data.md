@@ -243,6 +243,25 @@ Conclusion: dropout 0.2 was costing P2-2 fit; 0.05 is better at matched steps. B
 (`model-e3-s140000.pt.gz`). Cost ≈ $16 (balance $121.05 → $105.53 by 12:40 UTC) plus ≈ $0.75 for a first attempt on
 an RTX 4090 with 125 GB that ran out of memory while loading (the data needs more than 125 GB; 188 GB works).
 
+Epochs 4-6 (Nov 21): resumed from the end of epoch 3 (`/workspace/runs/pauper-P2-2-ld005b-gnn/P2-2`; cosine over 6
+epochs, 2e-5 → 1e-5), 27 steps/s.
+
+| step | dropout 0.05 | dropout 0.2 (P2-2) | Δ value / KL |
+|---|---|---|---|
+| e4 20K | .0415 / .0577 | .0432 / .0593 | −.0017 / −.0017 |
+| e4 140K | .0412 / .0571 | .0425 / .0585 | −.0013 / −.0013 |
+| e5 120K | .0407 / .0564 | .0416 / .0578 | −.0009 / −.0014 |
+| **e6 140K** | **.0401** / **.0558** | .0412 / .0574 | −.0011 / −.0016 |
+
+- Still lower at every matched point, and below P2-2's best after 9 epochs (e9 150K: .0407 / .0565).
+- Per set at e6 140K: p2-offline .0366, p2-selfplay .0402, pauper-offline .0359, pauper-selfplay .0478. gen0 .0342 /
+  .0628, gen0-test .0286 / .0503 (P2-2 e9: .0341 / .0633 and .0290 / .0510).
+- Training loss (train mode): value .037 at e6.
+
+**New pick for P2-2: `pauper-P2-2-ld005b-gnn/P2-2/model-e6-s140000.pt.gz`** (mean held-out value .0401). Cost of
+epochs 4-6 ≈ $21 (balance $97.50 → $76.78 at 22:51 UTC), plus ≈ $7 for the finished epoch-3 pod idling 2.5 h after my
+cleanup script died with a container restart.
+
 ### lr 1e-4 test (Nov 20)
 
 Is P2-2's slow late progress the learning rate? The same run (P2-1 e10 warm start, split, seed and batch order, 3-epoch
