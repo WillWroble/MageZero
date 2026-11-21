@@ -196,6 +196,29 @@ idled ≈2 h (≈$5) because my cleanup script dies with my container's restarts
 RAM and was OOM-killed while loading the data (≈$4), the relaunch required ≥180 GB (188 GB).
 Cost ≈ $72 (RunPod balance $231.97 → $159.84, Nov 19 15:02 → Nov 20 17:06 UTC, including the files pod): epochs 1-3 ≈ $45, the OOM-killed pod ≈ $4, epochs 4-6 ≈ $23.
 
+### Epochs 7-9 (Nov 20-21)
+
+Resumed from the end of epoch 6 (`/workspace/runs/pauper-P2-2c-gnn/P2-2`; cosine over 9 epochs, lr 1.5e-5 → 1e-5),
+validation every 10K steps in batches of 512, RTX PRO 6000 (188 GB), 7m34s per 10K steps.
+
+| point | value mean | p2-offline | p2-selfplay | pauper-offline | pauper-selfplay | prio KL mean |
+|---|---|---|---|---|---|---|
+| e7 150K | .0413 | .0384 | .0407 | .0375 | .0486 | .0572 |
+| e8 150K | .0408 | .0375 | .0405 | .0365 | .0489 | .0569 |
+| **e9 150K** | **.0407** | .0371 | .0404 | .0367 | .0485 | **.0565** |
+
+gen0 / gen0-test at e9 150K: .0341 / .0633 and .0290 / .0510 (P2-1: .0321 / .0565 and .0310 / .0415).
+
+- Three more epochs gained −.0005 value and −.0009 priority KL over e6 140K: close to a plateau. Epoch 7 first got
+  slightly worse (.0417 at 70K) after the lr went back up to 1.5e-5, as epoch 4 did.
+- No overfitting, measured directly: e9 70K in eval mode (no dropout) on the training and held-out games of three
+  shards (P2 Burn vs Rally, P2 self-play Elves vs Spy, ver15 Affinity vs Faeries; 41K / 11K states) gives value
+  .0387 / .0371 and priority loss .0528 / .0560: no train/held-out gap. The loss is set by capacity or label noise,
+  not memorisation.
+
+New pick: **`pauper-P2-2c-gnn/P2-2/model-e9-s150000.pt.gz`** (mean held-out value .0407; e9 90K and 140K within
+.00003). Cost ≈ $19 (balance $144.42 at 23:34 UTC Nov 20, less the dropout run that overlapped it).
+
 ### lr 1e-4 test (Nov 20)
 
 Is P2-2's slow late progress the learning rate? The same run (P2-1 e10 warm start, split, seed and batch order, 3-epoch
