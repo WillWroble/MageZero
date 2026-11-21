@@ -219,6 +219,30 @@ gen0 / gen0-test at e9 150K: .0341 / .0633 and .0290 / .0510 (P2-1: .0321 / .056
 New pick: **`pauper-P2-2c-gnn/P2-2/model-e9-s150000.pt.gz`** (mean held-out value .0407; e9 90K and 140K within
 .00003). Cost ≈ $19 (balance $144.42 at 23:34 UTC Nov 20, less the dropout run that overlapped it).
 
+### Leaf dropout 0.05 (Nov 21)
+
+P2-2's recipe with leaf dropout 0.05 instead of P2-1's 0.2 (a warm start can now change it, `7006ceb`): same warm start
+from P2-1 e10, split, seed and schedule (3e-5 → 1e-5 over 3 epochs), validation every 20K
+(`/workspace/runs/pauper-P2-2-ld005-gnn/P2-2`, RTX PRO 6000, 31 steps/s). Mean held-out value / priority KL over the
+four Pauper sets, at matched steps:
+
+| step | dropout 0.05 | dropout 0.2 (P2-2) | Δ value / KL |
+|---|---|---|---|
+| e1 20K | .0485 / .0651 | .0494 / .0659 | −.0009 / −.0008 |
+| e1 140K | .0441 / .0608 | .0452 / .0618 | −.0012 / −.0010 |
+| e2 140K | .0423 / .0585 | .0433 / .0596 | −.0010 / −.0011 |
+| e3 80K | .0414 / .0576 | .0427 / .0589 | −.0013 / −.0013 |
+| **e3 140K** | **.0412** / **.0573** | (e6 140K: .0412 / .0574; e9 150K: .0407 / .0565) | |
+
+- Lower at every one of the 21 matched points, by .0009-.0017 value and .0008-.0015 KL: the same held-out loss as
+  P2-2 in half the epochs. It doesn't yet reach P2-2's e9 (.0407).
+- Training loss (train mode) is now below held-out: value .039 against .041 at e3, where P2-2 at dropout 0.2 was above it.
+- gen0 is unchanged (.035 / .064; gen0-test .0295 / .051).
+
+Conclusion: dropout 0.2 was costing P2-2 fit; 0.05 is better at matched steps. Best checkpoint e3 140K
+(`model-e3-s140000.pt.gz`). Cost ≈ $16 (balance $121.05 → $105.53 by 12:40 UTC) plus ≈ $0.75 for a first attempt on
+an RTX 4090 with 125 GB that ran out of memory while loading (the data needs more than 125 GB; 188 GB works).
+
 ### lr 1e-4 test (Nov 20)
 
 Is P2-2's slow late progress the learning rate? The same run (P2-1 e10 warm start, split, seed and batch order, 3-epoch
