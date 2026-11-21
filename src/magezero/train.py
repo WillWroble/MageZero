@@ -74,9 +74,9 @@ def prepare_vocab(out: str, use_checkpoint: bool, ds: H5Graphs, arch: dict, drop
         checkpoint_path = checkpoint_path or f"{out}/model.pt.gz"
         try:
             model, vocab, edge_vocab = load_checkpoint(checkpoint_path)
-            # a resumed model keeps the checkpoint's architecture; only the loss's policy domain and an MSE value
-            # head's switch to CE can change
-            model.arch.update({k: arch[k] for k in ("policy_domain",) if k in arch})
+            # a resumed model keeps the checkpoint's architecture; only the loss's policy domain, leaf dropout and an
+            # MSE value head's switch to CE can change
+            model.arch.update({k: arch[k] for k in ("policy_domain", "leaf_dropout") if k in arch})
             if arch.get("value_loss") == "ce":
                 to_ce_value(model)
             print(f"Successfully loaded checkpoint from {checkpoint_path}")
