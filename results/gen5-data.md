@@ -296,6 +296,24 @@ player, XMage `b6ca7b35`, RTX 4090 / Ryzen 9 7950X (`/workspace/runs/h2h-p22-vs-
 **P2-2 wins 67.5% (135/200, ±3.5)**, 0 failed: ≈5 SE above even, on P2-1's own deck, although P2-1 was trained only
 on Faeries data and P2-2 fits gen0 slightly worse by held-out loss. Cost ≈ $2.50 (2.8 h on one RTX 4090).
 
+### P2-2 piloting Burn vs the offline Burn: land skipping (Nov 22)
+
+200 games, `runpod/configs/gen5/Burn-vs-Burn.yml` (the P2 pilot's config): P2-2 (`model-e9-s140000`) with priority
+priors 1.5, target off, against the offline search's Burn; 300 sims, `max_pending` 4, XMage `b6ca7b35`, RTX 4090 /
+Ryzen 9 7950X (shards `/workspace/runs/gen5-p22-offline/`). "Pass top" (`util/land_pass.py`): share of early land-drop
+decisions (fewer than 3 own lands, a land play legal) where the search's most-visited move is Pass.
+
+| pilot | win | Pass top, < 3 lands | < 4 lands |
+|---|---|---|---|
+| P2-1, priors (P2 pilot) | 61.5% | 4.3% (938) | 4.6% (1205) |
+| **P2-2, priors** | **71.5%** (143/200) | **29.4%** (1104) | 27.6% (1401) |
+| P2-1, value only (Nov 15) | 58.0% | 24.2% | |
+
+The skips came back with the priors on, though P2-2 wins 10 points more. Their likely source is the training data: in
+the Burn-mirror shards P2-2 was trained on, ver15's games skip in 54.8% (vs offline) and 41.3% (self-play) of these
+decisions, P2-1's self-play in 5.2%. P2-2's priority head learned Pass from ver15's searches, and the priors now push
+the search towards it. Cost ≈ $1.40.
+
 ### lr 1e-4 test (Nov 20)
 
 Is P2-2's slow late progress the learning rate? The same run (P2-1 e10 warm start, split, seed and batch order, 3-epoch
