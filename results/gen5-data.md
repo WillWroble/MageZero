@@ -262,6 +262,30 @@ epochs, 2e-5 → 1e-5), 27 steps/s.
 epochs 4-6 ≈ $21 (balance $97.50 → $76.78 at 22:51 UTC), plus ≈ $7 for the finished epoch-3 pod idling 2.5 h after my
 cleanup script died with a container restart.
 
+Epochs 7-9 (Nov 21-22): resumed from the end of epoch 6 (`/workspace/runs/pauper-P2-2-ld005c-gnn/P2-2`; cosine over
+9 epochs, 1.5e-5 → 1e-5), 30 steps/s.
+
+| point | value mean | prio KL mean |
+|---|---|---|
+| e6 140K | .0401 | .0558 |
+| e7 140K | .0403 | .0560 |
+| e8 140K | .0400 | .0554 |
+| **e9 80K** | **.0399** | .0553 |
+| e9 140K | .0399 | **.0551** |
+
+- Value has plateaued: −.0002 over three epochs, within the ±.0003 spread between checkpoints; priority KL still
+  creeps down (−.0007). P2-2 at dropout 0.2 after 9 epochs: .0407 / .0565.
+- Training loss (train mode) .036 against held-out .040: dropout 0.05 now fits the training games better than new
+  ones, but held-out loss isn't rising.
+- gen0 .034 / .062, gen0-test .029 / .050 (P2-1: .032 / .057 and .031 / .042).
+- By deck (e8 140K against dropout-0.2 e9 150K): priority KL lower in 31 of 32 deck × set groups, value lower or level
+  in most. The hardest shards by far are the Spy mirror (value .10-.155 in all four sets, against ≈.04 on average) and
+  Rally (mirror value .10, priority KL .12-.13; Rally's ver15 self-play shards ≈.105 KL); the easiest are Elves against
+  Faeries and CawGates (value ≈.013).
+
+**Pick: `pauper-P2-2-ld005c-gnn/P2-2/model-e9-s140000.pt.gz`** (value .0399, tied with e9 80K, and the lowest priority
+KL). More epochs at d128 won't buy more. Cost of epochs 7-9 ≈ $20 (balance $76.33 → $56.77 at 06:16 UTC).
+
 ### lr 1e-4 test (Nov 20)
 
 Is P2-2's slow late progress the learning rate? The same run (P2-1 e10 warm start, split, seed and batch order, 3-epoch
