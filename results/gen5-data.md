@@ -286,6 +286,16 @@ Epochs 7-9 (Nov 21-22): resumed from the end of epoch 6 (`/workspace/runs/pauper
 **Pick: `pauper-P2-2-ld005c-gnn/P2-2/model-e9-s140000.pt.gz`** (value .0399, tied with e9 80K, and the lowest priority
 KL). More epochs at d128 won't buy more. Cost of epochs 7-9 ≈ $20 (balance $76.33 → $56.77 at 06:16 UTC).
 
+### P2-2 vs P2-1 in play: Faeries mirror (Nov 22)
+
+200 games, `runpod/configs/h2h-Faeries.yml`: player A P2-2 (`pauper-P2-2-ld005c-gnn/P2-2/model-e9-s140000`), player B
+P2-1 (`v4-dd-players-legal-noname-h5-d128-sv20-es002-ld02-cos-s1/gnn/model-e10`), both with priority priors 1.5 and
+target priors off (as in the P2 games), 300 sims, `c_puct` 1.0, `max_pending` 4, opponent's hand visible, random first
+player, XMage `b6ca7b35`, RTX 4090 / Ryzen 9 7950X (`/workspace/runs/h2h-p22-vs-p21`).
+
+**P2-2 wins 67.5% (135/200, ±3.5)**, 0 failed: ≈5 SE above even, on P2-1's own deck, although P2-1 was trained only
+on Faeries data and P2-2 fits gen0 slightly worse by held-out loss. Cost ≈ $2.50 (2.8 h on one RTX 4090).
+
 ### lr 1e-4 test (Nov 20)
 
 Is P2-2's slow late progress the learning rate? The same run (P2-1 e10 warm start, split, seed and batch order, 3-epoch
