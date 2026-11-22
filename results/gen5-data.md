@@ -146,12 +146,14 @@ rerun, including the idle pods), against an estimate of $70–110.
 Conclusion: under the pick, Burn loses most of its self-play edge (−14.8) and the other decks move by ±6 or less;
 Rally stays the strongest deck and CawGates the weakest.
 
-## P2-2: P2-1 warm-started on all the Pauper data (Nov 19-20)
+## P2-2-mixed: P2-1 warm-started on all the Pauper data (Nov 19-22)
+
+**Wrong data.** P2-2 was meant to train only on P2-1's games and the offline-vs-offline games (gen0). The runs in this section used P1's split plus P2-1's games instead (now `runpod/splits/P2-2-mixed.txt`): it also holds ver15's 8x8 and self-play and the gen1-gen3 Faeries games of v4, v5, ver7, ver10 and ver13. Everything below, the dropout, Faeries-mirror and Burn results included, is for that mix; the intended P2-2 is retrained on `runpod/splits/P2-2.txt`.
 
 Naming: the P2 line numbers its models. **P2-1** is the pick (`v4-dd-players-legal-noname-h5-d128-sv20-es002-ld02-cos-s1`
 e10, trained on gen0 only), which played the two P2 sets above; **P2-2** is trained on them.
 
-Split `runpod/splits/P2-2.txt`: P1's blocks (gen0-gen3 Faeries data, ver15's 8x8 and self-play) plus P2-1's 8x8 and
+Split `runpod/splits/P2-2-mixed.txt` (then named `P2-2.txt`): P1's blocks (gen0-gen3 Faeries data, ver15's 8x8 and self-play) plus P2-1's 8x8 and
 self-play, every 5th game held out per block (9.84M training states, 153,720 steps per epoch). PlayerB's P2 Wildfire
 mirror shard was left out: its copy was truncated when the volume filled on Nov 17. Warm start from P2-1 e10 (d128,
 leaf dropout 0.2, scaled value, legal-only, no player names), lr 3e-5 cosine to 1e-5, `--val-every 10000`, RTX PRO
