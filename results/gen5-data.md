@@ -370,3 +370,21 @@ pauper-selfplay, not trained on) and priority KL over the four:
 - Pick: **`pauper-P2-2v2-gnn/P2-2/model-e6-s60000.pt.gz`**. It ties e5 60K on the P2 sets (.0398 against .0397,
   within noise) and is better on the ver15 sets, priority KL and gen0.
 - Cost ≈ $4 (4.4 h on one RTX 4090).
+
+### P2-2 in play (Nov 23)
+
+Burn vs the offline Burn, 200 games (`runpod/configs/gen5/Burn-vs-Burn.yml`, priority priors 1.5, target off, 300
+sims, `max_pending` 4, XMage `b6ca7b35`, RTX 4090; shards `/workspace/runs/gen5-p22v2-offline/`). Pass top: early
+land-drop decisions (< 3 own lands) where the most-visited move is Pass (`util/land_pass.py`).
+
+| pilot | win | Pass top, < 3 lands | < 4 lands |
+|---|---|---|---|
+| P2-1 | 61.5% | 4.3% (938) | 4.6% |
+| P2-2-mixed (dropout 0.05) | 71.5% | 29.4% (1104) | 27.6% |
+| **P2-2** | **73.5%** (147/200) | **8.4%** (953) | 9.2% |
+
+Without ver15's Burn games the skips fall from 29% to 8% (P2-1: 4%) and the win rate is the highest of the three, 12
+points over P2-1. Cost ≈ $1.20.
+
+The Faeries mirror against P2-1 (`h2h-Faeries.yml`) was OOM-killed on its first pod (a 30 GB container limit under a
+32 GB heap; launched without the host check) and is being rerun.
