@@ -70,3 +70,27 @@ agree. gen0 / v4 / ver13 vs offline from `generations.md` (ver13: first run of t
 Conclusion: as on the Mono decks, the policy alone is about level with or above gen0's heuristic search (+5.1 on
 average; ahead on Affinity, CawGates, Elves, Spy; behind on Burn, the mirror, Rally) and ≈19 points below value
 search (ver13). Its weakest decks are the interactive ones: the mirror (−11.9 vs gen0) and Burn (−10.5).
+
+## P2-2 policy only (Nov 23)
+
+Same setup as ver15's runs above (`runpod/configs/onpolicy/Faeries-vs-<deck>.yml`, identical to
+`kaggle/configs/onpolicy-*.yml` but for output paths: Faeries `on_policy`, greedy, priority/target/binary priors on, no
+noise, vs the offline search at 300 sims, opponent's hand visible), with P2-2 (`pauper-P2-2v2-gnn/P2-2/model-e6-s60000`,
+`results/gen5-data.md`), XMage `b6ca7b35`, two RTX 4090s on Ryzen 9 7950X hosts (`/workspace/runs/onpolicy-p22/`).
+
+| deck | P2-2 policy only | ver15 policy only | Δ |
+|---|---|---|---|
+| Affinity | 61.5% | 66.5% | −5.0 |
+| Burn | 49.0% | 45.5% | +3.5 |
+| CawGates | 63.5% (125/197) | 67.0% | −3.5 |
+| Elves | 53.4% (102/191) | 55.3% | −1.9 |
+| mirror | **54.5%** | 39.0% | **+15.5** |
+| Rally | 14.0% | 13.5% | +0.5 |
+| Spy | 49.5% (98/198) | 55.0% | −5.5 |
+| **mean (7)** | **49.3%** | 48.8% | +0.5 |
+| Wildfire | 82.0% | – | |
+
+- Level with ver15 on average; the one clear change is the mirror (+15.5, ≈3 SE), where ver15's policy was weakest.
+  The other six decks move by −5.5 to +3.5, within ≈1.5 SE each.
+- 14 failed games (Elves 9, CawGates 3, Spy 2), none in the other five matchups.
+- Cost ≈ $3.80 (balance $34.40 → $30.59).
