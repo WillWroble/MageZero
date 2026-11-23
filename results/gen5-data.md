@@ -386,5 +386,11 @@ land-drop decisions (< 3 own lands) where the most-visited move is Pass (`util/l
 Without ver15's Burn games the skips fall from 29% to 8% (P2-1: 4%) and the win rate is the highest of the three, 12
 points over P2-1. Cost ≈ $1.20.
 
-The Faeries mirror against P2-1 (`h2h-Faeries.yml`) was OOM-killed on its first pod (a 30 GB container limit under a
-32 GB heap; launched without the host check) and is being rerun.
+Faeries mirror against P2-1, 200 games (`runpod/configs/h2h-Faeries.yml`, player A P2-2, player B P2-1 e10, priority
+priors 1.5 on both seats, target off, same search settings, RTX 4090 / Ryzen 9 7950X): **P2-2 wins 57.0%** (114/200,
+±3.5), 0 failed: ≈2 SE above even, where P2-2-mixed won 67.5%. The first attempt was OOM-killed on a pod with a 30 GB
+container limit under a 32 GB heap (launched without the host check). Cost ≈ $1.40.
+
+Conclusion: on its intended data P2-2 beats P2-1 in both checks (Burn vs offline 73.5% against 61.5%, Faeries mirror
+57.0%) and keeps land skips low (8%); the mixed data played the Faeries mirror better (67.5%) but brought ver15's
+skips back (29%).
