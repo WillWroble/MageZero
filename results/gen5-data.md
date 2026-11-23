@@ -337,3 +337,36 @@ On gen0 (P2-1's data) 1e-4 forgets more: e1 130K value .038 / priority KL .072 a
 Conclusion: 1e-4 is worse for most of the epoch and only level by its end; the learning rate is not what slows P2-2.
 The next suspects are capacity (d128, 2.4M parameters for 8 decks) and the data itself. Data loading took ≈3 h on this
 pod (EPYC 9655, 283 GB) against ≈70 min before. Cost ≈ $15 (balance $159.71 → $144.65, 17:25 → 22:47 UTC).
+
+## P2-2: P2-1 warm-started on its own games and gen0 (Nov 22-23)
+
+Split `runpod/splits/P2-2.txt`: train only on P2-1's 8x8 vs the offline search, P2-1's self-play and gen0 (offline
+search vs offline search, Faeries), every 5th game held out (3.89M training states, 60,852 steps per epoch); ver15's
+gen5 games are validation sets only, on the same held-out games as in the mixed runs. Warm start from P2-1 e10, leaf
+dropout 0.05, lr 3e-5 cosine to 1e-5 over 6 epochs, `--val-every 20000` (`/workspace/runs/pauper-P2-2v2-gnn/P2-2`,
+RTX 4090 with 61 GB, Ryzen 9 7950X, 34 steps/s, ≈35 min per epoch).
+
+Held-out value MSE (P2 sets: mean of p2-offline and p2-selfplay; ver15 sets: mean of pauper-offline and
+pauper-selfplay, not trained on) and priority KL over the four:
+
+| point | P2 sets | ver15 sets | prio KL |
+|---|---|---|---|
+| e1 60K | .0423 | .0536 | .0757 |
+| e2 60K | .0412 | .0531 | .0744 |
+| e4 60K | .0400 | .0514 | .0728 |
+| e5 60K | .0397 | .0512 | .0718 |
+| **e6 60K** | .0398 | .0510 | .0715 |
+| P2-2-mixed (dropout 0.05, best) | .0379 | .0418 | |
+
+| | gen0 held-out (value / prio KL) | gen0-test (value / prio KL) |
+|---|---|---|
+| P2-1 e10 | .0321 / .0565 | .0310 / .0415 |
+| P2-2-mixed (dropout 0.05) | .034 / .062 | .029 / .050 |
+| **P2-2 e6 60K** | **.0305** / **.0545** | **.0285** / **.0400** |
+
+- On gen0 P2-2 is now better than P2-1 on value and policy, where the mixed runs lost about .003 / .007.
+- On P2-1's 8-deck games it plateaus at .0397-.0398 from epoch 5, above the mixed run (.0379), which saw 2.5× the
+  data; on ver15's games, now unseen, it is far worse (.051 against .042).
+- Pick: **`pauper-P2-2v2-gnn/P2-2/model-e6-s60000.pt.gz`**. It ties e5 60K on the P2 sets (.0398 against .0397,
+  within noise) and is better on the ver15 sets, priority KL and gen0.
+- Cost ≈ $4 (4.4 h on one RTX 4090).
