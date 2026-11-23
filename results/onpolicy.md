@@ -94,3 +94,27 @@ noise, vs the offline search at 300 sims, opponent's hand visible), with P2-2 (`
   The other six decks move by −5.5 to +3.5, within ≈1.5 SE each.
 - 14 failed games (Elves 9, CawGates 3, Spy 2), none in the other five matchups.
 - Cost ≈ $3.80 (balance $34.40 → $30.59).
+
+### Land skips of the policy-only players (Nov 23)
+
+Policy-only shards record no visit counts, so the move played isn't stored; the greedy player plays the top-scored
+legal candidate, so each model was re-run (CPU, fp32) on its own games' early land-drop states (`util/land_pass.py`'s
+selection: own main phase, a land play legal) and the share where its top candidate is Pass counted. All priority
+states are recorded here, so there are ≈6-8K such states per 200 games against ≈1K in search games.
+
+| deck | P2-2, < 3 lands (states) | ver15, < 3 lands (states) | P2-2, < 4 | ver15, < 4 |
+|---|---|---|---|---|
+| Affinity | 0.5% (6342) | 2.6% (6536) | 0.8% | 4.8% |
+| Burn | 0.2% (7037) | 4.8% (6783) | 0.4% | 7.0% |
+| CawGates | 1.0% (6051) | 3.8% (6157) | 2.1% | 7.7% |
+| Elves | 0.8% (7638) | 2.4% (7625) | 1.0% | 3.8% |
+| mirror | 0.2% (6539) | 1.7% (6506) | 0.5% | 3.0% |
+| Rally | 0.6% (6310) | 1.2% (6457) | 1.8% | 2.7% |
+| Spy | 1.0% (5852) | 9.3% (6024) | 1.5% | 10.2% |
+| **mean (7)** | **0.6%** | **3.7%** | **1.2%** | **5.6%** |
+| Wildfire | 0.7% (5491) | – | 0.8% | – |
+
+P2-2's policy skips early land drops about six times less often than ver15's, against every deck. The 8.4% Pass top of
+P2-2's Burn mirror with search (`results/gen5-data.md`) comes from the search, not from its policy, which skips at
+0.2% in policy-only Faeries vs Burn (a different matchup and seat, so only indicative). Script:
+`<scratchpad>/polland.py` (land_pass's selection without its visit-count filter, land_policy's scoring); not committed.
