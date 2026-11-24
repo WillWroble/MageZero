@@ -421,3 +421,38 @@ Incidents: the RunPod balance ran out at ≈01:40 UTC Nov 24 with five mirrors r
 including the files pod (recreated as `zuzo2y3tuj4f6u`). CawGates (both halves) and Wildfire half 2 had already
 finished and were saved; Elves and Wildfire half 1 were rerun. Cost ≈ $40 (≈$26 before the balance ran out, then
 ≈$7 per rerun pod; the two Elves attempts ≈$13 with nothing to show).
+
+#### Head-to-head 8x8: P2-2 vs P2-1 (Nov 24)
+
+The 56 non-mirror pairings, 100 games each: P2-2 (`model-e6-s60000`) pilots the row deck, P2-1 (`model-e10`) the column
+deck (`runpod/configs/h2h/<A>-vs-<B>.yml`), priority priors 1.5 on both seats, target off, 300 sims, `max_pending` 4,
+opponent's hand visible, XMage `b6ca7b35`; 16 RTX 4090 pods with 3-4 matchups each
+(`/workspace/runs/h2h-p22v2-vs-p21/`). P2-2's win rate; the 200-game mirrors above in italics on the diagonal (Elves'
+mirror missing). 2 of 5,600 games failed.
+
+| P2-2 ↓ / P2-1 → | Affinity | Burn | CawGates | Elves | Faeries | Rally | Spy | Wildfire | mean (non-mirror) |
+|---|---|---|---|---|---|---|---|---|---|
+| **Affinity** | *68* | 63 | 63 | 69 | 69 | 40 | 59 | 81 | **63.4** |
+| **Burn** | 67 | *62* | 68 | 66 | 76 | 32 | 61 | 72 | **63.1** |
+| **CawGates** | 63 | 63 | *76* | 40 | 80 | 25 | 54 | 82 | **58.1** |
+| **Elves** | 68 | 48 | 85 | – | 81 | 50 | 59 | 67 | **65.4** |
+| **Faeries** | 55 | 38 | 45 | 33 | *57* | 18 | 40 | 53 | **40.3** |
+| **Rally** | 75 | 78 | 92 | 64 | 81 | *64* | 51 | 87 | **75.4** |
+| **Spy** | 72 | 61 | 70 | 55 | 52 | 58 | *62* | 61 | **61.2** |
+| **Wildfire** | 59 | 52 | 63 | 54 | 67 | 31 | 74 | *58* | **57.1** |
+| mean vs this P2-1 deck | 65.6 | 57.6 | 69.5 | 54.4 | 72.3 | 36.3 | 56.9 | 71.9 | |
+
+non-mirror: 56 matchups, 3389/5598 = 60.5% ± 0.7
+with mirrors: 4280/6998 = 61.2% ± 0.6
+
+- **P2-2 wins 60.5% ± 0.7 of the non-mirror games, 61.2% ± 0.6 with the mirrors**: a clear gain over P2-1 across the
+  format, ≈15 SE above even.
+- Every pairing is played in both directions, so deck strength cancels in the overall number; a row mean mixes how
+  well P2-2 pilots that deck with how strong the deck is. Rally is the strongest deck either way (P2-2 wins 75% piloting
+  it and only 36% against P2-1's Rally), as in self-play.
+- Faeries is P2-2's weakest deck (40% piloting it, while P2-1's Faeries is among the easiest to beat at 72%): P2-2's
+  gain doesn't reach the deck P2-1 was trained on, which fits the earlier finding that priority priors cost Faeries.
+
+Incidents: the files pod died ≈12:30 UTC (no container running) and was replaced at 13:28 (`2l0dg1dyklek34`); until
+then the cleanup script couldn't see two finished pods, which idled ≈50 min (≈$1.50). Cost ≈ $72 (balance $191 at
+08:42 UTC → $115.77 at 19:16, less ≈$3 for the overlapping Elves mirror pod and the files pod).
