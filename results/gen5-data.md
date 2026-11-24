@@ -394,3 +394,30 @@ container limit under a 32 GB heap (launched without the host check). Cost ≈ $
 Conclusion: on its intended data P2-2 beats P2-1 in both checks (Burn vs offline 73.5% against 61.5%, Faeries mirror
 57.0%) and keeps land skips low (8%); the mixed data played the Faeries mirror better (67.5%) but brought ver15's
 skips back (29%).
+
+#### Head-to-head mirrors: P2-2 vs P2-1 (Nov 23-24)
+
+Each deck against itself, player A P2-2 (`model-e6-s60000`), player B P2-1 (`model-e10`)
+(`runpod/configs/h2h-<deck>.yml`; CawGates and Wildfire as two 100-game halves), priority priors 1.5 on both seats,
+target off, 300 sims, `max_pending` 4, opponent's hand visible, random first player, XMage `b6ca7b35`, RTX 4090s
+(`/workspace/runs/h2h-p22v2-vs-p21/`). P2-2's win rate, 0 failed games:
+
+| mirror | P2-2 wins | ± SE |
+|---|---|---|
+| CawGates | **75.5%** (151/200) | 3.0 |
+| Affinity | 68.0% (136/200) | 3.3 |
+| Rally | 64.0% (128/200) | 3.4 |
+| Spy | 62.0% (124/200) | 3.4 |
+| Burn | 61.5% (123/200) | 3.4 |
+| Wildfire | 57.5% (115/200) | 3.5 |
+| Faeries | 57.0% (114/200) | 3.5 |
+| **all 7** | **63.6%** (891/1400) | 1.3 |
+| Elves | not measured | |
+
+P2-2 wins all seven by 7-26 points, ≈10 SE over even in total. The Elves mirror hit the pods' 8 h cap twice without
+finishing 200 games (the shard is only saved at the end); it would need 100-game halves.
+
+Incidents: the RunPod balance ran out at ≈01:40 UTC Nov 24 with five mirrors running; RunPod terminated every pod,
+including the files pod (recreated as `zuzo2y3tuj4f6u`). CawGates (both halves) and Wildfire half 2 had already
+finished and were saved; Elves and Wildfire half 1 were rerun. Cost ≈ $40 (≈$26 before the balance ran out, then
+≈$7 per rerun pod; the two Elves attempts ≈$13 with nothing to show).
