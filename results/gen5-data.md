@@ -488,3 +488,18 @@ p2-selfplay, as for P2-2; ver15 sets, not trained on) and priority KL over the f
 Pick: **`pauper-P2-3-gnn/P2-3/model-e6-s40000.pt.gz`** (lowest four-set mean and P2-set value; e6 20K and e5 20K are
 next). Not yet tested in play. Cost ≈ $16 (balance $115.57 → $99.42; a 4090 with enough RAM was unavailable for an hour,
 so it ran on a PRO 6000).
+
+### P2-3 vs P2-2 in play (Nov 25)
+
+Head-to-head mirrors, 200 games each (`runpod/configs/h2h-{Faeries,Burn}.yml`): player A P2-3 (`model-e6-s40000`),
+player B P2-2 (`model-e6-s60000`), priority priors 1.5 on both seats, target off, 300 sims, `max_pending` 4,
+opponent's hand visible, XMage `b6ca7b35`, RTX 4090s on Ryzen 9 7950X hosts (`/workspace/runs/h2h-p23-vs-p22/`).
+
+| mirror | P2-3 vs P2-2 | (P2-2 vs P2-1) |
+|---|---|---|
+| Faeries | 48.5% (97/200) ± 3.5 | 57.0% |
+| Burn | 54.0% (108/200) ± 3.5 | 61.5% |
+| both | 51.3% (205/400) ± 2.5 | 59.3% |
+
+No measurable gain in play: Faeries level, Burn +4 (≈1 SE). The held-out gains (≈.001 value) are about a quarter of
+the ≈.004 that moved win rate by ≈6 points before, which fits. Cost ≈ $5.50 (two RTX 4090 pods).
