@@ -456,3 +456,35 @@ with mirrors: 4280/6998 = 61.2% ± 0.6
 Incidents: the files pod died ≈12:30 UTC (no container running) and was replaced at 13:28 (`2l0dg1dyklek34`); until
 then the cleanup script couldn't see two finished pods, which idled ≈50 min (≈$1.50). Cost ≈ $72 (balance $191 at
 08:42 UTC → $115.77 at 19:16, less ≈$3 for the overlapping Elves mirror pod and the files pod).
+
+## P2-3: P2-2 warm-started on its own games (Nov 24-25)
+
+Split `runpod/splits/P2-3.txt`: P2-2's data (P2-1's 8x8 and self-play, gen0) plus P2-2's games: its head-to-head
+games against P2-1 (7 mirrors and the 56 non-mirror pairings, both seats) and its Burn vs the offline Burn; every 5th
+game held out (4.79M training states, 74,867 steps per epoch). Not used: P2-2's policy-only games (no visit counts) and
+the mixed P2-2's games. Warm start from P2-2 (`pauper-P2-2v2-gnn/P2-2/model-e6-s60000`), leaf dropout 0.05, lr 3e-5
+cosine to 1e-5 over 6 epochs, `--val-every 20000` (`/workspace/runs/pauper-P2-3-gnn/P2-3`, RTX PRO 6000 with 188 GB,
+30 steps/s, ≈46 min per epoch).
+
+Held-out value MSE (trained sets: mean of p22-h2h, p22-offline, p2-offline, p2-selfplay; P2 sets: p2-offline and
+p2-selfplay, as for P2-2; ver15 sets, not trained on) and priority KL over the four:
+
+| point | mean (4) | p22-h2h | p22-offline | P2 sets | ver15 sets | prio KL | gen0 | gen0-test |
+|---|---|---|---|---|---|---|---|---|
+| e1 20K | .0458 | .0477 | .0548 | .0404 | .0524 | .0449 | .0323 / .0569 | .0310 / .0425 |
+| e2 60K | .0450 | .0474 | .0533 | .0396 | .0507 | .0441 | .0311 / .0555 | .0285 / .0410 |
+| e4 60K | .0449 | .0466 | .0542 | .0394 | .0516 | .0431 | .0315 / .0547 | .0295 / .0400 |
+| **e6 40K** | **.0437** | .0458 | .0514 | **.0389** | .0501 | .0427 | .0310 / .0540 | .0290 / .0400 |
+| e6 60K | .0442 | .0458 | .0527 | .0391 | .0502 | .0427 | .0311 / .0542 | .0285 / .0400 |
+| P2-2 (e6 60K) | | | | .0398 | .0510 | | .0305 / .0545 | .0285 / .0400 |
+
+- Against P2-2 on the same held-out games: P2 sets .0389 against .0398, ver15's games .0501 against .0510, gen0
+  priority KL .0540 against .0545, gen0 value .0310 against .0305 (within noise), gen0-test level.
+- p22-offline is P2-2's single Burn-mirror shard (≈40 held-out games), so its column moves by ±.002 between
+  checkpoints and dominates the spread of the four-set mean.
+- Still improving slowly at the end (priority KL every epoch); no overfitting: training value .034 (train mode) against
+  .039 held out on the P2 sets.
+
+Pick: **`pauper-P2-3-gnn/P2-3/model-e6-s40000.pt.gz`** (lowest four-set mean and P2-set value; e6 20K and e5 20K are
+next). Not yet tested in play. Cost ≈ $16 (balance $115.57 → $99.42; a 4090 with enough RAM was unavailable for an hour,
+so it ran on a PRO 6000).
