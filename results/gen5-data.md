@@ -503,3 +503,17 @@ opponent's hand visible, XMage `b6ca7b35`, RTX 4090s on Ryzen 9 7950X hosts (`/w
 
 No measurable gain in play: Faeries level, Burn +4 (≈1 SE). The held-out gains (≈.001 value) are about a quarter of
 the ≈.004 that moved win rate by ≈6 points before, which fits. Cost ≈ $5.50 (two RTX 4090 pods).
+
+Land skips in the Burn mirrors (`util/land_pass.py`, each seat's own shard; Pass top at < 3 own lands, < 4 in
+brackets; ≈900-960 decisions per seat):
+
+| model (seat) | opponent | Pass top |
+|---|---|---|
+| P2-1 | P2-2 | 5.3% (5.0%) |
+| P2-2 | P2-1 | 8.5% (10.1%) |
+| P2-2 | P2-3 | 9.8% (11.0%) |
+| P2-3 | P2-2 | 10.8% (10.8%) |
+
+With the reference points vs the offline Burn (P2-1 4.3%, P2-2 8.4%; the offline search itself 13-14%): the skips creep
+up by generation, ≈5% → ≈9% → ≈11%, each step about 1-2 SE. P2-3 trained on P2-2's games, which skip at 8-10%, so the
+search's skips feed back into the policy; worth watching over more generations.
