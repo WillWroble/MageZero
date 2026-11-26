@@ -517,3 +517,32 @@ brackets; ≈900-960 decisions per seat):
 With the reference points vs the offline Burn (P2-1 4.3%, P2-2 8.4%; the offline search itself 13-14%): the skips creep
 up by generation, ≈5% → ≈9% → ≈11%, each step about 1-2 SE. P2-3 trained on P2-2's games, which skip at 8-10%, so the
 search's skips feed back into the policy; worth watching over more generations.
+
+### P2-2 self-play (Nov 25-26)
+
+P2-2 (`pauper-P2-2v2-gnn/P2-2/model-e6-s60000`) on both seats, all 36 matchups, **100 games each**
+(`runpod/configs/gen5/selfplay-<A>-vs-<B>.yml` with `GAMES=100`, `ceb7b11`), priority priors 1.5 on both seats,
+target off, 300 sims, `max_pending` 4, XMage `b6ca7b35`, 12 RTX 4090 pods with 3 matchups each
+(`/workspace/runs/gen5-p22-selfplay/`). Win rate of the row deck, P2-2 (P2-1 self-play, 200 games) Δ; mirrors are
+the PlayerA seat. 8 of 3,600 games failed.
+
+| row ↓ vs column → | Affinity | Burn | CawGates | Elves | Faeries | Rally | Spy | Wildfire | mean (excl. mirror) |
+|---|---|---|---|---|---|---|---|---|---|
+| **Affinity** | 47 (45) | 55 (57) | 58 (52) | 49 (36) | 71 (68) | 35 (26) | 50 (48) | 53 (62) | **53.0 (49.6) +3** |
+| **Burn** | 45 (43) | 52 (52) | 55 (50) | 71 (63) | 65 (61) | 26 (20) | 58 (43) | 59 (54) | **54.1 (47.8) +6** |
+| **CawGates** | 42 (48) | 45 (50) | 49 (53) | 28 (20) | 63 (56) | 20 (15) | 39 (43) | 47 (50) | **40.6 (40.3) 0** |
+| **Elves** | 51 (64) | 29 (37) | 72 (80) | 39 (48) | 75 (72) | 28 (42) | 50 (54) | 54 (58) | **51.3 (58.0) −7** |
+| **Faeries** | 29 (32) | 35 (39) | 37 (44) | 25 (28) | 55 (48) | 15 (12) | 39 (32) | 41 (48) | **31.6 (33.5) −2** |
+| **Rally** | 65 (74) | 74 (80) | 80 (85) | 72 (58) | 85 (88) | 56 (52) | 58 (49) | 81 (85) | **73.6 (74.3) −1** |
+| **Spy** | 50 (52) | 42 (57) | 61 (57) | 50 (46) | 61 (68) | 42 (51) | 41 (49) | 47 (43) | **50.4 (53.6) −3** |
+| **Wildfire** | 47 (38) | 41 (46) | 53 (50) | 46 (42) | 59 (52) | 19 (15) | 53 (57) | 56 (42) | **45.4 (43.0) +2** |
+
+- P2-1 cells are ±3.5 and P2-2 cells ±5, so a matchup's Δ has an SE of ≈6: the mean |Δ| of 6.2 is about what noise
+  alone gives (≈5). The deck balance is close to P2-1's (Rally strongest at 74%, Faeries weakest at 32%; mean distance
+  from 50% 12.9 against 13.0).
+- The row means that moved most: Burn +6 and Elves −7 (≈2 SE each); the others are within ±3.
+- Mirrors average 49.4% for the first seat (P2-1 48.5%).
+
+Cost ≈ $50 (balance $92.16 → $41.77, incl. the files pod and ≈$2 of finished pods idling while the cleanup script was
+down). The launchers were killed three times by container restarts before all 12 pods were placed (nothing billed while
+waiting); one pod landed on a slow EPYC 7352 and was replaced.
