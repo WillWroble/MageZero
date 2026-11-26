@@ -1,0 +1,24 @@
+# P2-3 as first trained (Nov 24-25, pauper-P2-3-gnn), before P2-2's self-play games existed; P2-3.txt adds them.
+# P2-3: the third model of the P2 line. P2-2's data (P2-1's games and gen0) plus P2-2's games: P2-2 vs P2-1 head-to-head
+# (the 7 mirrors and the 56 non-mirror pairings, both seats) and P2-2's Burn vs the offline Burn. Not used: P2-2's
+# policy-only games (no visit counts) and the games of the mixed P2-2 (h2h-p22-vs-p21, gen5-p22-offline). Warm start from
+# P2-2 (pauper-P2-2v2-gnn/P2-2/model-e6-s60000). Paths from /workspace: the repo checkout (repo/) and runs on the volume
+# (runs/). ver15's gen5 games are val sets only. Blocks without 'train' are val sets; the first val set picks best.pt.gz.
+train p22-h2h holdout 5:
+runs/h2h-p22v2-vs-p21/Player[AB]/.*
+train p22-offline holdout 5:
+runs/gen5-p22v2-offline/Player[AB]/.*
+train p2-offline holdout 5:
+runs/gen5-p2-offline/PlayerA/.*
+runs/gen5-p2-offline/PlayerB/(?!Pauper-Wildfire_vs_Pauper-Wildfire\.hdf5).*  # PlayerB's Wildfire mirror was truncated when the volume filled (Nov 17)
+train p2-selfplay holdout 5:
+runs/gen5-p2-selfplay/Player[AB]/.*
+train gen0 holdout 5:
+repo/experiment_data/Pauper-Faeries/ver4/training/gen0/PlayerA/.*
+repo/experiment_data/Pauper-Faeries/ver4/training/gen0/PlayerB/(?!Pauper-Faeries_vs_Standard-MonoW\.hdf5).*  # PlayerB's copy of PlayerA's MonoW shard left out
+pauper-offline holdout 5:
+runs/gen5-offline/Player[AB]/.*
+pauper-selfplay holdout 5:
+runs/gen5-selfplay/Player[AB]/.*
+gen0-test:
+repo/experiment_data/Pauper-Faeries/ver4/testing/gen0/.*  # the gen0 mirror test set
