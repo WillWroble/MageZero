@@ -546,3 +546,32 @@ the PlayerA seat. 8 of 3,600 games failed.
 Cost ≈ $50 (balance $92.16 → $41.77, incl. the files pod and ≈$2 of finished pods idling while the cleanup script was
 down). The launchers were killed three times by container restarts before all 12 pods were placed (nothing billed while
 waiting); one pod landed on a slow EPYC 7352 and was replaced.
+
+### P2-3 retrained with P2-2's self-play (Nov 26)
+
+Same recipe as the first P2-3 (warm start from P2-2 `model-e6-s60000`, leaf dropout 0.05, lr 3e-5 cosine to 1e-5 over
+6 epochs, `--val-every 20000`), on `runpod/splits/P2-3.txt` as of `f199200`: the first P2-3's data plus P2-2's self-play
+(`gen5-p22-selfplay`, 36 × 100 games, every 5th game held out); the first P2-3's split is kept as
+`runpod/splits/P2-3-noselfplay.txt`. 5.23M training states, 81,728 steps per epoch, ≈55 min per epoch on an RTX PRO
+6000 (283 GB) (`/workspace/runs/pauper-P2-3b-gnn/P2-3`).
+
+Held-out value (mean of the five trained Pauper sets; p22-selfplay; p22-h2h; p22-offline; P2 sets = mean of p2-offline
+and p2-selfplay; ver15 sets, val only), priority KL (mean of the five), gen0 and gen0-test (value / priority KL):
+
+| point | mean (5) | p22-selfplay | p22-h2h | p22-offline | P2 sets | ver15 | prio KL | gen0 | gen0-test |
+|---|---|---|---|---|---|---|---|---|---|
+| e1 20K | .0468 | .0519 | .0480 | .0537 | .0401 | .0518 | .0466 | .0317 / .0568 | .0300 / .0430 |
+| e2 80K | .0459 | .0496 | .0466 | .0553 | .0391 | .0508 | .0458 | .0311 / .0563 | .0305 / .0425 |
+| e4 80K | .0448 | .0477 | .0452 | .0534 | .0389 | .0505 | .0441 | .0315 / .0546 | .0290 / .0405 |
+| **e6 80K** | **.0444** | .0480 | .0448 | .0518 | .0386 | .0505 | .0433 | .0309 / .0544 | .0290 / .0410 |
+| first P2-3 (e6 40K) | | (not trained) | .0458 | .0514 | .0389 | .0501 | | .0310 / .0540 | .0290 / .0400 |
+| P2-2 (e6 60K) | | | | | .0398 | .0510 | | .0305 / .0545 | .0285 / .0400 |
+
+- Level with the first P2-3 on every set they share (P2 sets .0386 vs .0389, ver15 .0505 vs .0501, gen0 and gen0-test
+  within .001; on the same four sets the mean is .0435 vs .0437); the head-to-head games are a little better (.0448 vs
+  .0458). The self-play block's held-out value falls from .0519 to ≈.048.
+- 3,600 games of P2-2 self-play (≈0.45M training states, +9%) don't move the model measurably on held-out loss.
+
+Pick: **`pauper-P2-3b-gnn/P2-3/model-e6-s80000.pt.gz`** (lowest five-set mean; e5 20K and e6 60K within .0001). Not
+tested in play. Cost ≈ $20 (balance $41.50 → $21.52 incl. the files pod; no RTX 4090 with enough RAM came free in ≈1 h,
+and container restarts kept killing the background launcher, so it ran on a PRO 6000).
