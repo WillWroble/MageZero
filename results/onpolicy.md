@@ -118,3 +118,49 @@ P2-2's policy skips early land drops about six times less often than ver15's, ag
 P2-2's Burn mirror with search (`results/gen5-data.md`) comes from the search, not from its policy, which skips at
 0.2% in policy-only Faeries vs Burn (a different matchup and seat, so only indicative). Script:
 `<scratchpad>/polland.py` (land_pass's selection without its visit-count filter, land_policy's scoring); not committed.
+
+## P2-2 vs ver15 head-to-head mirrors (Nov 27)
+
+P2-2 (`pauper-P2-2v2-gnn/P2-2/model-e6-s60000`, player A, port 50052) against ver15 (`gen4-F2-gnn/F`, player B,
+port 50053) in the Pauper mirrors, 200 games each, both seats with the same settings, RTX 4090s.
+
+### Policy only (abandoned)
+
+Configs `runpod/configs/h2h-pol/<deck>.yml` (both seats `on_policy`: top legal move, priority/target/binary priors, no
+noise). Both seats policy-only exposed three bugs in WillWroble/mage, fixed on branch `policy-choice-fix`. Earlier
+policy-only runs never hit them because only Faeries, which has no "any color" mana, played policy-only.
+
+1. `b6ca7b35`: the policy-only player doesn't search MAKE_CHOICE, so `ComputerPlayerMCTS.choose` added a null choice
+   (NPE). Fixed in `5198ff40`: fall back to the heuristic `ComputerPlayer.choose`.
+2. Same for CHOOSE_NUM (X costs, modes): null `amountAction`. Fixed in `ea9c1046`.
+3. `ComputerPlayer.chooseHelper` took the alphabetically first option before its unpaid-cost color hint, so "add one
+   mana of any color" always made Black, the policy's cast then couldn't be paid, and `ComputerPlayerPolicyOnly.priority`
+   threw "failed to activate chosen ability". Fixed in `3b270a33` (hint first). This changes the heuristic AI's mana
+   color choice wherever it pays a cost; searching players choose colors in the search and are unaffected.
+
+Failed games: on `b6ca7b35` CawGates 200/200, Spy 197, Elves 68, Burn 76, Affinity 23; on `ea9c1046` Spy 158/200,
+Burn 34; on `3b270a33` a 50-game Spy smoke test still failed 28 (remaining: "failed to activate chosen ability" on
+"Cast Overgrown Battlement" and a flashback "sacrifice three creatures" cost; the pods keep only 500 log lines, so the
+rest are unseen). The only clean result was Faeries on `ea9c1046`: P2-2 74/200 = 37.0% ± 3.4 (42.0% on `b6ca7b35`,
+also 0 failed). Cost ≈ $5.
+
+### Search budget 10
+
+Configs `runpod/configs/h2h-s10/<deck>.yml` (`324498b`): the policy-only configs with both seats `mcts`,
+`search_budget: 10`, priority/target/binary priors on, noise off. XMage `3b270a33`. Faeries skipped.
+
+| deck | P2-2 wins | P2-2 win rate | failed |
+|---|---|---|---|
+| Affinity | 154/200 | 77.0% ± 3.0 | 0 |
+| Burn | 111/169 | 65.7% ± 3.7 | 31 |
+| CawGates | 59/152 | 38.8% ± 4.0 | 48 |
+| Elves | 106/199 | 53.3% ± 3.5 | 1 |
+| Rally | 124/200 | 62.0% ± 3.4 | 0 |
+| Spy | 93/174 | 53.4% ± 3.8 | 26 |
+| Wildfire | 165/200 | 82.5% ± 2.7 | 0 |
+| **mean (7)** | | **61.8% ± 1.3** | |
+
+- P2-2 beats ver15 at a 10-simulation budget: 61.8% over 7 mirrors, ahead in 6 of 7, behind only in CawGates.
+- Failures remain in Burn, Spy and CawGates (all "Error in unit tests" in the visible log tails, one NPE in Spy); the
+  dropped games could bias those three decks. A 50-game Spy smoke test first: 4 failed, P2-2 31/46.
+- ≈ 1 h on two pods, ≈ $1.80.
