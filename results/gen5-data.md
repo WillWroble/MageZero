@@ -575,3 +575,30 @@ and p2-selfplay; ver15 sets, val only), priority KL (mean of the five), gen0 and
 Pick: **`pauper-P2-3b-gnn/P2-3/model-e6-s80000.pt.gz`** (lowest five-set mean; e5 20K and e6 60K within .0001). Not
 tested in play. Cost ≈ $20 (balance $41.50 → $21.52 incl. the files pod; no RTX 4090 with enough RAM came free in ≈1 h,
 and container restarts kept killing the background launcher, so it ran on a PRO 6000).
+
+## Throughput sweep (Nov 28)
+
+P2-2 (`pauper-P2-2v2-gnn/P2-2/model-e6-s60000`, priority priors 1.5, target off, 300 sims) piloting Affinity vs the
+offline Rally search, XMage `3b270a33`, configs `runpod/configs/tune/*.yml` (the gen5 Affinity-vs-Rally config with the
+settings below), RTX 4090 pods with a Ryzen 9 7950X (16 cores, 32 threads). Wall time from the first search line to the
+result; one pod per round, settings run one after another. Also the smoke test for the cost of P2-2 vs offline games.
+
+| setting | threads | client batching (`server:`) | `max_pending` | games | wall | s/game | P2-2 wins | failed |
+|---|---|---|---|---|---|---|---|---|
+| round 1 `base` | 16 | defaults (8 / 32 / 32000 µs) | 4 | 32 | 542 s | 16.9 | 21 | 0 |
+| round 1 `t32` | 32 | defaults | 4 | 32 | 856 s | 26.8 | 26 | 0 |
+| `t16` | 16 | defaults | 4 | 48 | 889 s | 18.5 | 33 | 0 |
+| `t12` | 12 | defaults | 4 | 48 | 923 s | 19.2 | 28 | 0 |
+| `t8` | 8 | defaults | 4 | 48 | 1287 s | 26.8 | 32 | 0 |
+| `t16-batch` | 16 | `max_requests` 16, `max_batch` 64, `batch_timeout_us` 4000 | 4 | 48 | 872 s | 18.2 | 29 | 0 |
+| `t16-pend8` | 16 | defaults | 8 | 48 | 632 s | 13.2 | 33 | 0 |
+
+- 16 game threads is the sweet spot on this CPU: 12 is as fast, 8 and 32 are ≈45% slower (32: each search took ≈3.4×
+  longer, the CPU is oversubscribed). The gen5 vs-offline configs set `threads: 64`, which may be why ver15's 8x8 cost
+  ≈80 s/game (not checked).
+- Client batching makes no difference (−2%, within noise).
+- `max_pending` 8 is ≈30% faster: the searches wait on evaluations, so more in flight per tree helps. It changes the
+  search (more virtual-loss leaves per tree), so its play isn't identical; win rate here 33/48 as with 4.
+- Cost at 16 threads ≈ 18 s/game ≈ $0.0046 per game (≈$0.0033 with `max_pending` 8), so 12,800 P2-2-vs-offline games
+  ≈ $60 (≈$42), plus longer matchups (Elves). One matchup only, 48 games per setting.
+- Cost ≈ $2.40 for both rounds.
