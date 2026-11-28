@@ -33,8 +33,8 @@ for C in $CONFIG; do
   # $TAG, $PRIORS, $TARGET_PRIORS and $OPP_PRIORS (default: none, false, $PRIORS, false) fill a config's @TAG@ /
   # @PRIORS@ / @TARGET_PRIORS@ / @OPP_PRIORS@
   # $THREADS and $TIMEOUT_MS (optional) override the config's game threads and search timeout, for slower pods;
-  # $GAMES (optional) its number of games
-  sed -e "s|@TAG@|$TAG|g" -e "s|@TARGET_PRIORS@|${TARGET_PRIORS:-${PRIORS:-false}}|g" -e "s|@PRIORS@|${PRIORS:-false}|g" -e "s|@OPP_PRIORS@|${OPP_PRIORS:-false}|g" ${THREADS:+-e "s|^  threads: .*|  threads: $THREADS|"} ${GAMES:+-e "s|^  games: .*|  games: $GAMES|"} \
+  # $GAMES and $MAX_PENDING (optional) its number of games and both seats' max_pending
+  sed -e "s|@TAG@|$TAG|g" -e "s|@TARGET_PRIORS@|${TARGET_PRIORS:-${PRIORS:-false}}|g" -e "s|@PRIORS@|${PRIORS:-false}|g" -e "s|@OPP_PRIORS@|${OPP_PRIORS:-false}|g" ${THREADS:+-e "s|^  threads: .*|  threads: $THREADS|"} ${GAMES:+-e "s|^  games: .*|  games: $GAMES|"} ${MAX_PENDING:+-e "s|^    max_pending: .*|    max_pending: $MAX_PENDING|"} \
     ${TIMEOUT_MS:+-e "s|timeout_ms: .*|timeout_ms: $TIMEOUT_MS|"} $C > $OUT/$N.yml
   # shards are written on the container disk and copied to the volume when the run is done, so a stalled or
   # restarted volume can't leave a partial shard where a finished one should be
